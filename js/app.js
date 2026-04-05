@@ -1,5 +1,5 @@
 let currentPeriod = 'today', selectedDate = null, currentMetricsDate = null;
-let touchStartX = 0, touchEndX = 0;
+let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
 
 let calDisplayDate = new Date();
 let memoDatesSet = new Set();
@@ -40,7 +40,40 @@ function formatDateString(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
+async function verifyAccess() {
+  const PASSWORD = '4806';
+  let currentIp = 'unknown';
+  try {
+    const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+    const data = await res.json();
+    currentIp = data.ip;
+  } catch(e) {
+    console.error('IP check failed', e);
+  }
+
+  const storedIp = localStorage.getItem('todo_user_ip');
+  const storedDevice = localStorage.getItem('todo_device_id');
+  
+  if (storedIp !== currentIp || !storedDevice) {
+    let input = prompt('접근 권한이 필요합니다. 4자리 비밀번호를 입력하세요:');
+    if (input === PASSWORD) {
+      localStorage.setItem('todo_user_ip', currentIp);
+      localStorage.setItem('todo_device_id', storedDevice || ('device_' + Math.random().toString(36).substr(2, 9)));
+    } else {
+      alert('비밀번호가 틀렸습니다. 새로고침하여 다시 시도해주세요.');
+      document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; background:#f8fafc;"><h2 style="font-size:24px; color:#0f172a;">접근이 제한되었습니다.</h2><p style="color:#64748b; margin-top:8px;">새로고침하여 다시 시도해주세요.</p></div>';
+      throw new Error('Access Denied');
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async function() {
+  try {
+    await verifyAccess();
+  } catch(e) {
+    return;
+  }
+
   currentMetricsDate = getTodayString();
   document.getElementById('inputDueDate').value = currentMetricsDate;
   applyThemeByDate(currentMetricsDate);
@@ -48,9 +81,13 @@ document.addEventListener('DOMContentLoaded', function() {
   fetchMemoDates(); 
   refreshAllData();
   
-  document.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX, {passive: true});
+  document.addEventListener('touchstart', e => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, {passive: true});
   document.addEventListener('touchend', e => {
     touchEndX = e.changedTouches[0].screenX;
+    touchEndY = e.changedTouches[0].screenY;
     handleSwipeGesture();
   }, {passive: true});
   
@@ -210,8 +247,13 @@ function handleSwipeGesture() {
      document.getElementById('memoWrapper').classList.contains('show') ||
      document.getElementById('customCalendarWrapper').classList.contains('show')) return;
   
-  if(touchEndX > touchStartX + 50) changeDate(-1);
-  else if(touchEndX < touchStartX - 50) changeDate(1);
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+  
+  if(Math.abs(diffY) > Math.abs(diffX)) return;
+  
+  if(diffX > 80) changeDate(-1);
+  else if(diffX < -80) changeDate(1);
 }
 
 function changeDate(offset) {
