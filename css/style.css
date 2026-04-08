@@ -47,8 +47,9 @@ body {
   transition: background 0.5s ease;
 }
 .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.header h1 { font-size: 26px; font-weight: 800; margin: 0; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;}
-.header-actions { display: flex; gap: 12px; }
+.header h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px;}
+.header-logo { width: 36px; height: 36px; object-fit: contain; border-radius: 50%; }
+.header-actions { display: flex; gap: 8px; }
 
 /* Icon Buttons */
 .icon-btn {
@@ -74,7 +75,7 @@ body {
 
 .memo-badge {
   position: absolute; top: -2px; right: -2px; 
-  background: #ff3b30; color: white; 
+  color: white; 
   width: 18px; height: 18px;
   border-radius: 50%; font-size: 10px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
@@ -132,20 +133,26 @@ body {
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; }
 .cal-day-label { font-size: 13px; color: var(--text-muted); font-weight: 600; padding: 8px 0; }
 .cal-day { 
-  height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+  height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
   font-size: 14px; font-weight: 600; border-radius: var(--radius-sm); cursor: pointer; position: relative; transition: all 0.2s ease;
+  padding-bottom: 10px;
 }
 .cal-day:hover { background: var(--theme-light-bg); color: var(--theme-primary-dark); }
 .cal-day.selected { background: var(--theme-primary); color: white; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
 .cal-day.today { border: 2px solid var(--theme-primary); color: var(--theme-primary-dark); font-weight: 800; }
 .cal-day.empty { pointer-events: none; }
 
+.cal-dots-row {
+  position: absolute; bottom: 3px;
+  display: flex; gap: 2px; align-items: center; justify-content: center;
+}
 .cal-dot { 
   width: 5px; height: 5px; background: #ff3b30; border-radius: 50%; 
-  position: absolute; bottom: 4px; display: none; 
+  display: block;
 }
-.cal-day.selected .cal-dot { background: white; }
-.has-memo .cal-dot { display: block; }
+.cal-dot.diary { background: #3b82f6; }
+.cal-dot.news { background: #10b981; }
+.cal-day.selected .cal-dot { opacity: 0.85; }
 
 /* Actions */
 .action-row { display: flex; gap: 10px; align-items: center; }
@@ -156,6 +163,8 @@ body {
 
 .memo-area { width: 100%; height: 140px; padding: 16px; border-radius: var(--radius-md); border: none; font-size: 15px; font-family: inherit; line-height: 1.6; resize: none; margin-bottom: 12px; outline: none; background: rgba(255,255,255,0.95); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; color: var(--text-main); font-weight: 500;}
 .memo-area:focus { background: white; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+.diary-area { border-left: 4px solid #3b82f6; }
+.news-area { border-left: 4px solid #10b981; }
 
 /* Main Container */
 .container { padding: 24px 20px; max-width: 640px; margin: 0 auto; }

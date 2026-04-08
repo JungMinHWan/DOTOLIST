@@ -20,6 +20,104 @@ const api = {
     }
   },
 
+  async getAllDiaryDates() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('daily_diaries')
+        .select('date')
+        .neq('content', '');
+      
+      if (error) throw error;
+      return (data || []).map(row => row.date);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async getAllNewsDates() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('daily_news')
+        .select('date')
+        .neq('content', '');
+      
+      if (error) throw error;
+      return (data || []).map(row => row.date);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async getDailyDiary(dateStr) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('daily_diaries')
+        .select('content')
+        .eq('date', dateStr)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data || { content: '' };
+    } catch (e) {
+      console.error(e);
+      return { content: '' };
+    }
+  },
+
+  async saveDailyDiary(dateStr, content) {
+    try {
+      const { error } = await supabaseClient
+        .from('daily_diaries')
+        .upsert({
+          date: dateStr,
+          content: content || '',
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getDailyNews(dateStr) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('daily_news')
+        .select('content')
+        .eq('date', dateStr)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data || { content: '' };
+    } catch (e) {
+      console.error(e);
+      return { content: '' };
+    }
+  },
+
+  async saveDailyNews(dateStr, content) {
+    try {
+      const { error } = await supabaseClient
+        .from('daily_news')
+        .upsert({
+          date: dateStr,
+          content: content || '',
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async getDailyMetrics(dateStr) {
     try {
       const { data, error } = await supabaseClient

@@ -3,6 +3,8 @@ let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
 
 let calDisplayDate = new Date();
 let memoDatesSet = new Set();
+let diaryDatesSet = new Set();
+let newsDatesSet = new Set();
 
 const THEMES = {
   0: { primary: '#f43f5e', dark: '#be123c', light: '#ffe4e6', header: 'linear-gradient(135deg, #fb7185 0%, #e11d48 100%)' }, // 일: Rose
@@ -78,7 +80,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('inputDueDate').value = currentMetricsDate;
   applyThemeByDate(currentMetricsDate);
   
-  fetchMemoDates(); 
+  fetchAllDates(); 
   refreshAllData();
   
   document.addEventListener('touchstart', e => {
@@ -93,6 +95,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   document.getElementById('searchToggleBtn').onclick = () => toggleHeader('search');
   document.getElementById('memoToggleBtn').onclick = () => toggleHeader('memo');
+  document.getElementById('diaryToggleBtn').onclick = () => toggleHeader('diary');
+  document.getElementById('newsToggleBtn').onclick = () => toggleHeader('news');
   document.getElementById('calendarBtn').onclick = () => {
     toggleHeader('calendar');
     renderCalendar();
@@ -104,6 +108,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('searchBtn').onclick = executeSearch;
   document.getElementById('searchInput').onkeypress = (e) => { if(e.key === 'Enter') executeSearch(); };
   document.getElementById('saveMemoBtn').onclick = saveMemo;
+  document.getElementById('saveDiaryBtn').onclick = saveDiary;
+  document.getElementById('saveNewsBtn').onclick = saveNews;
   
   document.querySelectorAll('.period-tab').forEach(tab => {
     tab.onclick = function() {
@@ -137,11 +143,16 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('inputDescription').onkeypress = (e) => { if(e.key === 'Enter') addTask(); };
 });
 
-async function fetchMemoDates() {
-  console.log('fetchMemoDates called');
-  const dates = await api.getAllMemoDates();
-  console.log('fetchMemoDates resolved', dates);
-  memoDatesSet = new Set(dates);
+async function fetchAllDates() {
+  console.log('fetchAllDates called');
+  const [memoDates, diaryDates, newsDates] = await Promise.all([
+    api.getAllMemoDates(),
+    api.getAllDiaryDates(),
+    api.getAllNewsDates()
+  ]);
+  memoDatesSet = new Set(memoDates);
+  diaryDatesSet = new Set(diaryDates);
+  newsDatesSet = new Set(newsDates);
   renderCalendar();
 }
 
@@ -171,11 +182,29 @@ function renderCalendar() {
     div.className = 'cal-day';
     div.innerText = d;
     
-    if(memoDatesSet.has(dateStr)) {
-      div.classList.add('has-memo');
-      const dot = document.createElement('div');
-      dot.className = 'cal-dot';
-      div.appendChild(dot);
+    const hasMemo = memoDatesSet.has(dateStr);
+    const hasDiary = diaryDatesSet.has(dateStr);
+    const hasNews = newsDatesSet.has(dateStr);
+    
+    if(hasMemo || hasDiary || hasNews) {
+      const dotsRow = document.createElement('div');
+      dotsRow.className = 'cal-dots-row';
+      if(hasMemo) {
+        const dot = document.createElement('div');
+        dot.className = 'cal-dot';
+        dotsRow.appendChild(dot);
+      }
+      if(hasDiary) {
+        const dot = document.createElement('div');
+        dot.className = 'cal-dot diary';
+        dotsRow.appendChild(dot);
+      }
+      if(hasNews) {
+        const dot = document.createElement('div');
+        dot.className = 'cal-dot news';
+        dotsRow.appendChild(dot);
+      }
+      div.appendChild(dotsRow);
     }
     
     if(dateStr === todayStr) div.classList.add('today');
@@ -208,8 +237,8 @@ function selectDateFromCalendar(dateStr) {
 }
 
 function toggleHeader(type) {
-  const map = { 'search': 'searchWrapper', 'memo': 'memoWrapper', 'calendar': 'customCalendarWrapper' };
-  const btnMap = { 'search': 'searchToggleBtn', 'memo': 'memoToggleBtn', 'calendar': 'calendarBtn' };
+  const map = { 'search': 'searchWrapper', 'memo': 'memoWrapper', 'diary': 'diaryWrapper', 'news': 'newsWrapper', 'calendar': 'customCalendarWrapper' };
+  const btnMap = { 'search': 'searchToggleBtn', 'memo': 'memoToggleBtn', 'diary': 'diaryToggleBtn', 'news': 'newsToggleBtn', 'calendar': 'calendarBtn' };
   
   for(let k in map) {
     if(k !== type) {
@@ -226,12 +255,14 @@ function toggleHeader(type) {
   if(el.classList.contains('show')) {
     if(type === 'search') document.getElementById('searchInput').focus();
     if(type === 'memo') document.getElementById('memoInput').focus();
+    if(type === 'diary') document.getElementById('diaryInput').focus();
+    if(type === 'news') document.getElementById('newsInput').focus();
   }
 }
 
 function closeAllHeaders() {
-  ['searchWrapper','memoWrapper','customCalendarWrapper'].forEach(id => document.getElementById(id).classList.remove('show'));
-  ['searchToggleBtn','memoToggleBtn'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['searchWrapper','memoWrapper','diaryWrapper','newsWrapper','customCalendarWrapper'].forEach(id => document.getElementById(id).classList.remove('show'));
+  ['searchToggleBtn','memoToggleBtn','diaryToggleBtn','newsToggleBtn'].forEach(id => document.getElementById(id).classList.remove('active'));
 }
 
 function updateUIForCustomDate() {
@@ -245,6 +276,8 @@ function updateUIForCustomDate() {
 function handleSwipeGesture() {
   if(document.getElementById('searchWrapper').classList.contains('show') || 
      document.getElementById('memoWrapper').classList.contains('show') ||
+     document.getElementById('diaryWrapper').classList.contains('show') ||
+     document.getElementById('newsWrapper').classList.contains('show') ||
      document.getElementById('customCalendarWrapper').classList.contains('show')) return;
   
   const diffX = touchEndX - touchStartX;
@@ -281,6 +314,12 @@ async function refreshAllData() {
   const memo = document.getElementById('memoInput');
   memo.value = ''; memo.placeholder = '로딩 중...';
   
+  const diary = document.getElementById('diaryInput');
+  diary.value = ''; diary.placeholder = '로딩 중...';
+  
+  const newsEl = document.getElementById('newsInput');
+  newsEl.value = ''; newsEl.placeholder = '로딩 중...';
+  
   console.log('calling api.getDailyMemo');
   const r = await api.getDailyMemo(currentMetricsDate);
   console.log('api.getDailyMemo resolved', r);
@@ -288,6 +327,18 @@ async function refreshAllData() {
   memo.value = content;
   memo.placeholder = `${formatDateKorean(currentMetricsDate)} 메모...`;
   updateMemoBadge(content);
+
+  const rd = await api.getDailyDiary(currentMetricsDate);
+  const diaryContent = rd.content || '';
+  diary.value = diaryContent;
+  diary.placeholder = `${formatDateKorean(currentMetricsDate)} 일기...`;
+  updateBadge('diaryBadge', diaryContent);
+
+  const rn = await api.getDailyNews(currentMetricsDate);
+  const newsContent = rn.content || '';
+  newsEl.value = newsContent;
+  newsEl.placeholder = `${formatDateKorean(currentMetricsDate)} 신문...`;
+  updateBadge('newsBadge', newsContent);
   
   loadTasks();
 }
@@ -296,6 +347,14 @@ function updateMemoBadge(content) {
   const badge = document.getElementById('memoBadge');
   if(content && content.trim().length > 0) badge.style.display = 'flex';
   else badge.style.display = 'none';
+}
+
+function updateBadge(badgeId, content) {
+  const badge = document.getElementById(badgeId);
+  if(badge) {
+    if(content && content.trim().length > 0) badge.style.display = 'flex';
+    else badge.style.display = 'none';
+  }
 }
 
 async function loadTasks() {
@@ -393,10 +452,48 @@ async function saveMemo() {
     btn.disabled = false; btn.innerText = '메모 저장';
     const st = document.getElementById('memoStatus'); st.innerText = '완료';
     updateMemoBadge(content);
-    fetchMemoDates();
+    fetchAllDates();
     setTimeout(() => st.innerText = '', 2000);
   } else {
     btn.disabled = false; btn.innerText = '메모 저장';
+    alert('저장에 실패했습니다.');
+  }
+}
+
+async function saveDiary() {
+  const btn = document.getElementById('saveDiaryBtn');
+  const content = document.getElementById('diaryInput').value;
+  
+  btn.disabled = true; btn.innerText = '...';
+  
+  const res = await api.saveDailyDiary(currentMetricsDate, content);
+  if(res.success) {
+    btn.disabled = false; btn.innerText = '일기 저장';
+    const st = document.getElementById('diaryStatus'); st.innerText = '완료';
+    updateBadge('diaryBadge', content);
+    fetchAllDates();
+    setTimeout(() => st.innerText = '', 2000);
+  } else {
+    btn.disabled = false; btn.innerText = '일기 저장';
+    alert('저장에 실패했습니다.');
+  }
+}
+
+async function saveNews() {
+  const btn = document.getElementById('saveNewsBtn');
+  const content = document.getElementById('newsInput').value;
+  
+  btn.disabled = true; btn.innerText = '...';
+  
+  const res = await api.saveDailyNews(currentMetricsDate, content);
+  if(res.success) {
+    btn.disabled = false; btn.innerText = '신문 저장';
+    const st = document.getElementById('newsStatus'); st.innerText = '완료';
+    updateBadge('newsBadge', content);
+    fetchAllDates();
+    setTimeout(() => st.innerText = '', 2000);
+  } else {
+    btn.disabled = false; btn.innerText = '신문 저장';
     alert('저장에 실패했습니다.');
   }
 }

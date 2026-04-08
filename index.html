@@ -10,12 +10,20 @@
 <body>
   <div class="header">
     <div class="header-top">
-      <h1>📝 TODO LIST</h1>
+      <h1><img src="./images/logo.png" alt="로고" class="header-logo"> TODO LIST</h1>
       <div class="header-actions">
         <button class="icon-btn" id="searchToggleBtn">🔍</button>
-        <button class="icon-btn" id="memoToggleBtn">
+        <button class="icon-btn" id="memoToggleBtn" title="메모">
           📝
-          <span class="memo-badge" id="memoBadge">♥</span>
+          <span class="memo-badge" id="memoBadge" style="background:#ff3b30;">♥</span>
+        </button>
+        <button class="icon-btn" id="diaryToggleBtn" title="일기장">
+          📔
+          <span class="memo-badge" id="diaryBadge" style="background:#3b82f6;">♥</span>
+        </button>
+        <button class="icon-btn" id="newsToggleBtn" title="신문">
+          📰
+          <span class="memo-badge" id="newsBadge" style="background:#10b981;">♥</span>
         </button>
       </div>
     </div>
@@ -57,6 +65,22 @@
       <div class="action-row" style="justify-content: flex-end;">
         <span class="save-status" id="memoStatus"></span>
         <button class="action-btn" id="saveMemoBtn">메모 저장</button>
+      </div>
+    </div>
+
+    <div class="memo-wrapper" id="diaryWrapper">
+      <textarea class="memo-area diary-area" id="diaryInput" placeholder="이 날의 일기..."></textarea>
+      <div class="action-row" style="justify-content: flex-end;">
+        <span class="save-status" id="diaryStatus"></span>
+        <button class="action-btn" id="saveDiaryBtn">일기 저장</button>
+      </div>
+    </div>
+
+    <div class="memo-wrapper" id="newsWrapper">
+      <textarea class="memo-area news-area" id="newsInput" placeholder="이 날의 신문 스크랩..."></textarea>
+      <div class="action-row" style="justify-content: flex-end;">
+        <span class="save-status" id="newsStatus"></span>
+        <button class="action-btn" id="saveNewsBtn">신문 저장</button>
       </div>
     </div>
   </div>
