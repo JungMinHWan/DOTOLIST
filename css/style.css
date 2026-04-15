@@ -206,7 +206,7 @@ body {
 .task-checkbox.checked::after { content: ''; width: 6px; height: 12px; border: solid white; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); margin-bottom: 2px; }
 
 .task-content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px;}
-.task-description { font-size: 14px; font-weight: 300; color: #475569; word-wrap: break-word; line-height: 1.4; }
+.task-description { font-size: 14px; font-weight: 300; color: #475569; word-wrap: break-word; line-height: 1.4; white-space: pre-wrap; }
 .task-description.completed { text-decoration: line-through; color: #cbd5e1; }
 .task-meta { font-size: 11px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; font-weight: 400; }
 
@@ -237,7 +237,7 @@ body {
 }
 .add-form-inner { display: flex; flex-direction: column; gap: 12px; }
 .input-row { display: flex; gap: 12px; }
-.input-description { flex: 1; min-width: 0; border: 1.5px solid var(--border-color); background: rgba(255,255,255,0.9); border-radius: var(--radius-md); padding: 16px 20px; font-size: 16px; font-weight: 600; font-family: inherit; outline: none; transition: all 0.2s ease; }
+.input-description { flex: 1; min-width: 0; border: 1.5px solid var(--border-color); background: rgba(255,255,255,0.9); border-radius: var(--radius-md); padding: 16px 20px; font-size: 16px; font-weight: 600; font-family: inherit; outline: none; transition: all 0.2s ease; resize: none; overflow: hidden; line-height: 1.5; min-height: 54px; max-height: 160px; overflow-y: auto; }
 .input-description:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-light-bg); background: white; }
 .input-date { border: 1.5px solid var(--border-color); background: rgba(255,255,255,0.9); border-radius: var(--radius-md); padding: 16px; font-size: 15px; font-family: inherit; font-weight: 700; color: var(--text-main); outline: none; width: 140px; transition: all 0.2s ease; }
 .input-date:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-light-bg); background: white; }

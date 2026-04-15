@@ -140,7 +140,17 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   document.getElementById('btnSaveMetrics').onclick = saveMetrics;
   document.getElementById('btnAdd').onclick = addTask;
-  document.getElementById('inputDescription').onkeypress = (e) => { if(e.key === 'Enter') addTask(); };
+  const descInput = document.getElementById('inputDescription');
+  descInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addTask();
+    }
+  });
+  descInput.addEventListener('input', () => {
+    descInput.style.height = 'auto';
+    descInput.style.height = Math.min(descInput.scrollHeight, 160) + 'px';
+  });
 });
 
 async function fetchAllDates() {
@@ -507,7 +517,8 @@ async function addTask() {
   
   const res = await api.addTaskWithDate(desc.value, date.value, selectedDate || getTodayString());
   if(res.success) {
-    desc.value = ''; 
+    desc.value = '';
+    desc.style.height = 'auto';
     document.getElementById('btnAdd').disabled = false;
     loadTasks();
   } else {
