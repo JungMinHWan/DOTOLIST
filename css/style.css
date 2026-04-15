@@ -256,3 +256,45 @@ body {
 .status-badge { display: inline-flex; align-items: center; justify-content: center; padding: 6px 12px; border-radius: 14px; font-size: 12px; font-weight: 800; }
 .status-badge.진행중 { background: var(--theme-light-bg); color: var(--theme-primary-dark); }
 .status-badge.완료 { background: var(--border-color); color: var(--text-muted); }
+
+/* Edit Modal */
+.edit-modal-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.edit-modal-overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.edit-modal {
+  background: white; border-radius: var(--radius-lg);
+  padding: 24px; width: calc(100% - 48px); max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  animation: slideUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1);
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.edit-modal-title { font-size: 17px; font-weight: 800; color: var(--text-main); margin-bottom: 16px; }
+.edit-modal-textarea {
+  width: 100%; min-height: 100px; max-height: 240px;
+  border: 1.5px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 14px 16px; font-size: 15px; font-family: inherit; font-weight: 500;
+  line-height: 1.6; resize: none; outline: none; color: var(--text-main);
+  transition: all 0.2s ease; overflow-y: auto;
+}
+.edit-modal-textarea:focus { border-color: var(--theme-primary); box-shadow: 0 0 0 3px var(--theme-light-bg); }
+.edit-modal-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; margin-bottom: 16px; }
+.edit-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.edit-modal-cancel {
+  background: var(--bg-color); color: var(--text-muted); border: none;
+  padding: 11px 22px; border-radius: var(--radius-md); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.edit-modal-cancel:hover { background: var(--border-color); }
+.edit-modal-save {
+  background: var(--theme-primary); color: white; border: none;
+  padding: 11px 28px; border-radius: var(--radius-md); font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.edit-modal-save:hover { background: var(--theme-primary-dark); transform: translateY(-2px); }

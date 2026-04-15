@@ -108,10 +108,23 @@
   <div class="add-form">
     <div class="add-form-inner">
       <div class="input-row">
-        <textarea class="input-description" id="inputDescription" placeholder="할일을 입력하세요&#10;Shift+Enter로 줄바꿈" rows="1"></textarea>
+        <textarea class="input-description" id="inputDescription" placeholder="할일을 입력하세요" rows="1"></textarea>
         <input type="date" class="input-date" id="inputDueDate">
       </div>
       <button class="btn-add" id="btnAdd">추가하기</button>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="edit-modal-overlay" id="editModalOverlay">
+    <div class="edit-modal">
+      <div class="edit-modal-title">할일 수정</div>
+      <textarea class="edit-modal-textarea" id="editModalTextarea" placeholder="내용을 입력하세요" rows="3"></textarea>
+      <div class="edit-modal-hint">Enter: 저장 &nbsp;·&nbsp; Shift+Enter: 줄바꿈</div>
+      <div class="edit-modal-actions">
+        <button class="edit-modal-cancel" id="editModalCancel">취소</button>
+        <button class="edit-modal-save" id="editModalSave">저장</button>
+      </div>
     </div>
   </div>
 

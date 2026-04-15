@@ -532,13 +532,45 @@ async function toggleStatus(id, st) {
   if(res.success) loadTasks();
 }
 
-async function editTask(id) {
-  const t = document.querySelector(`.task-item[data-id="${id}"] .task-description`).innerText;
-  const n = prompt('수정:', t);
-  if(n && n.trim() !== t) {
-    const res = await api.updateTaskContent(id, n.trim());
-    if(res.success) loadTasks();
+function editTask(id) {
+  const descEl = document.querySelector(`.task-item[data-id="${id}"] .task-description`);
+  const originalText = descEl ? descEl.innerText : '';
+
+  const overlay = document.getElementById('editModalOverlay');
+  const textarea = document.getElementById('editModalTextarea');
+  const saveBtn = document.getElementById('editModalSave');
+  const cancelBtn = document.getElementById('editModalCancel');
+
+  textarea.value = originalText;
+  overlay.classList.add('show');
+  setTimeout(() => textarea.focus(), 50);
+
+  async function doSave() {
+    const newText = textarea.value;
+    if(newText && newText !== originalText) {
+      const res = await api.updateTaskContent(id, newText);
+      if(res.success) loadTasks();
+    }
+    closeModal();
   }
+
+  function closeModal() {
+    overlay.classList.remove('show');
+    saveBtn.onclick = null;
+    cancelBtn.onclick = null;
+    textarea.onkeydown = null;
+    overlay.onclick = null;
+  }
+
+  saveBtn.onclick = doSave;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = (e) => { if(e.target === overlay) closeModal(); };
+  textarea.onkeydown = (e) => {
+    if(e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      doSave();
+    }
+  };
 }
 
 async function deleteTask(id) { 
