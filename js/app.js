@@ -6,6 +6,8 @@ let memoDatesSet = new Set();
 let diaryDatesSet = new Set();
 let newsDatesSet = new Set();
 
+let currentGoal = null;
+
 const THEMES = {
   0: { primary: '#f43f5e', dark: '#be123c', light: '#ffe4e6', header: 'linear-gradient(135deg, #fb7185 0%, #e11d48 100%)' }, // 일: Rose
   1: { primary: '#8b5cf6', dark: '#6d28d9', light: '#ede9fe', header: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' }, // 월: Violet
@@ -82,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   fetchAllDates(); 
   refreshAllData();
+  loadGoal();
   
   document.addEventListener('touchstart', e => {
     touchStartX = e.changedTouches[0].screenX;
@@ -151,7 +154,100 @@ document.addEventListener('DOMContentLoaded', async function() {
     descInput.style.height = 'auto';
     descInput.style.height = Math.min(descInput.scrollHeight, 160) + 'px';
   });
+
+  // Goal & Execution List Listeners
+  document.getElementById('goalBar').onclick = openGoalModal;
+  document.getElementById('goalModalClose').onclick = closeGoalModal;
+  document.getElementById('goalModalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('goalModalOverlay')) closeGoalModal();
+  };
+  document.getElementById('goalExecutionAddBtn').onclick = addGoalExecution;
+  document.getElementById('goalExecutionInput').onkeydown = (e) => {
+    if (e.key === 'Enter') addGoalExecution();
+  };
+  document.getElementById('goalModalTitleInput').onblur = updateGoalText;
 });
+
+async function loadGoal() {
+  currentGoal = await api.getGoal();
+  if (currentGoal) {
+    document.getElementById('goalText').innerText = currentGoal.text;
+    document.getElementById('goalModalTitleInput').value = currentGoal.text;
+  }
+}
+
+async function openGoalModal() {
+  if (!currentGoal) return;
+  document.getElementById('goalModalOverlay').classList.add('show');
+  renderGoalExecutions();
+}
+
+function closeGoalModal() {
+  document.getElementById('goalModalOverlay').classList.remove('show');
+}
+
+async function updateGoalText() {
+  const newText = document.getElementById('goalModalTitleInput').value.trim();
+  if (newText && newText !== currentGoal.text) {
+    const res = await api.updateGoal(currentGoal.id, newText);
+    if (res.success) {
+      currentGoal.text = newText;
+      document.getElementById('goalText').innerText = newText;
+    }
+  }
+}
+
+async function renderGoalExecutions() {
+  const list = document.getElementById('goalExecutionList');
+  list.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
+  
+  const executions = await api.getGoalExecutions(currentGoal.id);
+  
+  if (executions.length === 0) {
+    list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">실행 항목이 없습니다.</div>';
+    return;
+  }
+
+  list.innerHTML = executions.map(ex => {
+    const checked = ex.is_completed ? 'checked' : '';
+    const compClass = ex.is_completed ? 'completed' : '';
+    return `
+      <div class="goal-execution-item ${compClass}">
+        <div class="exec-checkbox ${checked}" onclick="toggleGoalExecution('${ex.id}', ${!ex.is_completed})"></div>
+        <div class="exec-text ${compClass}">${escapeHtml(ex.text)}</div>
+        <button class="exec-delete" onclick="deleteGoalExecution('${ex.id}')">×</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addGoalExecution() {
+  const input = document.getElementById('goalExecutionInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const res = await api.addGoalExecution(currentGoal.id, text);
+  if (res.success) {
+    input.value = '';
+    renderGoalExecutions();
+  }
+}
+
+async function toggleGoalExecution(id, isCompleted) {
+  const res = await api.toggleGoalExecution(id, isCompleted);
+  if (res.success) {
+    renderGoalExecutions();
+  }
+}
+
+async function deleteGoalExecution(id) {
+  if (confirm('삭제하시겠습니까?')) {
+    const res = await api.deleteGoalExecution(id);
+    if (res.success) {
+      renderGoalExecutions();
+    }
+  }
+}
 
 async function fetchAllDates() {
   console.log('fetchAllDates called');

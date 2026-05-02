@@ -86,6 +86,12 @@
   </div>
   
   <div class="container">
+    <div class="goal-section" id="goalSection">
+      <div class="goal-label">🎯 목표</div>
+      <div class="goal-bar" id="goalBar">
+        <span id="goalText">오늘의 목표를 설정해보세요.</span>
+      </div>
+    </div>
     <div class="metrics-section" id="metricsSection">
       <div class="metrics-header">
         <span class="metrics-title">📊 일일 지표</span>
@@ -124,6 +130,23 @@
       <div class="edit-modal-actions">
         <button class="edit-modal-cancel" id="editModalCancel">취소</button>
         <button class="edit-modal-save" id="editModalSave">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Goal Modal -->
+  <div class="goal-modal-overlay" id="goalModalOverlay">
+    <div class="goal-modal">
+      <div class="goal-modal-header">
+        <input type="text" class="goal-modal-title-input" id="goalModalTitleInput" placeholder="목표를 입력하세요">
+        <button class="goal-modal-close" id="goalModalClose">×</button>
+      </div>
+      <div class="goal-execution-list" id="goalExecutionList">
+        <!-- Execution items will be rendered here -->
+      </div>
+      <div class="goal-execution-input-row">
+        <input type="text" class="goal-execution-input" id="goalExecutionInput" placeholder="실행할 항목을 입력하세요">
+        <button class="goal-execution-add-btn" id="goalExecutionAddBtn">추가</button>
       </div>
     </div>
   </div>

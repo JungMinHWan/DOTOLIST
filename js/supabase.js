@@ -358,5 +358,100 @@ const api = {
     return tasks.sort((a, b) => 
       String(a.description).localeCompare(String(b.description), undefined, { numeric: true })
     );
+  },
+
+  // Goal & Execution List API
+  async getGoal() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('goals')
+        .select()
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  async updateGoal(id, text) {
+    try {
+      const { error } = await supabaseClient
+        .from('goals')
+        .update({ text, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getGoalExecutions(goalId) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('goal_executions')
+        .select()
+        .eq('goal_id', goalId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async addGoalExecution(goalId, text) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('goal_executions')
+        .insert({ goal_id: goalId, text: text })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async toggleGoalExecution(id, isCompleted) {
+    try {
+      const { error } = await supabaseClient
+        .from('goal_executions')
+        .update({ is_completed: isCompleted, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteGoalExecution(id) {
+    try {
+      const { error } = await supabaseClient
+        .from('goal_executions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
   }
 };
