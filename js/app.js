@@ -496,7 +496,9 @@ function renderTasks(tasks) {
   list.innerHTML = tasks.map(t => {
     const checked = t.status === '완료' ? 'checked' : '';
     const compClass = t.status === '완료' ? 'completed' : '';
-    const dateStr = new Date(t.created_at).getMonth()+1 + '/' + new Date(t.created_at).getDate();
+    const dateObj = new Date(t.created_at);
+    const w = ['일', '월', '화', '수', '목', '금', '토'];
+    const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}(${w[dateObj.getDay()]})`;
     
     return `<div class="task-item ${compClass}" data-id="${t.task_id}" draggable="false">
       <div class="drag-handle" title="끌어서 순서 조정">☰</div>
