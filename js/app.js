@@ -506,8 +506,6 @@ function renderTasks(tasks) {
         <div class="task-meta"><span>${dateStr}</span><span class="status-badge ${t.status}">${t.status}</span></div>
       </div>
       <div class="task-actions">
-        <button class="btn-move-up" onclick="moveTaskUp('${t.task_id}', event)" title="위로 이동">▲</button>
-        <button class="btn-move-down" onclick="moveTaskDown('${t.task_id}', event)" title="아래로 이동">▼</button>
         <button class="task-edit" onclick="editTask('${t.task_id}')">✎</button>
         <button class="task-delete" onclick="deleteTask('${t.task_id}')">×</button>
       </div>
@@ -516,31 +514,6 @@ function renderTasks(tasks) {
 
   // 드래그앤드롭 및 터치 이벤트 바인딩
   bindDragAndTouchEvents();
-}
-
-// 3단계 수동 순서 조정 인터랙션 헬퍼 함수군
-async function moveTaskUp(taskId, event) {
-  if (event) event.stopPropagation();
-  const taskEl = document.querySelector(`.task-item[data-id="${taskId}"]`);
-  if (!taskEl) return;
-  
-  const prevEl = taskEl.previousElementSibling;
-  if (prevEl && prevEl.classList.contains('task-item')) {
-    taskEl.parentNode.insertBefore(taskEl, prevEl);
-    await saveTasksOrder();
-  }
-}
-
-async function moveTaskDown(taskId, event) {
-  if (event) event.stopPropagation();
-  const taskEl = document.querySelector(`.task-item[data-id="${taskId}"]`);
-  if (!taskEl) return;
-  
-  const nextEl = taskEl.nextElementSibling;
-  if (nextEl && nextEl.classList.contains('task-item')) {
-    taskEl.parentNode.insertBefore(taskEl, nextEl.nextElementSibling);
-    await saveTasksOrder();
-  }
 }
 
 async function saveTasksOrder() {
@@ -667,9 +640,7 @@ function getDragAfterElement(container, y) {
   }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-// 전역 윈도우 스코프 바인딩 (HTML 인라인 온클릭 이벤트 리스너 참조 보장)
-window.moveTaskUp = moveTaskUp;
-window.moveTaskDown = moveTaskDown;
+// 전역 윈도우 스코프 바인딩 (이동 버튼 제거로 미사용)
 
 async function executeSearch() {
   const kw = document.getElementById('searchInput').value.trim();
