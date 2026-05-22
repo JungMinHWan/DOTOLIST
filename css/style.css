@@ -387,3 +387,66 @@ body {
   cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 .edit-modal-save:hover { background: var(--theme-primary-dark); transform: translateY(-2px); }
+
+/* Drag and Drop & Order Buttons Custom Styles */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 28px;
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+  font-size: 16px;
+  margin-top: 2px;
+  transition: color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+.drag-handle:hover {
+  color: var(--theme-primary);
+  transform: scale(1.15);
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-item.dragging {
+  opacity: 0.45;
+  border: 2px dashed var(--theme-primary) !important;
+  box-shadow: var(--shadow-float) !important;
+  transform: scale(0.98);
+  background: var(--theme-light-bg) !important;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+}
+
+.btn-move-up, .btn-move-down {
+  background: var(--bg-color);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.btn-move-up:hover {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary);
+  transform: translateY(-2px);
+}
+.btn-move-down:hover {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary);
+  transform: translateY(2px);
+}
+
+.task-item.drag-over {
+  border: 2px solid var(--theme-primary) !important;
+  background: rgba(139, 92, 246, 0.05) !important;
+}

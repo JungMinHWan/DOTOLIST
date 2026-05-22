@@ -498,19 +498,178 @@ function renderTasks(tasks) {
     const compClass = t.status === '완료' ? 'completed' : '';
     const dateStr = new Date(t.created_at).getMonth()+1 + '/' + new Date(t.created_at).getDate();
     
-    return `<div class="task-item ${compClass}" data-id="${t.task_id}">
+    return `<div class="task-item ${compClass}" data-id="${t.task_id}" draggable="false">
+      <div class="drag-handle" title="끌어서 순서 조정">☰</div>
       <div class="task-checkbox ${checked}" onclick="toggleStatus('${t.task_id}', '${t.status==='완료'?'진행중':'완료'}')"></div>
       <div class="task-content">
         <div class="task-description ${compClass}">${escapeHtml(t.description)}</div>
         <div class="task-meta"><span>${dateStr}</span><span class="status-badge ${t.status}">${t.status}</span></div>
       </div>
       <div class="task-actions">
+        <button class="btn-move-up" onclick="moveTaskUp('${t.task_id}', event)" title="위로 이동">▲</button>
+        <button class="btn-move-down" onclick="moveTaskDown('${t.task_id}', event)" title="아래로 이동">▼</button>
         <button class="task-edit" onclick="editTask('${t.task_id}')">✎</button>
         <button class="task-delete" onclick="deleteTask('${t.task_id}')">×</button>
       </div>
     </div>`;
   }).join('');
+
+  // 드래그앤드롭 및 터치 이벤트 바인딩
+  bindDragAndTouchEvents();
 }
+
+// 3단계 수동 순서 조정 인터랙션 헬퍼 함수군
+async function moveTaskUp(taskId, event) {
+  if (event) event.stopPropagation();
+  const taskEl = document.querySelector(`.task-item[data-id="${taskId}"]`);
+  if (!taskEl) return;
+  
+  const prevEl = taskEl.previousElementSibling;
+  if (prevEl && prevEl.classList.contains('task-item')) {
+    taskEl.parentNode.insertBefore(taskEl, prevEl);
+    await saveTasksOrder();
+  }
+}
+
+async function moveTaskDown(taskId, event) {
+  if (event) event.stopPropagation();
+  const taskEl = document.querySelector(`.task-item[data-id="${taskId}"]`);
+  if (!taskEl) return;
+  
+  const nextEl = taskEl.nextElementSibling;
+  if (nextEl && nextEl.classList.contains('task-item')) {
+    taskEl.parentNode.insertBefore(taskEl, nextEl.nextElementSibling);
+    await saveTasksOrder();
+  }
+}
+
+async function saveTasksOrder() {
+  const list = document.getElementById('taskList');
+  const taskItems = list.querySelectorAll('.task-item');
+  const taskIds = Array.from(taskItems).map(el => el.dataset.id);
+  
+  if (taskIds.length === 0) return;
+  
+  const res = await api.updateTasksOrder(taskIds);
+  if (!res.success) {
+    alert('순서 저장에 실패했습니다. 다시 시도해 주세요.');
+    loadTasks();
+  }
+}
+
+function bindDragAndTouchEvents() {
+  const taskList = document.getElementById('taskList');
+  const taskItems = taskList.querySelectorAll('.task-item');
+  
+  taskItems.forEach(item => {
+    const handle = item.querySelector('.drag-handle');
+    if (!handle) return;
+    
+    // PC 드래그 지원: 핸들을 쥐고 있을 때만 드래그 가능하게
+    handle.addEventListener('mousedown', () => {
+      item.setAttribute('draggable', 'true');
+    });
+    handle.addEventListener('mouseup', () => {
+      item.setAttribute('draggable', 'false');
+    });
+    handle.addEventListener('mouseleave', () => {
+      item.setAttribute('draggable', 'false');
+    });
+    
+    // PC HTML5 Drag events
+    item.addEventListener('dragstart', (e) => {
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', item.dataset.id);
+    });
+    
+    item.addEventListener('dragend', async () => {
+      item.classList.remove('dragging');
+      item.setAttribute('draggable', 'false');
+      await saveTasksOrder();
+    });
+    
+    // 모바일 터치 이벤트 바인딩
+    let touchEl = null;
+    
+    handle.addEventListener('touchstart', (e) => {
+      touchEl = item;
+      touchEl.classList.add('dragging');
+      // 터치 동작 중 스크롤 잠금 (드래그 조작 집중)
+      document.body.style.overflow = 'hidden';
+    }, { passive: false });
+    
+    handle.addEventListener('touchmove', (e) => {
+      if (!touchEl) return;
+      e.preventDefault(); // 기본 터치 스크롤 방지
+      
+      const touch = e.touches[0];
+      const clientY = touch.clientY;
+      
+      const elementAtTouch = document.elementFromPoint(touch.clientX, clientY);
+      if (!elementAtTouch) return;
+      
+      const overItem = elementAtTouch.closest('.task-item');
+      if (overItem && overItem !== touchEl && overItem.parentNode === taskList) {
+        const rect = overItem.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        
+        if (clientY < midY) {
+          taskList.insertBefore(touchEl, overItem);
+        } else {
+          taskList.insertBefore(touchEl, overItem.nextElementSibling);
+        }
+      }
+    }, { passive: false });
+    
+    handle.addEventListener('touchend', async (e) => {
+      if (!touchEl) return;
+      touchEl.classList.remove('dragging');
+      touchEl = null;
+      document.body.style.overflow = '';
+      await saveTasksOrder();
+    });
+    
+    handle.addEventListener('touchcancel', () => {
+      if (!touchEl) return;
+      touchEl.classList.remove('dragging');
+      touchEl = null;
+      document.body.style.overflow = '';
+    });
+  });
+  
+  // PC Drag Over
+  taskList.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    const draggingEl = taskList.querySelector('.task-item.dragging');
+    if (!draggingEl) return;
+    
+    const afterElement = getDragAfterElement(taskList, e.clientY);
+    if (afterElement == null) {
+      taskList.appendChild(draggingEl);
+    } else {
+      taskList.insertBefore(draggingEl, afterElement);
+    }
+  });
+}
+
+function getDragAfterElement(container, y) {
+  const draggableElements = [...container.querySelectorAll('.task-item:not(.dragging)')];
+  
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// 전역 윈도우 스코프 바인딩 (HTML 인라인 온클릭 이벤트 리스너 참조 보장)
+window.moveTaskUp = moveTaskUp;
+window.moveTaskDown = moveTaskDown;
 
 async function executeSearch() {
   const kw = document.getElementById('searchInput').value.trim();

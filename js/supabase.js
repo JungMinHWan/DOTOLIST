@@ -202,6 +202,22 @@ const api = {
         createdAt.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
       }
 
+      // 해당 일자의 기존 태스크들을 조회해 가장 큰 sort_order 값을 찾음
+      const s = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate());
+      const e = new Date(s.getTime() + 86400000);
+      
+      const { data: existingTasks, error: fetchError } = await supabaseClient
+        .from('tasks')
+        .select('sort_order')
+        .gte('created_at', s.toISOString())
+        .lt('created_at', e.toISOString());
+        
+      let nextOrder = 1;
+      if (!fetchError && existingTasks && existingTasks.length > 0) {
+        const orders = existingTasks.map(t => t.sort_order || 0);
+        nextOrder = Math.max(...orders) + 1;
+      }
+
       const { error } = await supabaseClient
         .from('tasks')
         .insert({
@@ -209,6 +225,7 @@ const api = {
           due_date: dueDate || null,
           created_at: createdAt.toISOString(),
           status: '진행중',
+          sort_order: nextOrder,
           updated_at: new Date().toISOString()
         });
 
@@ -354,10 +371,40 @@ const api = {
     }
   },
 
+  async updateTasksOrder(taskIds) {
+    try {
+      if (!taskIds || taskIds.length === 0) return { success: true };
+      
+      const promises = taskIds.map((id, index) => 
+        supabaseClient
+          .from('tasks')
+          .update({
+            sort_order: index + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('task_id', id)
+      );
+      
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
+      
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
   _sortTasks(tasks) {
-    return tasks.sort((a, b) => 
-      String(a.description).localeCompare(String(b.description), undefined, { numeric: true })
-    );
+    return tasks.sort((a, b) => {
+      const orderA = a.sort_order !== undefined && a.sort_order !== null ? a.sort_order : 999999;
+      const orderB = b.sort_order !== undefined && b.sort_order !== null ? b.sort_order : 999999;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
   },
 
   // Goal & Execution List API
