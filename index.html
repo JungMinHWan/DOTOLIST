@@ -204,9 +204,12 @@
         <label class="book-notes-label">독서 메모 / 한 줄 요약</label>
         <textarea class="book-notes-textarea" id="bookNotesTextarea" placeholder="책을 읽으며 기억하고 싶은 문장이나 생각을 자유롭게 기록하세요..."></textarea>
       </div>
-      <div class="book-notes-footer">
-        <span class="save-status" id="bookNotesSaveStatus"></span>
+      <div class="book-notes-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; width: 100%;">
         <button class="book-notes-delete-btn" id="bookNotesDeleteBtn">기록 삭제</button>
+        <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 12px;">
+          <span class="save-status" id="bookNotesSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
+          <button class="book-notes-close-btn" id="bookNotesConfirmBtn">완료</button>
+        </div>
       </div>
     </div>
   </div>

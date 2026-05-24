@@ -693,21 +693,40 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
+  margin-top: 16px;
+  width: 100%;
 }
 .book-notes-delete-btn {
   background: none;
   border: none;
-  color: #ef4444;
+  color: #94a3b8; /* 평소에는 매우 차분하고 안전한 그레이 */
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .book-notes-delete-btn:hover {
   background: #fee2e2;
+  color: #ef4444; /* 호버 시에만 명확한 경고용 레드 */
+}
+.book-notes-close-btn {
+  background: var(--theme-primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 22px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(111, 93, 136, 0.15);
+}
+.book-notes-close-btn:hover {
+  background: var(--theme-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(111, 93, 136, 0.25);
 }
 
 /* Glassmorphism 효과가 적용된 세련된 프리미엄 모달 오버레이 */

@@ -184,6 +184,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // 독서 노트 리스너 바인딩
   document.getElementById('bookNotesModalClose').onclick = closeBookNotesModal;
+  document.getElementById('bookNotesConfirmBtn').onclick = closeBookNotesModal;
   document.getElementById('bookNotesModalOverlay').onclick = (e) => {
     if (e.target === document.getElementById('bookNotesModalOverlay')) closeBookNotesModal();
   };
