@@ -92,6 +92,12 @@
         <span id="goalText">오늘의 목표를 설정해보세요.</span>
       </div>
     </div>
+    <div class="goal-section" id="bookSection">
+      <div class="goal-label" id="bookLabel">📚 독서 기록</div>
+      <div class="goal-bar" id="bookBar">
+        <span id="bookText">현재 읽고 있는 책이 없습니다. 독서 기록을 시작해보세요!</span>
+      </div>
+    </div>
     <div class="metrics-section" id="metricsSection">
       <div class="metrics-header">
         <span class="metrics-title">📊 일일 지표</span>
@@ -147,6 +153,60 @@
       <div class="goal-execution-input-row">
         <input type="text" class="goal-execution-input" id="goalExecutionInput" placeholder="실행할 항목을 입력하세요">
         <button class="goal-execution-add-btn" id="goalExecutionAddBtn">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Shelf Modal -->
+  <div class="goal-modal-overlay" id="bookShelfModalOverlay">
+    <div class="goal-modal book-shelf-modal">
+      <div class="goal-modal-header">
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main);">📚 나의 서재</div>
+        <button class="goal-modal-close" id="bookShelfModalClose">×</button>
+      </div>
+      <div class="book-shelf-tabs">
+        <button class="book-tab active" data-status="all">전체</button>
+        <button class="book-tab" data-status="읽는 중">읽는 중</button>
+        <button class="book-tab" data-status="완독">완독</button>
+        <button class="book-tab" data-status="보류">보류</button>
+      </div>
+      <div class="book-list" id="bookList">
+        <!-- Book items will be rendered here -->
+      </div>
+      <div class="goal-execution-input-row">
+        <input type="text" class="goal-execution-input" id="bookInput" placeholder="새 책의 제목을 입력하세요">
+        <button class="goal-execution-add-btn" id="bookAddBtn">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Notes Modal -->
+  <div class="goal-modal-overlay" id="bookNotesModalOverlay">
+    <div class="goal-modal book-notes-modal">
+      <div class="goal-modal-header" style="flex-direction: column; align-items: flex-start; gap: 6px; position: relative;">
+        <div class="book-notes-header-top" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+          <div class="book-notes-title-container" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <span class="book-notes-badge" id="bookNotesBadge">읽는 중</span>
+            <div class="book-notes-title" id="bookNotesTitle" style="font-size: 18px; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;">책 제목</div>
+          </div>
+          <button class="goal-modal-close" id="bookNotesModalClose" style="position: absolute; right: 0; top: 0;">×</button>
+        </div>
+      </div>
+      <div class="book-notes-status-row">
+        <span class="status-change-label">상태 변경:</span>
+        <div class="status-chips">
+          <button class="status-chip" data-status="읽는 중">읽는 중</button>
+          <button class="status-chip" data-status="완독">완독</button>
+          <button class="status-chip" data-status="보류">보류</button>
+        </div>
+      </div>
+      <div class="book-notes-editor-container">
+        <label class="book-notes-label">독서 메모 / 한 줄 요약</label>
+        <textarea class="book-notes-textarea" id="bookNotesTextarea" placeholder="책을 읽으며 기억하고 싶은 문장이나 생각을 자유롭게 기록하세요..."></textarea>
+      </div>
+      <div class="book-notes-footer">
+        <span class="save-status" id="bookNotesSaveStatus"></span>
+        <button class="book-notes-delete-btn" id="bookNotesDeleteBtn">기록 삭제</button>
       </div>
     </div>
   </div>

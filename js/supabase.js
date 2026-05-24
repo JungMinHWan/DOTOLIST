@@ -500,5 +500,82 @@ const api = {
       console.error(e);
       return { success: false, error: e.message };
     }
+  },
+
+  // 📚 독서 기록 관련 API 추가
+  async getBooks() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('books')
+        .select()
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async addBook(title) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('books')
+        .insert({ title: title, status: '읽는 중', notes: '' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateBookStatus(bookId, newStatus) {
+    try {
+      const { error } = await supabaseClient
+        .from('books')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('book_id', bookId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateBookNotes(bookId, newNotes) {
+    try {
+      const { error } = await supabaseClient
+        .from('books')
+        .update({ notes: newNotes, updated_at: new Date().toISOString() })
+        .eq('book_id', bookId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteBook(bookId) {
+    try {
+      const { error } = await supabaseClient
+        .from('books')
+        .delete()
+        .eq('book_id', bookId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
   }
 };

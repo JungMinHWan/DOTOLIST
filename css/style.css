@@ -1,10 +1,10 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 :root {
-  --theme-primary: #8b5cf6;       /* Violet */
-  --theme-primary-dark: #6d28d9;  
-  --theme-header-bg: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%); 
-  --theme-light-bg: #f5f3ff;      
+  --theme-primary: #6f5d88;       /* Luxury Mauve Purple */
+  --theme-primary-dark: #4a3c61;  
+  --theme-header-bg: linear-gradient(135deg, #8876a3 0%, #4a3c61 100%); 
+  --theme-light-bg: #f0edf5;      
   --theme-text-light: #ffffff;    
   
   --bg-color: #f8fafc;
@@ -449,4 +449,272 @@ body {
 .task-item.drag-over {
   border: 2px solid var(--theme-primary) !important;
   background: rgba(139, 92, 246, 0.05) !important;
+}
+
+/* 📚 독서 기록(Book Section) 스타일 */
+#bookSection {
+  margin-top: 16px;
+}
+#bookLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--theme-primary-dark);
+  margin-bottom: 6px;
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#bookBar {
+  background: white;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(111, 93, 136, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+#bookBar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--theme-primary);
+}
+#bookBar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(111, 93, 136, 0.1);
+  border-color: var(--theme-primary);
+}
+#bookText {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 나의 서재 탭 스타일 */
+.book-shelf-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.book-tab {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.book-tab:hover {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+}
+.book-tab.active {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 책 리스트 스타일 */
+.book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+  margin-bottom: 10px;
+}
+.book-list::-webkit-scrollbar {
+  width: 4px;
+}
+.book-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+.book-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+.book-item:hover {
+  background: white;
+  border-color: var(--theme-primary);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.book-item-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
+.book-item-status {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 10px;
+  line-height: 1;
+}
+.book-item-status.읽는_중 {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+}
+.book-item-status.완독 {
+  background: #d1fae5;
+  color: #065f46;
+}
+.book-item-status.보류 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* 독서 노트 에디터 스타일 */
+.book-notes-status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+.status-change-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.status-chips {
+  display: flex;
+  gap: 6px;
+}
+.status-chip {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.status-chip:hover {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+}
+.status-chip.active[data-status="읽는 중"] {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+  border-color: var(--theme-primary);
+}
+.status-chip.active[data-status="완독"] {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #34d399;
+}
+.status-chip.active[data-status="보류"] {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #f87171;
+}
+
+.book-notes-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 10px;
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+}
+.book-notes-badge.완독 {
+  background: #d1fae5;
+  color: #065f46;
+}
+.book-notes-badge.보류 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.book-notes-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.book-notes-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.book-notes-textarea {
+  width: 100%;
+  height: 180px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-color);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+  background: var(--bg-color);
+  color: var(--text-main);
+  transition: all 0.2s ease;
+}
+.book-notes-textarea:focus {
+  background: white;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px var(--theme-light-bg);
+}
+
+.book-notes-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+.book-notes-delete-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.book-notes-delete-btn:hover {
+  background: #fee2e2;
+}
+
+/* Glassmorphism 효과가 적용된 세련된 프리미엄 모달 오버레이 */
+.book-shelf-modal, .book-notes-modal {
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }

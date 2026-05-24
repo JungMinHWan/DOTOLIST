@@ -7,15 +7,18 @@ let diaryDatesSet = new Set();
 let newsDatesSet = new Set();
 
 let currentGoal = null;
+let currentBooks = [];
+let selectedBook = null;
+let currentBookFilter = 'all';
 
 const THEMES = {
-  0: { primary: '#f43f5e', dark: '#be123c', light: '#ffe4e6', header: 'linear-gradient(135deg, #fb7185 0%, #e11d48 100%)' }, // 일: Rose
-  1: { primary: '#8b5cf6', dark: '#6d28d9', light: '#ede9fe', header: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)' }, // 월: Violet
-  2: { primary: '#f97316', dark: '#c2410c', light: '#ffedd5', header: 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)' }, // 화: Orange
-  3: { primary: '#0ea5e9', dark: '#0369a1', light: '#e0f2fe', header: 'linear-gradient(135deg, #38bdf8 0%, #0284c7 100%)' }, // 수: Ocean Blue
-  4: { primary: '#10b981', dark: '#047857', light: '#d1fae5', header: 'linear-gradient(135deg, #34d399 0%, #059669 100%)' }, // 목: Emerald
-  5: { primary: '#f59e0b', dark: '#b45309', light: '#fef3c7', header: 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)' }, // 금: Amber
-  6: { primary: '#6366f1', dark: '#4338ca', light: '#e0e7ff', header: 'linear-gradient(135deg, #818cf8 0%, #4f46e5 100%)' }  // 토: Indigo
+  0: { primary: '#a24857', dark: '#7d3340', light: '#f5eaec', header: 'linear-gradient(135deg, #b95d6d 0%, #7d3340 100%)' }, // 일: Burgundy Deep Rose
+  1: { primary: '#6f5d88', dark: '#4a3c61', light: '#f0edf5', header: 'linear-gradient(135deg, #8876a3 0%, #4a3c61 100%)' }, // 월: Dusty Mauve Purple
+  2: { primary: '#b26a47', dark: '#824323', light: '#f7f1ee', header: 'linear-gradient(135deg, #ca825f 0%, #824323 100%)' }, // 화: Warm Terracotta Bronze
+  3: { primary: '#416788', dark: '#283f56', light: '#ebf0f4', header: 'linear-gradient(135deg, #5b81a2 0%, #283f56 100%)' }, // 수: Deep Steel Midnight
+  4: { primary: '#4c7263', dark: '#2e473e', light: '#ebf2ef', header: 'linear-gradient(135deg, #648a7b 0%, #2e473e 100%)' }, // 목: Muted Sage Moss
+  5: { primary: '#a98446', dark: '#755b2d', light: '#f7f3eb', header: 'linear-gradient(135deg, #c19c5c 0%, #755b2d 100%)' }, // 금: Antique Ocher Gold
+  6: { primary: '#4b5577', dark: '#2e354f', light: '#edf0f5', header: 'linear-gradient(135deg, #657093 0%, #2e354f 100%)' }  // 토: Shadow Navy Indigo
 };
 
 function applyThemeByDate(dateStr) {
@@ -85,6 +88,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   fetchAllDates(); 
   refreshAllData();
   loadGoal();
+  loadBooks();
   
   document.addEventListener('touchstart', e => {
     touchStartX = e.changedTouches[0].screenX;
@@ -166,6 +170,63 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e.key === 'Enter') addGoalExecution();
   };
   document.getElementById('goalModalTitleInput').onblur = updateGoalText;
+
+  // 📚 독서 기록 리스너 바인딩
+  document.getElementById('bookBar').onclick = openBookShelfModal;
+  document.getElementById('bookShelfModalClose').onclick = closeBookShelfModal;
+  document.getElementById('bookShelfModalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('bookShelfModalOverlay')) closeBookShelfModal();
+  };
+  document.getElementById('bookAddBtn').onclick = addBook;
+  document.getElementById('bookInput').onkeydown = (e) => {
+    if (e.key === 'Enter') addBook();
+  };
+
+  // 독서 노트 리스너 바인딩
+  document.getElementById('bookNotesModalClose').onclick = closeBookNotesModal;
+  document.getElementById('bookNotesModalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('bookNotesModalOverlay')) closeBookNotesModal();
+  };
+
+  // 독서 상태 칩 변경 리스너
+  document.querySelectorAll('.status-chip').forEach(chip => {
+    chip.onclick = function() {
+      if (!selectedBook) return;
+      const status = this.dataset.status;
+      changeBookStatus(selectedBook.book_id, status);
+    };
+  });
+
+  // 나의 서재 탭 필터 리스너
+  document.querySelectorAll('.book-tab').forEach(tab => {
+    tab.onclick = function() {
+      document.querySelectorAll('.book-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      currentBookFilter = this.dataset.status;
+      renderBookList();
+    };
+  });
+
+  // 독서 메모 저장 리스너 (실시간 포커스 아웃 및 디바운싱 저장)
+  const bookNotesArea = document.getElementById('bookNotesTextarea');
+  let bookNotesSaveTimeout = null;
+  bookNotesArea.oninput = function() {
+    if (!selectedBook) return;
+    const statusEl = document.getElementById('bookNotesSaveStatus');
+    statusEl.innerText = '입력 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+
+    clearTimeout(bookNotesSaveTimeout);
+    bookNotesSaveTimeout = setTimeout(() => {
+      saveBookNotesRealtime();
+    }, 1000);
+  };
+  bookNotesArea.onblur = function() {
+    saveBookNotesRealtime();
+  };
+
+  document.getElementById('bookNotesDeleteBtn').onclick = deleteBook;
 });
 
 async function loadGoal() {
@@ -447,6 +508,7 @@ async function refreshAllData() {
   updateBadge('newsBadge', newsContent);
   
   loadTasks();
+  loadBooks();
 }
 
 function updateMemoBadge(content) {
@@ -812,4 +874,191 @@ function escapeHtml(t) {
   const d = document.createElement('div'); 
   d.textContent = t; 
   return d.innerHTML; 
+}
+
+// 📚 독서 기록(Book Shelf & Notes) 프론트엔드 연동 구현
+async function loadBooks() {
+  currentBooks = await api.getBooks();
+  
+  // 📚 독서 기록 바 요약 문구 업데이트
+  const bookTextEl = document.getElementById('bookText');
+  const readingBooksCount = currentBooks.filter(b => b.status === '읽는 중').length;
+  
+  if (currentBooks.length === 0) {
+    bookTextEl.innerText = '현재 읽고 있는 책이 없습니다. 독서 기록을 시작해보세요!';
+  } else {
+    if (readingBooksCount > 0) {
+      const recentReading = currentBooks.find(b => b.status === '읽는 중');
+      bookTextEl.innerHTML = `📚 지금 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentReading.title)}'</strong> 등 ${readingBooksCount}권의 책을 읽고 있습니다.`;
+    } else {
+      const recentBook = currentBooks[0];
+      const statusText = recentBook.status === '완독' ? '완독했습니다!' : '보류 중입니다.';
+      bookTextEl.innerHTML = `📚 최근 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentBook.title)}'</strong>을(를) ${statusText}`;
+    }
+  }
+  
+  // 만약 서재 모달이 열려 있다면 목록도 갱신
+  if (document.getElementById('bookShelfModalOverlay').classList.contains('show')) {
+    renderBookList();
+  }
+}
+
+function openBookShelfModal() {
+  document.getElementById('bookShelfModalOverlay').classList.add('show');
+  document.getElementById('bookInput').value = '';
+  // 디폴트로 '전체' 탭 활성화
+  document.querySelectorAll('.book-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.book-tab[data-status="all"]').classList.add('active');
+  currentBookFilter = 'all';
+  renderBookList();
+}
+
+function closeBookShelfModal() {
+  document.getElementById('bookShelfModalOverlay').classList.remove('show');
+}
+
+function renderBookList() {
+  const listEl = document.getElementById('bookList');
+  listEl.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
+  
+  let filteredBooks = currentBooks;
+  if (currentBookFilter !== 'all') {
+    filteredBooks = currentBooks.filter(b => b.status === currentBookFilter);
+  }
+  
+  if (filteredBooks.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px; font-weight:600;">책 목록이 비어 있습니다.</div>';
+    return;
+  }
+  
+  listEl.innerHTML = filteredBooks.map(b => {
+    const statusClass = b.status === '읽는 중' ? '읽는_중' : b.status;
+    return `
+      <div class="book-item" onclick="openBookNotesModal('${b.book_id}')">
+        <div class="book-item-title">${escapeHtml(b.title)}</div>
+        <span class="book-item-status ${statusClass}">${b.status}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addBook() {
+  const input = document.getElementById('bookInput');
+  const title = input.value.trim();
+  if (!title) return;
+  
+  const addBtn = document.getElementById('bookAddBtn');
+  addBtn.disabled = true;
+  
+  const res = await api.addBook(title);
+  addBtn.disabled = false;
+  
+  if (res.success) {
+    input.value = '';
+    await loadBooks();
+  } else {
+    alert('책 추가에 실패했습니다.');
+  }
+}
+
+function openBookNotesModal(bookId) {
+  selectedBook = currentBooks.find(b => b.book_id === bookId);
+  if (!selectedBook) return;
+  
+  // 서재 모달을 닫지 않고 독서 노트 모달을 띄워 UX를 매끄럽게 함
+  const overlay = document.getElementById('bookNotesModalOverlay');
+  overlay.classList.add('show');
+  
+  document.getElementById('bookNotesTitle').innerText = selectedBook.title;
+  
+  // 배지 설정
+  const badge = document.getElementById('bookNotesBadge');
+  badge.innerText = selectedBook.status;
+  badge.className = 'book-notes-badge';
+  if (selectedBook.status === '완독') badge.classList.add('완독');
+  if (selectedBook.status === '보류') badge.classList.add('보류');
+  
+  // 상태 칩 활성화 설정
+  document.querySelectorAll('.status-chip').forEach(chip => {
+    chip.classList.remove('active');
+    if (chip.dataset.status === selectedBook.status) {
+      chip.classList.add('active');
+    }
+  });
+  
+  // 메모 세팅
+  const textarea = document.getElementById('bookNotesTextarea');
+  textarea.value = selectedBook.notes || '';
+  
+  // 저장 마크 비우기
+  document.getElementById('bookNotesSaveStatus').innerText = '';
+}
+
+function closeBookNotesModal() {
+  document.getElementById('bookNotesModalOverlay').classList.remove('show');
+  selectedBook = null;
+  loadBooks(); // 데이터 갱신
+}
+
+async function changeBookStatus(bookId, newStatus) {
+  const res = await api.updateBookStatus(bookId, newStatus);
+  if (res.success) {
+    if (selectedBook && selectedBook.book_id === bookId) {
+      selectedBook.status = newStatus;
+      
+      const badge = document.getElementById('bookNotesBadge');
+      badge.innerText = newStatus;
+      badge.className = 'book-notes-badge';
+      if (newStatus === '완독') badge.classList.add('완독');
+      if (newStatus === '보류') badge.classList.add('보류');
+      
+      document.querySelectorAll('.status-chip').forEach(chip => {
+        chip.classList.remove('active');
+        if (chip.dataset.status === newStatus) {
+          chip.classList.add('active');
+        }
+      });
+    }
+    // 데이터 로드 및 렌더링 갱신
+    await loadBooks();
+  } else {
+    alert('상태 변경에 실패했습니다.');
+  }
+}
+
+async function saveBookNotesRealtime() {
+  if (!selectedBook) return;
+  const textarea = document.getElementById('bookNotesTextarea');
+  const notes = textarea.value;
+  
+  const statusEl = document.getElementById('bookNotesSaveStatus');
+  
+  const res = await api.updateBookNotes(selectedBook.book_id, notes);
+  if (res.success) {
+    selectedBook.notes = notes;
+    statusEl.innerText = '실시간 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    setTimeout(() => {
+      if (statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '저장 실패';
+    statusEl.style.color = '#ef4444';
+    statusEl.style.fontWeight = '800';
+  }
+}
+
+async function deleteBook() {
+  if (!selectedBook) return;
+  if (confirm(`'${selectedBook.title}' 책의 모든 독서 기록을 삭제하시겠습니까?`)) {
+    const res = await api.deleteBook(selectedBook.book_id);
+    if (res.success) {
+      closeBookNotesModal();
+    } else {
+      alert('기록 삭제에 실패했습니다.');
+    }
+  }
 }
