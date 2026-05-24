@@ -564,6 +564,21 @@ const api = {
     }
   },
 
+  async updateBookTitle(bookId, newTitle) {
+    try {
+      const { error } = await supabaseClient
+        .from('books')
+        .update({ title: newTitle, updated_at: new Date().toISOString() })
+        .eq('book_id', bookId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async deleteBook(bookId) {
     try {
       const { error } = await supabaseClient

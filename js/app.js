@@ -189,6 +189,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (e.target === document.getElementById('bookNotesModalOverlay')) closeBookNotesModal();
   };
 
+  // 책 제목 실시간 수정 리스너 추가
+  const titleInput = document.getElementById('bookNotesTitleInput');
+  titleInput.onblur = saveBookTitleRealtime;
+  titleInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      titleInput.blur();
+    }
+  };
+
   // 독서 상태 칩 변경 리스너
   document.querySelectorAll('.status-chip').forEach(chip => {
     chip.onclick = function() {
@@ -970,7 +980,7 @@ function openBookNotesModal(bookId) {
   const overlay = document.getElementById('bookNotesModalOverlay');
   overlay.classList.add('show');
   
-  document.getElementById('bookNotesTitle').innerText = selectedBook.title;
+  document.getElementById('bookNotesTitleInput').value = selectedBook.title;
   
   // 배지 설정
   const badge = document.getElementById('bookNotesBadge');
@@ -1061,5 +1071,36 @@ async function deleteBook() {
     } else {
       alert('기록 삭제에 실패했습니다.');
     }
+  }
+}
+
+async function saveBookTitleRealtime() {
+  if (!selectedBook) return;
+  const input = document.getElementById('bookNotesTitleInput');
+  const newTitle = input.value.trim();
+  if (!newTitle || newTitle === selectedBook.title) return;
+  
+  const statusEl = document.getElementById('bookNotesSaveStatus');
+  statusEl.innerText = '제목 저장 중...';
+  statusEl.style.color = 'var(--text-muted)';
+  statusEl.style.fontWeight = '700';
+  
+  const res = await api.updateBookTitle(selectedBook.book_id, newTitle);
+  if (res.success) {
+    selectedBook.title = newTitle;
+    statusEl.innerText = '제목 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    await loadBooks(); // 독서 기록 요약 및 목록 새로고침
+    setTimeout(() => {
+      if (statusEl.innerText === '제목 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '제목 저장 실패';
+    statusEl.style.color = '#ef4444';
+    statusEl.style.fontWeight = '800';
+    input.value = selectedBook.title; // 오류 발생 시 원래 제목으로 복구
   }
 }

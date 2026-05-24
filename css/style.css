@@ -737,3 +737,24 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
+
+.book-notes-title-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  font-family: inherit;
+  outline: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  min-width: 0;
+}
+.book-notes-title-input:hover {
+  border-bottom-color: var(--border-color);
+}
+.book-notes-title-input:focus {
+  border-bottom-color: var(--theme-primary);
+}
