@@ -161,7 +161,7 @@ body {
 .action-btn { background: white; color: var(--theme-primary-dark); border: none; padding: 14px 24px; border-radius: var(--radius-md); font-size: 15px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; white-space: nowrap; }
 .action-btn:hover { background: var(--theme-light-bg); transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
 
-.memo-area { width: 100%; height: 300px; padding: 16px; border-radius: var(--radius-md); border: none; font-size: 15px; font-family: inherit; line-height: 1.6; resize: vertical; margin-bottom: 12px; outline: none; background: rgba(255,255,255,0.95); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; color: var(--text-main); font-weight: 500;}
+.memo-area { width: 100%; height: 300px; padding: 16px; border-radius: var(--radius-md); border: none; font-size: 15px; font-family: inherit; line-height: 1.6; resize: vertical; margin-bottom: 12px; outline: none; background: rgba(255,255,255,0.95); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; color: var(--text-main); font-weight: 500; overscroll-behavior-y: contain;}
 .memo-area:focus { background: white; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
 .diary-area { border-left: 4px solid #3b82f6; }
 .news-area { border-left: 4px solid #10b981; }
@@ -237,6 +237,7 @@ body {
 .goal-execution-list { 
   display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; 
   padding-right: 4px;
+  overscroll-behavior-y: contain;
 }
 .goal-execution-list::-webkit-scrollbar { width: 4px; }
 .goal-execution-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
@@ -538,6 +539,7 @@ body {
   overflow-y: auto;
   padding-right: 4px;
   margin-bottom: 10px;
+  overscroll-behavior-y: contain;
 }
 .book-list::-webkit-scrollbar {
   width: 4px;
@@ -682,6 +684,7 @@ body {
   background: var(--bg-color);
   color: var(--text-main);
   transition: all 0.2s ease;
+  overscroll-behavior-y: contain; /* 상위 요소로의 스크롤 전파 차단 */
 }
 .book-notes-textarea:focus {
   background: white;

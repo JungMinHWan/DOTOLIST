@@ -199,6 +199,20 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
   };
 
+  // 모바일 터치 스크롤 시 전체 화면 들썩임(Scroll Chaining) 방지 리스너
+  const preventScrollLeak = (e) => {
+    const el = e.currentTarget;
+    if (el.scrollHeight > el.clientHeight) {
+      e.stopPropagation();
+    }
+  };
+  ['bookNotesTextarea', 'bookList', 'goalExecutionList'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('touchmove', preventScrollLeak, { passive: true });
+    }
+  });
+
   // 독서 상태 칩 변경 리스너
   document.querySelectorAll('.status-chip').forEach(chip => {
     chip.onclick = function() {
@@ -248,14 +262,23 @@ async function loadGoal() {
   }
 }
 
+function checkAndUnlockBodyScroll() {
+  const activeModals = document.querySelectorAll('.goal-modal-overlay.show');
+  if (activeModals.length === 0) {
+    document.body.style.overflow = '';
+  }
+}
+
 async function openGoalModal() {
   if (!currentGoal) return;
   document.getElementById('goalModalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
   renderGoalExecutions();
 }
 
 function closeGoalModal() {
   document.getElementById('goalModalOverlay').classList.remove('show');
+  checkAndUnlockBodyScroll();
 }
 
 async function updateGoalText() {
@@ -916,6 +939,7 @@ async function loadBooks() {
 
 function openBookShelfModal() {
   document.getElementById('bookShelfModalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
   document.getElementById('bookInput').value = '';
   // 디폴트로 '전체' 탭 활성화
   document.querySelectorAll('.book-tab').forEach(t => t.classList.remove('active'));
@@ -926,6 +950,7 @@ function openBookShelfModal() {
 
 function closeBookShelfModal() {
   document.getElementById('bookShelfModalOverlay').classList.remove('show');
+  checkAndUnlockBodyScroll();
 }
 
 function renderBookList() {
@@ -979,6 +1004,7 @@ function openBookNotesModal(bookId) {
   // 서재 모달을 닫지 않고 독서 노트 모달을 띄워 UX를 매끄럽게 함
   const overlay = document.getElementById('bookNotesModalOverlay');
   overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
   
   document.getElementById('bookNotesTitleInput').value = selectedBook.title;
   
@@ -1009,6 +1035,7 @@ function closeBookNotesModal() {
   document.getElementById('bookNotesModalOverlay').classList.remove('show');
   selectedBook = null;
   loadBooks(); // 데이터 갱신
+  checkAndUnlockBodyScroll();
 }
 
 async function changeBookStatus(bookId, newStatus) {
