@@ -12,13 +12,13 @@ let selectedBook = null;
 let currentBookFilter = 'all';
 
 const THEMES = {
-  0: { primary: '#a24857', dark: '#7d3340', light: '#f5eaec', header: 'linear-gradient(135deg, #b95d6d 0%, #7d3340 100%)' }, // 일: Burgundy Deep Rose
-  1: { primary: '#6f5d88', dark: '#4a3c61', light: '#f0edf5', header: 'linear-gradient(135deg, #8876a3 0%, #4a3c61 100%)' }, // 월: Dusty Mauve Purple
-  2: { primary: '#b26a47', dark: '#824323', light: '#f7f1ee', header: 'linear-gradient(135deg, #ca825f 0%, #824323 100%)' }, // 화: Warm Terracotta Bronze
-  3: { primary: '#416788', dark: '#283f56', light: '#ebf0f4', header: 'linear-gradient(135deg, #5b81a2 0%, #283f56 100%)' }, // 수: Deep Steel Midnight
-  4: { primary: '#4c7263', dark: '#2e473e', light: '#ebf2ef', header: 'linear-gradient(135deg, #648a7b 0%, #2e473e 100%)' }, // 목: Muted Sage Moss
-  5: { primary: '#a98446', dark: '#755b2d', light: '#f7f3eb', header: 'linear-gradient(135deg, #c19c5c 0%, #755b2d 100%)' }, // 금: Antique Ocher Gold
-  6: { primary: '#4b5577', dark: '#2e354f', light: '#edf0f5', header: 'linear-gradient(135deg, #657093 0%, #2e354f 100%)' }  // 토: Shadow Navy Indigo
+  0: { primary: '#8c5c64', dark: '#613d43', light: '#f5eff0', header: 'linear-gradient(135deg, #a67981 0%, #613d43 100%)' }, // 일: Cabernet Etoupe (버건디 스톤)
+  1: { primary: '#7d6b7d', dark: '#534653', light: '#f2f0f2', header: 'linear-gradient(135deg, #9b879b 0%, #534653 100%)' }, // 월: Loro Silk Taupe (실크 토프 바이올렛)
+  2: { primary: '#a26c4f', dark: '#72452e', light: '#f5f0ed', header: 'linear-gradient(135deg, #c58f71 0%, #72452e 100%)' }, // 화: Tanned Saddle Leather (탠 가죽 브라운)
+  3: { primary: '#4c6a85', dark: '#2e4357', light: '#edf1f5', header: 'linear-gradient(135deg, #6c8aab 0%, #2e4357 100%)' }, // 수: Midnight Ocean Slate (미드나잇 스틸 블루)
+  4: { primary: '#557467', dark: '#364c42', light: '#edf2f0', header: 'linear-gradient(135deg, #749789 0%, #364c42 100%)' }, // 목: Nordic Fjord Forest (세이지 올리브 그린)
+  5: { primary: '#9b8053', dark: '#6a5433', light: '#f5f2ed', header: 'linear-gradient(135deg, #be9f6f 0%, #6a5433 100%)' }, // 금: Piaget Sand Brass (샌드 골드 브론즈)
+  6: { primary: '#4a546c', dark: '#2e3547', light: '#edf0f5', header: 'linear-gradient(135deg, #6b7794 0%, #2e3547 100%)' }  // 토: Asphalt Navy Mirage (아스팔트 네이비)
 };
 
 function applyThemeByDate(dateStr) {

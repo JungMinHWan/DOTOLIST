@@ -1,10 +1,10 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 :root {
-  --theme-primary: #6f5d88;       /* Luxury Mauve Purple */
-  --theme-primary-dark: #4a3c61;  
-  --theme-header-bg: linear-gradient(135deg, #8876a3 0%, #4a3c61 100%); 
-  --theme-light-bg: #f0edf5;      
+  --theme-primary: #7d6b7d;       /* Loro Silk Taupe */
+  --theme-primary-dark: #534653;  
+  --theme-header-bg: linear-gradient(135deg, #9b879b 0%, #534653 100%); 
+  --theme-light-bg: #f2f0f2;      
   --theme-text-light: #ffffff;    
   
   --bg-color: #f8fafc;
