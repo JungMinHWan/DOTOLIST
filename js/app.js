@@ -459,11 +459,30 @@ function toggleHeader(type) {
     if(type === 'diary') document.getElementById('diaryInput').focus();
     if(type === 'news') document.getElementById('newsInput').focus();
   }
+
+  updateAddFormVisibility();
 }
 
 function closeAllHeaders() {
   ['searchWrapper','memoWrapper','diaryWrapper','newsWrapper','customCalendarWrapper'].forEach(id => document.getElementById(id).classList.remove('show'));
   ['searchToggleBtn','memoToggleBtn','diaryToggleBtn','newsToggleBtn'].forEach(id => document.getElementById(id).classList.remove('active'));
+
+  updateAddFormVisibility();
+}
+
+function updateAddFormVisibility() {
+  const memoOpen = document.getElementById('memoWrapper').classList.contains('show');
+  const diaryOpen = document.getElementById('diaryWrapper').classList.contains('show');
+  const newsOpen = document.getElementById('newsWrapper').classList.contains('show');
+  
+  const addForm = document.querySelector('.add-form');
+  if (addForm) {
+    if (memoOpen || diaryOpen || newsOpen) {
+      addForm.classList.add('hide');
+    } else {
+      addForm.classList.remove('hide');
+    }
+  }
 }
 
 function updateUIForCustomDate() {
