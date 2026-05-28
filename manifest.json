@@ -1,0 +1,22 @@
+{
+  "name": "TODO LIST",
+  "short_name": "TODO LIST",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#7d6b7d",
+  "orientation": "portrait",
+  "description": "세련되고 프리미엄한 일상 스케줄 관리 TODO LIST",
+  "icons": [
+    {
+      "src": "./images/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
