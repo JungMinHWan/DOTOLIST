@@ -779,6 +779,10 @@ body {
   border-bottom-color: var(--theme-primary);
 }
 
+.hidden {
+  display: none !important;
+}
+
 /* 비밀 패스워드 금고 모달 스타일 */
 .vault-modal-overlay {
   position: fixed;
