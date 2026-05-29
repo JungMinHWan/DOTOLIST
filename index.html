@@ -11,7 +11,7 @@
 <body>
   <div class="header">
     <div class="header-top">
-      <h1><img src="./images/logo.png" alt="로고" class="header-logo"> TODO LIST</h1>
+      <h1 id="todoListHeaderTitle" style="user-select: none; -webkit-user-select: none; cursor: pointer;"><img src="./images/logo.png" alt="로고" class="header-logo"> TODO LIST</h1>
       <div class="header-actions">
         <button class="icon-btn" id="searchToggleBtn">🔍</button>
         <button class="icon-btn" id="memoToggleBtn" title="메모">
@@ -225,6 +225,76 @@
       });
     }
   </script>
+  <!-- Password Verification Modal -->
+  <div class="vault-modal-overlay hidden" id="vaultAuthModal">
+    <div class="vault-modal">
+      <div class="vault-modal-header">
+        <div class="vault-modal-title">🔒 보안 인증</div>
+        <button class="vault-modal-close" id="vaultAuthClose">×</button>
+      </div>
+      <div class="vault-modal-body">
+        <p class="vault-hint">비밀 금고에 접근하려면 마스터 패스워드를 입력하세요.</p>
+        <div class="vault-auth-row">
+          <input type="password" id="vaultPasswordInput" class="vault-input" placeholder="비밀번호 입력..." autocomplete="off">
+          <button class="vault-btn" id="vaultAuthSubmit">확인</button>
+        </div>
+        <div class="vault-auth-error hidden" id="vaultAuthError">비밀번호가 올바르지 않습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Manager Modal -->
+  <div class="vault-modal-overlay hidden" id="vaultManagerModal">
+    <div class="vault-modal vault-manager-modal">
+      <div class="vault-modal-header">
+        <div class="vault-modal-title">🔐 회사 비밀번호 금고</div>
+        <button class="vault-modal-close" id="vaultManagerClose">×</button>
+      </div>
+      <div class="vault-tabs">
+        <button class="vault-tab active" id="vaultTabView">🔍 조회 및 검색</button>
+        <button class="vault-tab" id="vaultTabEdit">✍️ 메모장 편집</button>
+      </div>
+      
+      <!-- 조회 모드 영역 -->
+      <div class="vault-content-section" id="vaultViewSection">
+        <div class="vault-search-row">
+          <input type="text" id="vaultSearchInput" class="vault-input" placeholder="계정 또는 비밀번호 검색..." autocomplete="off">
+          <button class="vault-btn-clear" id="vaultSearchClear">×</button>
+        </div>
+        <div class="vault-list" id="vaultListContainer">
+          <!-- 실시간 검색 카드가 렌더링 됩니다 -->
+        </div>
+      </div>
+      
+      <!-- 편집 모드 영역 -->
+      <div class="vault-content-section hidden" id="vaultEditSection">
+        <p class="vault-hint" style="margin-bottom: 8px;">줄바꿈(Enter) 단위로 계정 정보를 자유롭게 입력하세요. (형식 자유)</p>
+        <textarea class="vault-textarea" id="vaultTextAreaInput" placeholder="[구글] test@yozm.co.kr / pw: yozm1234&#10;[노션] yozm_admin_key&#10;[슬랙] slack-token-value"></textarea>
+        <div class="vault-footer-row">
+          <button class="vault-btn-secondary" id="vaultChangeMasterPwBtn">🔑 비밀번호 변경</button>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="save-status" id="vaultSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
+            <button class="vault-btn" id="vaultSaveBtn">저장하기</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 비밀번호 변경 서브 패널 -->
+      <div class="vault-sub-panel hidden" id="vaultChangePwPanel">
+        <div class="vault-sub-panel-header">
+          <span>🔑 마스터 비밀번호 변경</span>
+          <button id="vaultCloseChangePwBtn">×</button>
+        </div>
+        <div class="vault-sub-panel-body">
+          <input type="password" id="vaultNewPwInput" class="vault-input" placeholder="새 비밀번호 입력..." autocomplete="off" style="margin-bottom: 8px;">
+          <input type="password" id="vaultNewPwConfirmInput" class="vault-input" placeholder="새 비밀번호 확인..." autocomplete="off" style="margin-bottom: 8px;">
+          <button class="vault-btn" id="vaultSaveNewPwBtn" style="width: 100%;">변경 및 저장</button>
+          <div class="vault-auth-error hidden" id="vaultChangePwError">비밀번호가 일치하지 않습니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/supabase.js"></script>
   <script src="./js/app.js?v=3.0"></script>
 </body>

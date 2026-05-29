@@ -252,6 +252,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   };
 
   document.getElementById('bookNotesDeleteBtn').onclick = deleteBook;
+
+  // === 회사 비밀번호 금고(비밀 메모장) 기능 바인딩 ===
+  setupVaultEvents();
+  document.getElementById('todoListHeaderTitle').onclick = openVaultAuthModal;
 });
 
 async function loadGoal() {
@@ -1150,3 +1154,267 @@ async function saveBookTitleRealtime() {
     input.value = selectedBook.title; // 오류 발생 시 원래 제목으로 복구
   }
 }
+
+/* === 비밀번호 금고 기능 비즈니스 로직 === */
+
+// 기본 마스터 패스워드 로드
+function getMasterPassword() {
+  const pw = localStorage.getItem('yozm_vault_master_pw');
+  return pw || 'yozm1234';
+}
+
+// 마스터 패스워드 저장
+function saveMasterPassword(newPw) {
+  localStorage.setItem('yozm_vault_master_pw', newPw);
+}
+
+// 금고 데이터 로드 및 복호화
+function loadVaultData() {
+  const encoded = localStorage.getItem('yozm_vault_data');
+  if (!encoded) return '';
+  try {
+    // 한글 깨짐 방지를 고려한 디코딩
+    return decodeURIComponent(escape(atob(encoded)));
+  } catch (e) {
+    console.error('Failed to decode vault data', e);
+    return encoded; // 복구 실패 시 그냥 반환
+  }
+}
+
+// 금고 데이터 저장 및 암호화
+function saveVaultData(text) {
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(text)));
+    localStorage.setItem('yozm_vault_data', encoded);
+    return true;
+  } catch (e) {
+    console.error('Failed to encode vault data', e);
+    return false;
+  }
+}
+
+// 인증 모달 열기
+function openVaultAuthModal() {
+  document.getElementById('vaultPasswordInput').value = '';
+  document.getElementById('vaultAuthError').classList.add('hidden');
+  document.getElementById('vaultAuthModal').classList.remove('hidden');
+  document.getElementById('vaultPasswordInput').focus();
+  document.body.style.overflow = 'hidden';
+}
+
+// 인증 모달 닫기
+function closeVaultAuthModal() {
+  document.getElementById('vaultAuthModal').classList.add('hidden');
+  checkAndUnlockBodyScroll();
+}
+
+// 금고 대시보드 모달 열기
+function openVaultManagerModal() {
+  document.getElementById('vaultSearchInput').value = '';
+  document.getElementById('vaultTextAreaInput').value = loadVaultData();
+  switchVaultTab('view');
+  renderVaultList('');
+  document.getElementById('vaultManagerModal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+// 금고 대시보드 모달 닫기
+function closeVaultManagerModal() {
+  document.getElementById('vaultManagerModal').classList.add('hidden');
+  document.getElementById('vaultChangePwPanel').classList.add('hidden');
+  checkAndUnlockBodyScroll();
+}
+
+// 탭 전환
+function switchVaultTab(tab) {
+  const tabView = document.getElementById('vaultTabView');
+  const tabEdit = document.getElementById('vaultTabEdit');
+  const secView = document.getElementById('vaultViewSection');
+  const secEdit = document.getElementById('vaultEditSection');
+  
+  if (tab === 'view') {
+    tabView.classList.add('active');
+    tabEdit.classList.remove('active');
+    secView.classList.remove('hidden');
+    secEdit.classList.add('hidden');
+    renderVaultList(document.getElementById('vaultSearchInput').value);
+  } else {
+    tabEdit.classList.add('active');
+    tabView.classList.remove('active');
+    secEdit.classList.remove('hidden');
+    secView.classList.add('hidden');
+    document.getElementById('vaultTextAreaInput').focus();
+  }
+}
+
+// 실시간 목록 렌더링
+function renderVaultList(searchQuery) {
+  const container = document.getElementById('vaultListContainer');
+  const rawText = loadVaultData();
+  
+  if (!rawText.trim()) {
+    container.innerHTML = '<div class="vault-no-data">저장된 비밀번호 정보가 없습니다.<br>"메모장 편집" 탭에서 정보를 추가해 보세요!</div>';
+    return;
+  }
+  
+  const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== '');
+  const filtered = searchQuery.trim() 
+    ? lines.filter(line => line.toLowerCase().includes(searchQuery.toLowerCase()))
+    : lines;
+    
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="vault-no-data">'${searchQuery}' 검색 결과가 없습니다.</div>`;
+    return;
+  }
+  
+  container.innerHTML = filtered.map((line, index) => {
+    return `
+      <div class="vault-item">
+        <div class="vault-item-text">${escapeHtml(line)}</div>
+        <button class="vault-item-copy" onclick="copyVaultItem(this, \`${line.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">복사</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// 클립보드 복사
+async function copyVaultItem(btn, text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.innerText = '복사 완료!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.innerText = '복사';
+      btn.classList.remove('copied');
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy text: ', err);
+    // 폴백 브라우저 복사 시도
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand('copy');
+      btn.innerText = '복사 완료!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.innerText = '복사';
+        btn.classList.remove('copied');
+      }, 2000);
+    } catch (e) {
+      alert('복사에 실패했습니다. 직접 복사해 주세요.');
+    }
+    document.body.removeChild(textarea);
+  }
+}
+
+// 온클릭 어트리뷰트 바인딩을 위한 전역 스코프 노출
+window.copyVaultItem = copyVaultItem;
+
+// 이벤트 바인딩 셋업
+function setupVaultEvents() {
+  // 인증 확인 클릭
+  document.getElementById('vaultAuthSubmit').onclick = () => {
+    const input = document.getElementById('vaultPasswordInput').value;
+    if (input === getMasterPassword()) {
+      closeVaultAuthModal();
+      openVaultManagerModal();
+    } else {
+      document.getElementById('vaultAuthError').classList.remove('hidden');
+    }
+  };
+  
+  // 인증 비밀번호 인풋 엔터키
+  document.getElementById('vaultPasswordInput').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('vaultAuthSubmit').click();
+    }
+  };
+  
+  // 인증 모달 닫기
+  document.getElementById('vaultAuthClose').onclick = closeVaultAuthModal;
+  document.getElementById('vaultAuthModal').onclick = (e) => {
+    if (e.target === document.getElementById('vaultAuthModal')) closeVaultAuthModal();
+  };
+  
+  // 매니저 모달 닫기
+  document.getElementById('vaultManagerClose').onclick = closeVaultManagerModal;
+  document.getElementById('vaultManagerModal').onclick = (e) => {
+    if (e.target === document.getElementById('vaultManagerModal')) closeVaultManagerModal();
+  };
+  
+  // 탭 클릭
+  document.getElementById('vaultTabView').onclick = () => switchVaultTab('view');
+  document.getElementById('vaultTabEdit').onclick = () => switchVaultTab('edit');
+  
+  // 실시간 검색 검색어 입력
+  document.getElementById('vaultSearchInput').oninput = function() {
+    renderVaultList(this.value);
+  };
+  
+  // 검색어 초기화
+  document.getElementById('vaultSearchClear').onclick = () => {
+    const input = document.getElementById('vaultSearchInput');
+    input.value = '';
+    input.focus();
+    renderVaultList('');
+  };
+  
+  // 메모장 저장 버튼 클릭
+  document.getElementById('vaultSaveBtn').onclick = () => {
+    const text = document.getElementById('vaultTextAreaInput').value;
+    const statusEl = document.getElementById('vaultSaveStatus');
+    statusEl.innerText = '저장 중...';
+    statusEl.style.color = '#94a3b8';
+    
+    if (saveVaultData(text)) {
+      statusEl.innerText = '저장 완료!';
+      statusEl.style.color = '#10b981';
+      setTimeout(() => {
+        statusEl.innerText = '';
+      }, 2000);
+    } else {
+      statusEl.innerText = '저장 실패';
+      statusEl.style.color = '#f87171';
+    }
+  };
+  
+  // 비밀번호 변경 패널 열기
+  document.getElementById('vaultChangeMasterPwBtn').onclick = () => {
+    document.getElementById('vaultNewPwInput').value = '';
+    document.getElementById('vaultNewPwConfirmInput').value = '';
+    document.getElementById('vaultChangePwError').classList.add('hidden');
+    document.getElementById('vaultChangePwPanel').classList.remove('hidden');
+  };
+  
+  // 비밀번호 변경 패널 닫기
+  document.getElementById('vaultCloseChangePwBtn').onclick = () => {
+    document.getElementById('vaultChangePwPanel').classList.add('hidden');
+  };
+  
+  // 비밀번호 저장 버튼
+  document.getElementById('vaultSaveNewPwBtn').onclick = () => {
+    const newPw = document.getElementById('vaultNewPwInput').value.trim();
+    const newPwConfirm = document.getElementById('vaultNewPwConfirmInput').value.trim();
+    const errEl = document.getElementById('vaultChangePwError');
+    
+    if (!newPw) {
+      errEl.innerText = '비밀번호를 입력해 주세요.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    
+    if (newPw !== newPwConfirm) {
+      errEl.innerText = '비밀번호가 일치하지 않습니다.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    
+    saveMasterPassword(newPw);
+    alert('마스터 비밀번호가 성공적으로 변경되었습니다.');
+    document.getElementById('vaultChangePwPanel').classList.add('hidden');
+  };
+}
+
