@@ -592,5 +592,39 @@ const api = {
       console.error(e);
       return { success: false, error: e.message };
     }
+  },
+
+  async getVaultValue(key) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('vault')
+        .select('value')
+        .eq('key', key)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data ? data.value : null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  },
+
+  async saveVaultValue(key, value) {
+    try {
+      const { error } = await supabaseClient
+        .from('vault')
+        .upsert({
+          key: key,
+          value: value,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
   }
 };

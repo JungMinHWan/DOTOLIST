@@ -1155,38 +1155,58 @@ async function saveBookTitleRealtime() {
   }
 }
 
-/* === 비밀번호 금고 기능 비즈니스 로직 === */
+/* === 비밀번호 금고 기능 비즈니스 로직 (Supabase 동기화 버전) === */
 
-// 기본 마스터 패스워드 로드
-function getMasterPassword() {
-  const pw = localStorage.getItem('yozm_vault_master_pw');
-  return pw || 'yozm1234';
+// 로컬 캐시 변수 (불필요한 비동기 DB 조회를 최소화하기 위한 캐싱 전략)
+let cachedMasterPassword = null;
+let cachedVaultData = null;
+
+// 기본 마스터 패스워드 로드 (비동기)
+async function getMasterPassword() {
+  if (cachedMasterPassword !== null) return cachedMasterPassword;
+  const pw = await api.getVaultValue('master_password');
+  cachedMasterPassword = pw || 'yozm1234';
+  return cachedMasterPassword;
 }
 
-// 마스터 패스워드 저장
-function saveMasterPassword(newPw) {
-  localStorage.setItem('yozm_vault_master_pw', newPw);
+// 마스터 패스워드 저장 (비동기)
+async function saveMasterPassword(newPw) {
+  const res = await api.saveVaultValue('master_password', newPw);
+  if (res.success) {
+    cachedMasterPassword = newPw;
+    return true;
+  }
+  return false;
 }
 
-// 금고 데이터 로드 및 복호화
-function loadVaultData() {
-  const encoded = localStorage.getItem('yozm_vault_data');
-  if (!encoded) return '';
+// 금고 데이터 로드 및 복호화 (비동기)
+async function loadVaultData() {
+  if (cachedVaultData !== null) return cachedVaultData;
+  const encoded = await api.getVaultValue('vault_data');
+  if (!encoded) {
+    cachedVaultData = '';
+    return '';
+  }
   try {
-    // 한글 깨짐 방지를 고려한 디코딩
-    return decodeURIComponent(escape(atob(encoded)));
+    cachedVaultData = decodeURIComponent(escape(atob(encoded)));
+    return cachedVaultData;
   } catch (e) {
     console.error('Failed to decode vault data', e);
-    return encoded; // 복구 실패 시 그냥 반환
+    cachedVaultData = encoded;
+    return encoded;
   }
 }
 
-// 금고 데이터 저장 및 암호화
-function saveVaultData(text) {
+// 금고 데이터 저장 및 암호화 (비동기)
+async function saveVaultData(text) {
   try {
     const encoded = btoa(unescape(encodeURIComponent(text)));
-    localStorage.setItem('yozm_vault_data', encoded);
-    return true;
+    const res = await api.saveVaultValue('vault_data', encoded);
+    if (res.success) {
+      cachedVaultData = text;
+      return true;
+    }
+    return false;
   } catch (e) {
     console.error('Failed to encode vault data', e);
     return false;
@@ -1209,11 +1229,11 @@ function closeVaultAuthModal() {
 }
 
 // 금고 대시보드 모달 열기
-function openVaultManagerModal() {
+async function openVaultManagerModal() {
   document.getElementById('vaultSearchInput').value = '';
-  document.getElementById('vaultTextAreaInput').value = loadVaultData();
-  switchVaultTab('view');
-  renderVaultList('');
+  const data = await loadVaultData();
+  document.getElementById('vaultTextAreaInput').value = data;
+  await switchVaultTab('view');
   document.getElementById('vaultManagerModal').classList.remove('hidden');
   document.body.style.overflow = 'hidden';
 }
@@ -1226,7 +1246,7 @@ function closeVaultManagerModal() {
 }
 
 // 탭 전환
-function switchVaultTab(tab) {
+async function switchVaultTab(tab) {
   const tabView = document.getElementById('vaultTabView');
   const tabEdit = document.getElementById('vaultTabEdit');
   const secView = document.getElementById('vaultViewSection');
@@ -1237,7 +1257,7 @@ function switchVaultTab(tab) {
     tabEdit.classList.remove('active');
     secView.classList.remove('hidden');
     secEdit.classList.add('hidden');
-    renderVaultList(document.getElementById('vaultSearchInput').value);
+    await renderVaultList(document.getElementById('vaultSearchInput').value);
   } else {
     tabEdit.classList.add('active');
     tabView.classList.remove('active');
@@ -1248,9 +1268,9 @@ function switchVaultTab(tab) {
 }
 
 // 실시간 목록 렌더링
-function renderVaultList(searchQuery) {
+async function renderVaultList(searchQuery) {
   const container = document.getElementById('vaultListContainer');
-  const rawText = loadVaultData();
+  const rawText = await loadVaultData();
   
   if (!rawText.trim()) {
     container.innerHTML = '<div class="vault-no-data">저장된 비밀번호 정보가 없습니다.<br>"메모장 편집" 탭에서 정보를 추가해 보세요!</div>';
@@ -1316,11 +1336,12 @@ window.copyVaultItem = copyVaultItem;
 // 이벤트 바인딩 셋업
 function setupVaultEvents() {
   // 인증 확인 클릭
-  document.getElementById('vaultAuthSubmit').onclick = () => {
+  document.getElementById('vaultAuthSubmit').onclick = async () => {
     const input = document.getElementById('vaultPasswordInput').value;
-    if (input === getMasterPassword()) {
+    const masterPw = await getMasterPassword();
+    if (input === masterPw) {
       closeVaultAuthModal();
-      openVaultManagerModal();
+      await openVaultManagerModal();
     } else {
       document.getElementById('vaultAuthError').classList.remove('hidden');
     }
@@ -1350,26 +1371,30 @@ function setupVaultEvents() {
   document.getElementById('vaultTabEdit').onclick = () => switchVaultTab('edit');
   
   // 실시간 검색 검색어 입력
-  document.getElementById('vaultSearchInput').oninput = function() {
-    renderVaultList(this.value);
+  document.getElementById('vaultSearchInput').oninput = async function() {
+    await renderVaultList(this.value);
   };
   
   // 검색어 초기화
-  document.getElementById('vaultSearchClear').onclick = () => {
+  document.getElementById('vaultSearchClear').onclick = async () => {
     const input = document.getElementById('vaultSearchInput');
     input.value = '';
     input.focus();
-    renderVaultList('');
+    await renderVaultList('');
   };
   
   // 메모장 저장 버튼 클릭
-  document.getElementById('vaultSaveBtn').onclick = () => {
+  document.getElementById('vaultSaveBtn').onclick = async () => {
     const text = document.getElementById('vaultTextAreaInput').value;
     const statusEl = document.getElementById('vaultSaveStatus');
     statusEl.innerText = '저장 중...';
     statusEl.style.color = '#94a3b8';
     
-    if (saveVaultData(text)) {
+    // 캐시 리셋
+    cachedVaultData = null;
+    
+    const success = await saveVaultData(text);
+    if (success) {
       statusEl.innerText = '저장 완료!';
       statusEl.style.color = '#10b981';
       setTimeout(() => {
@@ -1395,7 +1420,7 @@ function setupVaultEvents() {
   };
   
   // 비밀번호 저장 버튼
-  document.getElementById('vaultSaveNewPwBtn').onclick = () => {
+  document.getElementById('vaultSaveNewPwBtn').onclick = async () => {
     const newPw = document.getElementById('vaultNewPwInput').value.trim();
     const newPwConfirm = document.getElementById('vaultNewPwConfirmInput').value.trim();
     const errEl = document.getElementById('vaultChangePwError');
@@ -1412,9 +1437,16 @@ function setupVaultEvents() {
       return;
     }
     
-    saveMasterPassword(newPw);
-    alert('마스터 비밀번호가 성공적으로 변경되었습니다.');
-    document.getElementById('vaultChangePwPanel').classList.add('hidden');
+    // 캐시 리셋
+    cachedMasterPassword = null;
+    
+    const success = await saveMasterPassword(newPw);
+    if (success) {
+      alert('마스터 비밀번호가 성공적으로 변경되었습니다.');
+      document.getElementById('vaultChangePwPanel').classList.add('hidden');
+    } else {
+      alert('마스터 비밀번호 변경에 실패했습니다.');
+    }
   };
 }
 
