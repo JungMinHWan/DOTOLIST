@@ -13,7 +13,7 @@ let currentBookFilter = 'all';
 
 const THEMES = {
   0: { primary: '#9f383a', dark: '#6d2224', light: '#faf0f0', header: 'linear-gradient(135deg, #b55052 0%, #6d2224 100%)' }, // 일: Lava Falls (용암 폭포 레드 - 열정적인 레드)
-  1: { primary: '#93829b', dark: '#62526a', light: '#f6f4f8', header: 'linear-gradient(135deg, #ac9bb4 0%, #62526a 100%)' }, // 월: Burnished Lilac (버니시드 라벤더 - 차분하고 세련된 퍼플)
+  1: { primary: '#d8b276', dark: '#6d5531', light: '#faf6f0', header: 'linear-gradient(135deg, #e6c58b 0%, #6d5531 100%)' }, // 월: Buttercream & Moonlight (버터크림 & 달빛 골드 - 부드럽고 은은한 달의 기운)
   2: { primary: '#e88c67', dark: '#a45634', light: '#fdf7f4', header: 'linear-gradient(135deg, #f5a788 0%, #a45634 100%)' }, // 화: Muskmelon (머스크멜론 오렌지 - 기분 좋은 생기)
   3: { primary: '#4a7a96', dark: '#2f5268', light: '#eef3f6', header: 'linear-gradient(135deg, #6c9bc0 0%, #2f5268 100%)' }, // 수: Marina (마리나 블루 - 한 주의 절반을 환기하는 평온한 블루)
   4: { primary: '#2b8285', dark: '#1a5658', light: '#ecf6f6', header: 'linear-gradient(135deg, #44a2a5 0%, #1a5658 100%)' }, // 목: Alexandrite (알렉산드라이트 틸 - 고급스럽고 깊이 있는 청록색)
