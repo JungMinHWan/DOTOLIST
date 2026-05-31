@@ -12,14 +12,15 @@ let selectedBook = null;
 let currentBookFilter = 'all';
 
 const THEMES = {
-  0: { primary: '#8c5c64', dark: '#613d43', light: '#f5eff0', header: 'linear-gradient(135deg, #a67981 0%, #613d43 100%)' }, // 일: Cabernet Etoupe (버건디 스톤)
-  1: { primary: '#7d6b7d', dark: '#534653', light: '#f2f0f2', header: 'linear-gradient(135deg, #9b879b 0%, #534653 100%)' }, // 월: Loro Silk Taupe (실크 토프 바이올렛)
-  2: { primary: '#a26c4f', dark: '#72452e', light: '#f5f0ed', header: 'linear-gradient(135deg, #c58f71 0%, #72452e 100%)' }, // 화: Tanned Saddle Leather (탠 가죽 브라운)
-  3: { primary: '#4c6a85', dark: '#2e4357', light: '#edf1f5', header: 'linear-gradient(135deg, #6c8aab 0%, #2e4357 100%)' }, // 수: Midnight Ocean Slate (미드나잇 스틸 블루)
-  4: { primary: '#557467', dark: '#364c42', light: '#edf2f0', header: 'linear-gradient(135deg, #749789 0%, #364c42 100%)' }, // 목: Nordic Fjord Forest (세이지 올리브 그린)
-  5: { primary: '#9b8053', dark: '#6a5433', light: '#f5f2ed', header: 'linear-gradient(135deg, #be9f6f 0%, #6a5433 100%)' }, // 금: Piaget Sand Brass (샌드 골드 브론즈)
-  6: { primary: '#4a546c', dark: '#2e3547', light: '#edf0f5', header: 'linear-gradient(135deg, #6b7794 0%, #2e3547 100%)' }  // 토: Asphalt Navy Mirage (아스팔트 네이비)
+  0: { primary: '#9f383a', dark: '#6d2224', light: '#faf0f0', header: 'linear-gradient(135deg, #b55052 0%, #6d2224 100%)' }, // 일: Lava Falls (용암 폭포 레드 - 열정적인 레드)
+  1: { primary: '#93829b', dark: '#62526a', light: '#f6f4f8', header: 'linear-gradient(135deg, #ac9bb4 0%, #62526a 100%)' }, // 월: Burnished Lilac (버니시드 라벤더 - 차분하고 세련된 퍼플)
+  2: { primary: '#e88c67', dark: '#a45634', light: '#fdf7f4', header: 'linear-gradient(135deg, #f5a788 0%, #a45634 100%)' }, // 화: Muskmelon (머스크멜론 오렌지 - 기분 좋은 생기)
+  3: { primary: '#4a7a96', dark: '#2f5268', light: '#eef3f6', header: 'linear-gradient(135deg, #6c9bc0 0%, #2f5268 100%)' }, // 수: Marina (마리나 블루 - 한 주의 절반을 환기하는 평온한 블루)
+  4: { primary: '#2b8285', dark: '#1a5658', light: '#ecf6f6', header: 'linear-gradient(135deg, #44a2a5 0%, #1a5658 100%)' }, // 목: Alexandrite (알렉산드라이트 틸 - 고급스럽고 깊이 있는 청록색)
+  5: { primary: '#d1af4e', dark: '#91772f', light: '#faf8ee', header: 'linear-gradient(135deg, #e5c66b 0%, #91772f 100%)' }, // 금: Acacia (아카시아 옐로우 골드 - 주말을 앞둔 긍정적인 에너지)
+  6: { primary: '#8a456c', dark: '#5c2847', light: '#faf3f6', header: 'linear-gradient(135deg, #a55e87 0%, #5c2847 100%)' }  // 토: Amaranth (아마란스 딥 퍼플 - 주말 밤의 매혹적인 와인 퍼플)
 };
+
 
 function applyThemeByDate(dateStr) {
   if(!dateStr) return;
