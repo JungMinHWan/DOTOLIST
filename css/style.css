@@ -1,4 +1,5 @@
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap');
 
 :root {
   --theme-primary: #7d6b7d;       /* Loro Silk Taupe */
@@ -173,7 +174,13 @@ body {
 
 .memo-area { width: 100%; height: 300px; padding: 16px; border-radius: var(--radius-md); border: none; font-size: 15px; font-family: inherit; line-height: 1.6; resize: vertical; margin-bottom: 12px; outline: none; background: rgba(255,255,255,0.95); box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: all 0.2s ease; color: var(--text-main); font-weight: 500; overscroll-behavior-y: contain;}
 .memo-area:focus { background: white; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
-.diary-area { border-left: 4px solid #10b981; color: #15803d; }
+.diary-area {
+  border-left: 4px solid #10b981;
+  color: #15803d;
+  font-family: 'Nanum Pen Script', cursive, sans-serif;
+  font-size: 21px;
+  line-height: 1.5;
+}
 .news-area { border-left: 4px solid #10b981; color: #1e3a8a; }
 
 /* Main Container */
