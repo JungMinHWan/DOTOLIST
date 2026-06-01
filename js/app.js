@@ -1,5 +1,6 @@
 let currentPeriod = 'today', selectedDate = null, currentMetricsDate = null;
 let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
+let loadedTasks = [];
 
 let calDisplayDate = new Date();
 let memoDatesSet = new Set();
@@ -612,6 +613,7 @@ async function loadTasks() {
 }
 
 function renderTasks(tasks) {
+  loadedTasks = tasks;
   const list = document.getElementById('taskList');
   list.innerHTML = tasks.map(t => {
     const checked = t.status === '완료' ? 'checked' : '';
@@ -625,7 +627,7 @@ function renderTasks(tasks) {
       <div class="task-checkbox ${checked}" onclick="toggleStatus('${t.task_id}', '${t.status==='완료'?'진행중':'완료'}')"></div>
       <div class="task-content">
         <div class="task-description ${compClass}">${escapeHtml(t.description)}</div>
-        <div class="task-meta"><span>${dateStr}</span><span class="status-badge ${t.status}">${t.status}</span></div>
+        <div class="task-meta"><span>${dateStr}</span><span class="status-badge ${t.status}" onclick="handleStatusBadgeClick('${t.task_id}')">${t.status}</span></div>
       </div>
       <div class="task-actions">
         <button class="task-edit" onclick="editTask('${t.task_id}')">✎</button>
@@ -872,6 +874,37 @@ async function addTask() {
   } else {
     document.getElementById('btnAdd').disabled = false;
     alert('추가에 실패했습니다.');
+  }
+}
+
+async function handleStatusBadgeClick(taskId) {
+  const task = loadedTasks.find(t => t.task_id === taskId);
+  if (!task) return;
+  
+  if (task.status !== '진행중') return;
+  
+  const taskDate = formatDateString(new Date(task.created_at));
+  const todayStr = getTodayString();
+  
+  if (taskDate === todayStr) {
+    return;
+  }
+  
+  if (confirm('오늘 날짜 업무로 가져오시겠습니까?')) {
+    const resUpdate = await api.updateTaskStatus(taskId, '완료');
+    if (!resUpdate.success) {
+      alert('기존 할일 상태 변경에 실패했습니다.');
+      return;
+    }
+    
+    const resAdd = await api.addTaskWithDate(task.description, task.due_date, todayStr);
+    if (resAdd.success) {
+      loadTasks();
+      fetchAllDates();
+    } else {
+      alert('오늘 날짜 업무로 복사하는 중 실패했습니다.');
+      loadTasks();
+    }
   }
 }
 
