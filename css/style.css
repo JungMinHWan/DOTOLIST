@@ -177,9 +177,9 @@ body {
 .diary-area {
   border-left: 4px solid #10b981;
   color: #15803d;
-  font-family: 'Nanum Pen Script', cursive, sans-serif;
-  font-size: 21px;
-  line-height: 1.5;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.6;
 }
 .news-area { border-left: 4px solid #10b981; color: #1e3a8a; }
 

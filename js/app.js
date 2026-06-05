@@ -314,6 +314,9 @@ document.addEventListener('DOMContentLoaded', async function() {
   // === 회사 비밀번호 금고(비밀 메모장) 기능 바인딩 ===
   setupVaultEvents();
   document.getElementById('todoListHeaderTitle').onclick = openVaultAuthModal;
+
+  // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
+  setupAutoSaveEvents();
 });
 
 async function loadGoal() {
@@ -1538,5 +1541,142 @@ function setupVaultEvents() {
       alert('마스터 비밀번호 변경에 실패했습니다.');
     }
   };
+}
+
+// 메모, 일기, 신문 실시간 자동 저장 기능
+function setupAutoSaveEvents() {
+  const memoInput = document.getElementById('memoInput');
+  const diaryInput = document.getElementById('diaryInput');
+  const newsInput = document.getElementById('newsInput');
+  
+  let memoAutoSaveTimeout = null;
+  let diaryAutoSaveTimeout = null;
+  let newsAutoSaveTimeout = null;
+  
+  // 1. 메모 실시간 자동 저장
+  memoInput.oninput = function() {
+    const statusEl = document.getElementById('memoStatus');
+    statusEl.innerText = '입력 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+    
+    clearTimeout(memoAutoSaveTimeout);
+    memoAutoSaveTimeout = setTimeout(() => {
+      saveMemoRealtime();
+    }, 1000);
+  };
+  memoInput.onblur = function() {
+    clearTimeout(memoAutoSaveTimeout);
+    saveMemoRealtime();
+  };
+
+  // 2. 일기 실시간 자동 저장
+  diaryInput.oninput = function() {
+    const statusEl = document.getElementById('diaryStatus');
+    statusEl.innerText = '입력 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+    
+    clearTimeout(diaryAutoSaveTimeout);
+    diaryAutoSaveTimeout = setTimeout(() => {
+      saveDiaryRealtime();
+    }, 1000);
+  };
+  diaryInput.onblur = function() {
+    clearTimeout(diaryAutoSaveTimeout);
+    saveDiaryRealtime();
+  };
+
+  // 3. 신문 실시간 자동 저장
+  newsInput.oninput = function() {
+    const statusEl = document.getElementById('newsStatus');
+    statusEl.innerText = '입력 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+    
+    clearTimeout(newsAutoSaveTimeout);
+    newsAutoSaveTimeout = setTimeout(() => {
+      saveNewsRealtime();
+    }, 1000);
+  };
+  newsInput.onblur = function() {
+    clearTimeout(newsAutoSaveTimeout);
+    saveNewsRealtime();
+  };
+}
+
+async function saveMemoRealtime() {
+  const content = document.getElementById('memoInput').value;
+  const statusEl = document.getElementById('memoStatus');
+  statusEl.innerText = '저장 중...';
+  statusEl.style.color = 'var(--text-muted)';
+  statusEl.style.fontWeight = '700';
+  
+  const res = await api.saveDailyMemo(currentMetricsDate, content);
+  if (res.success) {
+    statusEl.innerText = '실시간 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    updateMemoBadge(content);
+    fetchAllDates();
+    setTimeout(() => {
+      if (statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '저장 실패';
+    statusEl.style.color = '#ef4444';
+  }
+}
+
+async function saveDiaryRealtime() {
+  const content = document.getElementById('diaryInput').value;
+  const statusEl = document.getElementById('diaryStatus');
+  statusEl.innerText = '저장 중...';
+  statusEl.style.color = 'var(--text-muted)';
+  statusEl.style.fontWeight = '700';
+  
+  const res = await api.saveDailyDiary(currentMetricsDate, content);
+  if (res.success) {
+    statusEl.innerText = '실시간 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    updateBadge('diaryBadge', content);
+    fetchAllDates();
+    setTimeout(() => {
+      if (statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '저장 실패';
+    statusEl.style.color = '#ef4444';
+  }
+}
+
+async function saveNewsRealtime() {
+  const content = document.getElementById('newsInput').value;
+  const statusEl = document.getElementById('newsStatus');
+  statusEl.innerText = '저장 중...';
+  statusEl.style.color = 'var(--text-muted)';
+  statusEl.style.fontWeight = '700';
+  
+  const res = await api.saveDailyNews(currentMetricsDate, content);
+  if (res.success) {
+    statusEl.innerText = '실시간 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    updateBadge('newsBadge', content);
+    fetchAllDates();
+    setTimeout(() => {
+      if (statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '저장 실패';
+    statusEl.style.color = '#ef4444';
+  }
 }
 
