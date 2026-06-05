@@ -51,6 +51,11 @@ function formatDateString(d) {
 
 async function verifyAccess() {
   const PASSWORD = '4806';
+  
+  // 백그라운드 자동 로그인용 공용 가족 계정 정보
+  const AUTH_EMAIL = 'family@yozm.co.kr';
+  const AUTH_PASSWORD = 'family4806!'; // 4자리 비번 연상용 보안 패스워드
+
   let currentIp = 'unknown';
   try {
     const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
@@ -63,11 +68,62 @@ async function verifyAccess() {
   const storedIp = localStorage.getItem('todo_user_ip');
   const storedDevice = localStorage.getItem('todo_device_id');
   
-  if (storedIp !== currentIp || !storedDevice) {
+  // Supabase Auth 세션이 이미 존재하고 유효한지 확인
+  let hasValidSession = false;
+  try {
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (!error && session) {
+      hasValidSession = true;
+    }
+  } catch (err) {
+    console.error('Session check failed', err);
+  }
+  
+  // IP가 바뀌었거나, 디바이스 ID가 없거나, 세션이 유효하지 않은 경우에만 4자리 비밀번호 확인
+  if (storedIp !== currentIp || !storedDevice || !hasValidSession) {
     let input = prompt('접근 권한이 필요합니다. 4자리 비밀번호를 입력하세요:');
     if (input === PASSWORD) {
-      localStorage.setItem('todo_user_ip', currentIp);
-      localStorage.setItem('todo_device_id', storedDevice || ('device_' + Math.random().toString(36).substr(2, 9)));
+      try {
+        // 1. 공용 계정으로 로그인 시도
+        let { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+          email: AUTH_EMAIL,
+          password: AUTH_PASSWORD
+        });
+        
+        // 2. 계정이 없어서 로그인 실패한 경우, 자동으로 회원가입 처리
+        if (authError && (authError.message.includes('Invalid login credentials') || authError.status === 400)) {
+          console.log('가족 공용 계정이 존재하지 않아 자동으로 생성합니다...');
+          const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+            email: AUTH_EMAIL,
+            password: AUTH_PASSWORD
+          });
+          
+          if (signUpError) {
+            // 이메일 확인(Confirm Email) 기능이 켜져있어 가입에 실패하는 경우 안내
+            if (signUpError.message.includes('Email signup confirmation') || signUpError.message.includes('confirmation')) {
+              throw new Error('Supabase 대시보드에서 Confirm email 설정을 끄거나, family@yozm.co.kr 계정을 수동으로 생성하고 Confirm 처리해야 합니다.');
+            }
+            throw signUpError;
+          }
+          
+          // 가입 후 다시 로그인 시도
+          const { data: retryData, error: retryError } = await supabaseClient.auth.signInWithPassword({
+            email: AUTH_EMAIL,
+            password: AUTH_PASSWORD
+          });
+          if (retryError) throw retryError;
+        } else if (authError) {
+          throw authError;
+        }
+
+        localStorage.setItem('todo_user_ip', currentIp);
+        localStorage.setItem('todo_device_id', storedDevice || ('device_' + Math.random().toString(36).substr(2, 9)));
+      } catch (authFail) {
+        console.error('Supabase 백그라운드 로그인 실패:', authFail);
+        alert('가족 공용 계정 연동 및 로그인에 실패했습니다:\n' + authFail.message);
+        document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; background:#f8fafc; padding: 20px; text-align: center;"><h2 style="font-size:22px; color:#0f172a;">가족 계정 연동 오류</h2><p style="color:#64748b; margin-top:8px; line-height: 1.6;">Supabase Auth에 family@yozm.co.kr 계정을 생성해주시거나,<br>대시보드 Authentication -> Providers -> Email 메뉴에서 "Confirm email" 설정을 꺼주세요.</p></div>';
+        throw authFail;
+      }
     } else {
       alert('비밀번호가 틀렸습니다. 새로고침하여 다시 시도해주세요.');
       document.body.innerHTML = '<div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; background:#f8fafc;"><h2 style="font-size:24px; color:#0f172a;">접근이 제한되었습니다.</h2><p style="color:#64748b; margin-top:8px;">새로고침하여 다시 시도해주세요.</p></div>';
