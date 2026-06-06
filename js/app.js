@@ -68,11 +68,11 @@ async function verifyAccess() {
   const storedIp = localStorage.getItem('todo_user_ip');
   const storedDevice = localStorage.getItem('todo_device_id');
   
-  // Supabase Auth 세션이 이미 존재하고 유효한지 확인
+  // Supabase Auth 세션이 이미 존재하고 유효한지 확인 (getUser는 서버에서 직접 토큰 유효성을 검증합니다)
   let hasValidSession = false;
   try {
-    const { data: { session }, error } = await supabaseClient.auth.getSession();
-    if (!error && session) {
+    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    if (!error && user && user.email === AUTH_EMAIL) {
       hasValidSession = true;
     }
   } catch (err) {
