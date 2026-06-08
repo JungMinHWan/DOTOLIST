@@ -204,6 +204,27 @@ document.addEventListener('DOMContentLoaded', async function() {
   });
   
   document.getElementById('btnSaveMetrics').onclick = saveMetrics;
+  
+  // 일일 지표 접기 토글 바인딩
+  const metricsHeader = document.getElementById('metricsHeader');
+  const metricsBody = document.getElementById('metricsBody');
+  const metricsToggleIcon = document.getElementById('metricsToggleIcon');
+  
+  metricsHeader.onclick = () => {
+    const isCollapsed = metricsBody.classList.toggle('collapsed');
+    metricsToggleIcon.innerText = isCollapsed ? '▲' : '▼';
+    localStorage.setItem('metricsCollapsed', isCollapsed ? 'true' : 'false');
+  };
+  
+  // 기존 상태 복원
+  if (localStorage.getItem('metricsCollapsed') === 'true') {
+    metricsBody.classList.add('collapsed');
+    metricsToggleIcon.innerText = '▲';
+  } else {
+    metricsBody.classList.remove('collapsed');
+    metricsToggleIcon.innerText = '▼';
+  }
+
   document.getElementById('btnAdd').onclick = addTask;
   const descInput = document.getElementById('inputDescription');
   descInput.addEventListener('keydown', (e) => {
@@ -586,14 +607,32 @@ async function refreshAllData() {
   document.getElementById('metricsDate').textContent = formatDateKorean(currentMetricsDate);
   document.getElementById('inputDueDate').value = currentMetricsDate;
   
+  // 월요일 여부 판별하여 주말 건수 입력란 표시 제어
+  const isMon = getDayOfWeek(currentMetricsDate) === 1;
+  const weekendDressItem = document.getElementById('weekendDressItem');
+  const weekendWeddingItem = document.getElementById('weekendWeddingItem');
+  
+  if (isMon) {
+    weekendDressItem.classList.remove('hidden');
+    weekendWeddingItem.classList.remove('hidden');
+  } else {
+    weekendDressItem.classList.add('hidden');
+    weekendWeddingItem.classList.add('hidden');
+  }
+  
   console.log('calling api.getDailyMetrics');
   const m = await api.getDailyMetrics(currentMetricsDate);
   console.log('api.getDailyMetrics resolved', m);
   if(m) {
-    document.getElementById('contractsCount').value = m.contracts_count;
-    document.getElementById('dbCount').value = m.db_count;
-    document.getElementById('saturdayVisitors').value = m.saturday_visitors;
-    document.getElementById('sundayVisitors').value = m.sunday_visitors;
+    document.getElementById('contractsCount').value = m.contracts_count !== null && m.contracts_count !== undefined ? m.contracts_count : '';
+    document.getElementById('dbCount').value = m.db_count !== null && m.db_count !== undefined ? m.db_count : '';
+    document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
+    document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
+    
+    document.getElementById('weekendDressOrders').value = m.weekend_dress_orders !== null && m.weekend_dress_orders !== undefined ? m.weekend_dress_orders : '';
+    document.getElementById('weekendWeddingReservations').value = m.weekend_wedding_reservations !== null && m.weekend_wedding_reservations !== undefined ? m.weekend_wedding_reservations : '';
+    document.getElementById('contractTop').value = m.contract_top || '';
+    document.getElementById('contractBottom').value = m.contract_bottom || '';
   }
   
   const memo = document.getElementById('memoInput');
@@ -838,6 +877,15 @@ async function executeSearch() {
   else renderTasks(tasks);
 }
 
+// 요일을 구하는 헬퍼 함수 (0: 일, 1: 월, 2: 화...)
+function getDayOfWeek(dateStr) {
+  if (!dateStr) return -1;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return -1;
+  const d = new Date(parts[0], parts[1] - 1, parts[2]);
+  return d.getDay();
+}
+
 async function saveMetrics() {
   const btn = document.getElementById('btnSaveMetrics');
   const st = document.getElementById('saveStatus');
@@ -847,7 +895,11 @@ async function saveMetrics() {
     contracts_count: document.getElementById('contractsCount').value,
     db_count: document.getElementById('dbCount').value,
     saturday_visitors: document.getElementById('saturdayVisitors').value,
-    sunday_visitors: document.getElementById('sundayVisitors').value
+    sunday_visitors: document.getElementById('sundayVisitors').value,
+    weekend_dress_orders: document.getElementById('weekendDressOrders').value,
+    weekend_wedding_reservations: document.getElementById('weekendWeddingReservations').value,
+    contract_top: document.getElementById('contractTop').value,
+    contract_bottom: document.getElementById('contractBottom').value
   };
   
   const res = await api.saveDailyMetrics(currentMetricsDate, val);

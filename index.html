@@ -103,19 +103,39 @@
       </div>
     </div>
     <div class="metrics-section" id="metricsSection">
-      <div class="metrics-header">
-        <span class="metrics-title">📊 일일 지표</span>
+      <div class="metrics-header" id="metricsHeader" style="cursor: pointer; user-select: none;">
+        <span class="metrics-title">📊 일일 지표 <span class="toggle-icon" id="metricsToggleIcon">▼</span></span>
         <span class="metrics-date" id="metricsDate"></span>
       </div>
-      <div class="metrics-grid">
-        <div class="metric-item"><label class="metric-label">전일 계약건수</label><input type="number" class="metric-input" id="contractsCount" placeholder="0"></div>
-        <div class="metric-item"><label class="metric-label">전일 DB건수</label><input type="number" class="metric-input" id="dbCount" placeholder="0"></div>
-        <div class="metric-item"><label class="metric-label">이번주 토요일 방문</label><input type="number" class="metric-input" id="saturdayVisitors" placeholder="0"></div>
-        <div class="metric-item"><label class="metric-label">이번주 일요일 방문</label><input type="number" class="metric-input" id="sundayVisitors" placeholder="0"></div>
-      </div>
-      <div class="metrics-save-row">
-        <span class="save-status" id="saveStatus"></span>
-        <button class="btn-save-metrics" id="btnSaveMetrics">저장</button>
+      <div class="metrics-body" id="metricsBody">
+        <div class="metrics-grid">
+          <div class="metric-item"><label class="metric-label">전일 계약건수</label><input type="number" class="metric-input" id="contractsCount" placeholder="0"></div>
+          <div class="metric-item"><label class="metric-label">전일 DB건수</label><input type="number" class="metric-input" id="dbCount" placeholder="0"></div>
+          
+          <!-- 월요일에만 노출될 주말 입력창 -->
+          <div class="metric-item monday-only hidden" id="weekendDressItem"><label class="metric-label">주말 드레스발주건수</label><input type="number" class="metric-input" id="weekendDressOrders" placeholder="0"></div>
+          <div class="metric-item monday-only hidden" id="weekendWeddingItem"><label class="metric-label">주말 혼수예약건수</label><input type="number" class="metric-input" id="weekendWeddingReservations" placeholder="0"></div>
+
+          <div class="metric-item"><label class="metric-label">이번주 토요일 방문</label><input type="number" class="metric-input" id="saturdayVisitors" placeholder="0"></div>
+          <div class="metric-item"><label class="metric-label">이번주 일요일 방문</label><input type="number" class="metric-input" id="sundayVisitors" placeholder="0"></div>
+        </div>
+        
+        <!-- 계약 top, 계약 꼴지 텍스트 입력 -->
+        <div class="metrics-text-row">
+          <div class="metric-text-item">
+            <label class="metric-label">🏆 계약 TOP</label>
+            <input type="text" class="metric-text-input" id="contractTop" placeholder="계약 TOP 입력...">
+          </div>
+          <div class="metric-text-item">
+            <label class="metric-label">📉 계약 꼴찌</label>
+            <input type="text" class="metric-text-input" id="contractBottom" placeholder="계약 꼴찌 입력...">
+          </div>
+        </div>
+
+        <div class="metrics-save-row">
+          <span class="save-status" id="saveStatus"></span>
+          <button class="btn-save-metrics" id="btnSaveMetrics">저장</button>
+        </div>
       </div>
     </div>
     <div class="task-list" id="taskList"><div class="loading"><div class="spinner"></div></div></div>

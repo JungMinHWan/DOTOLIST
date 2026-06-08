@@ -190,16 +190,29 @@ body {
 .metrics-section { background: var(--card-bg); border-radius: var(--radius-lg); padding: 10px 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); border: 1px solid var(--border-color); }
 .metrics-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .metrics-title { font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; }
+.metrics-header .toggle-icon { transition: transform 0.3s ease; display: inline-block; font-size: 11px; margin-left: 6px; color: var(--text-muted); }
 .metrics-date { font-size: 12px; color: var(--theme-primary-dark); font-weight: 600; background: var(--theme-light-bg); padding: 4px 10px; border-radius: 12px; }
+.metrics-body { display: block; margin-top: 8px; }
+.metrics-body.collapsed { display: none; }
 .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .metric-item { display: flex; flex-direction: column; gap: 2px; }
 .metric-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
 .metric-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; font-weight: 700; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; -webkit-appearance: none; appearance: none; }
 .metric-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
+
+/* 계약 TOP & 꼴찌 스타일 */
+.metrics-text-row { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.metric-text-item { display: flex; flex-direction: column; gap: 2px; }
+.metric-text-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 13px; font-weight: 500; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; }
+.metric-text-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
+
 .metrics-save-row { margin-top: 8px; display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
 .save-status { font-size: 13px; color: #10b981; font-weight: 700; }
 .btn-save-metrics { background: var(--theme-primary); color: white; border: none; border-radius: var(--radius-md); padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
 .btn-save-metrics:hover { background: var(--theme-primary-dark); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+/* 유틸리티 */
+.hidden { display: none !important; }
 
 /* Goal Section */
 .goal-section { margin-bottom: 12px; }

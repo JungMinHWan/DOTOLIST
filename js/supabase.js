@@ -131,11 +131,24 @@ const api = {
         contracts_count: '', 
         db_count: '', 
         saturday_visitors: '', 
-        sunday_visitors: '' 
+        sunday_visitors: '',
+        weekend_dress_orders: '',
+        weekend_wedding_reservations: '',
+        contract_top: '',
+        contract_bottom: ''
       };
     } catch (e) {
       console.error(e);
-      return { contracts_count: '', db_count: '', saturday_visitors: '', sunday_visitors: '' };
+      return { 
+        contracts_count: '', 
+        db_count: '', 
+        saturday_visitors: '', 
+        sunday_visitors: '',
+        weekend_dress_orders: '',
+        weekend_wedding_reservations: '',
+        contract_top: '',
+        contract_bottom: ''
+      };
     }
   },
 
@@ -149,6 +162,10 @@ const api = {
           db_count: val.db_count ? parseInt(val.db_count) : null,
           saturday_visitors: val.saturday_visitors ? parseInt(val.saturday_visitors) : null,
           sunday_visitors: val.sunday_visitors ? parseInt(val.sunday_visitors) : null,
+          weekend_dress_orders: val.weekend_dress_orders ? parseInt(val.weekend_dress_orders) : null,
+          weekend_wedding_reservations: val.weekend_wedding_reservations ? parseInt(val.weekend_wedding_reservations) : null,
+          contract_top: val.contract_top || '',
+          contract_bottom: val.contract_bottom || '',
           updated_at: new Date().toISOString()
         });
 

@@ -21,3 +21,11 @@ CREATE TABLE IF NOT EXISTS books (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 일일 지표 주말 발주/예약 건수 및 계약 top/bottom 컬럼 추가
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS weekend_dress_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS weekend_wedding_reservations INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS contract_top TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS contract_bottom TEXT DEFAULT '';
+
