@@ -338,37 +338,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
   setupAutoSaveEvents();
-
-  // === 디버그용 인디케이터 추가 (캐시 및 단축키 동작 확인용) ===
-  const debugDiv = document.createElement('div');
-  debugDiv.id = 'shortcutDebugDiv';
-  debugDiv.style.position = 'fixed';
-  debugDiv.style.bottom = '10px';
-  debugDiv.style.right = '10px';
-  debugDiv.style.background = 'rgba(0, 0, 0, 0.8)';
-  debugDiv.style.color = '#fff';
-  debugDiv.style.padding = '6px 12px';
-  debugDiv.style.borderRadius = '20px';
-  debugDiv.style.fontSize = '12px';
-  debugDiv.style.fontWeight = 'bold';
-  debugDiv.style.zIndex = '99999';
-  debugDiv.style.pointerEvents = 'none'; // 클릭 방지
-  debugDiv.innerText = 'App v3.3 (로딩 완료)';
-  document.body.appendChild(debugDiv);
-
-  window.addEventListener('keydown', (e) => {
-    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
-    debugDiv.innerText = `입력: ${e.key} (${e.code}) | Cmd/Ctrl: ${isCmdOrCtrl} | Shift: ${e.shiftKey}`;
-    debugDiv.style.background = 'rgba(239, 68, 68, 0.9)'; // 입력 감지 시 빨간색 강조
-    
-    // 2초 후 기본 텍스트로 초기화
-    setTimeout(() => {
-      if (document.getElementById('shortcutDebugDiv')) {
-        debugDiv.innerText = 'App v3.3 (대기 중)';
-        debugDiv.style.background = 'rgba(0, 0, 0, 0.8)';
-      }
-    }, 2000);
-  });
 });
 
 async function loadGoal() {
