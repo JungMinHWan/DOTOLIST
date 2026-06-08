@@ -136,6 +136,10 @@ const api = {
         sunday_visitors: '',
         weekend_dress_orders: '',
         weekend_wedding_reservations: '',
+        saturday_festa_dress_orders: '',
+        sunday_festa_dress_orders: '',
+        saturday_wedding_reservations: '',
+        sunday_wedding_reservations: '',
         contract_top: '',
         contract_bottom: ''
       };
@@ -150,6 +154,10 @@ const api = {
         sunday_visitors: '',
         weekend_dress_orders: '',
         weekend_wedding_reservations: '',
+        saturday_festa_dress_orders: '',
+        sunday_festa_dress_orders: '',
+        saturday_wedding_reservations: '',
+        sunday_wedding_reservations: '',
         contract_top: '',
         contract_bottom: ''
       };
@@ -170,6 +178,10 @@ const api = {
           sunday_visitors: val.sunday_visitors ? parseInt(val.sunday_visitors) : null,
           weekend_dress_orders: val.weekend_dress_orders ? parseInt(val.weekend_dress_orders) : null,
           weekend_wedding_reservations: val.weekend_wedding_reservations ? parseInt(val.weekend_wedding_reservations) : null,
+          saturday_festa_dress_orders: val.saturday_festa_dress_orders ? parseInt(val.saturday_festa_dress_orders) : null,
+          sunday_festa_dress_orders: val.sunday_festa_dress_orders ? parseInt(val.sunday_festa_dress_orders) : null,
+          saturday_wedding_reservations: val.saturday_wedding_reservations ? parseInt(val.saturday_wedding_reservations) : null,
+          sunday_wedding_reservations: val.sunday_wedding_reservations ? parseInt(val.sunday_wedding_reservations) : null,
           contract_top: val.contract_top || '',
           contract_bottom: val.contract_bottom || '',
           updated_at: new Date().toISOString()

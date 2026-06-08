@@ -34,3 +34,11 @@ ALTER TABLE daily_metrics
 ADD COLUMN IF NOT EXISTS cumulative_contracts_count INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS cumulative_db_count INTEGER DEFAULT 0;
 
+-- 일일 지표 토요일/일요일 페스타드레스발주 및 혼수예약 건수 컬럼 추가
+ALTER TABLE daily_metrics
+ADD COLUMN IF NOT EXISTS saturday_festa_dress_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sunday_festa_dress_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS saturday_wedding_reservations INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sunday_wedding_reservations INTEGER DEFAULT 0;
+
+

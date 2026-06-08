@@ -609,16 +609,18 @@ async function refreshAllData() {
   
   // 월요일 여부 판별하여 주말 건수 입력란 표시 제어
   const isMon = getDayOfWeek(currentMetricsDate) === 1;
-  const weekendDressItem = document.getElementById('weekendDressItem');
-  const weekendWeddingItem = document.getElementById('weekendWeddingItem');
+  const mondayItems = ['satFestaDressItem', 'sunFestaDressItem', 'satWeddingItem', 'sunWeddingItem'];
   
-  if (isMon) {
-    weekendDressItem.classList.remove('hidden');
-    weekendWeddingItem.classList.remove('hidden');
-  } else {
-    weekendDressItem.classList.add('hidden');
-    weekendWeddingItem.classList.add('hidden');
-  }
+  mondayItems.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      if (isMon) {
+        el.classList.remove('hidden');
+      } else {
+        el.classList.add('hidden');
+      }
+    }
+  });
   
   console.log('calling api.getDailyMetrics');
   const m = await api.getDailyMetrics(currentMetricsDate);
@@ -631,8 +633,10 @@ async function refreshAllData() {
     document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
     document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
     
-    document.getElementById('weekendDressOrders').value = m.weekend_dress_orders !== null && m.weekend_dress_orders !== undefined ? m.weekend_dress_orders : '';
-    document.getElementById('weekendWeddingReservations').value = m.weekend_wedding_reservations !== null && m.weekend_wedding_reservations !== undefined ? m.weekend_wedding_reservations : '';
+    document.getElementById('saturdayFestaDressOrders').value = m.saturday_festa_dress_orders !== null && m.saturday_festa_dress_orders !== undefined ? m.saturday_festa_dress_orders : '';
+    document.getElementById('sundayFestaDressOrders').value = m.sunday_festa_dress_orders !== null && m.sunday_festa_dress_orders !== undefined ? m.sunday_festa_dress_orders : '';
+    document.getElementById('saturdayWeddingReservations').value = m.saturday_wedding_reservations !== null && m.saturday_wedding_reservations !== undefined ? m.saturday_wedding_reservations : '';
+    document.getElementById('sundayWeddingReservations').value = m.sunday_wedding_reservations !== null && m.sunday_wedding_reservations !== undefined ? m.sunday_wedding_reservations : '';
     document.getElementById('contractTop').value = m.contract_top || '';
     document.getElementById('contractBottom').value = m.contract_bottom || '';
   }
@@ -900,8 +904,10 @@ async function saveMetrics() {
     cumulative_db_count: document.getElementById('cumulativeDbCount').value,
     saturday_visitors: document.getElementById('saturdayVisitors').value,
     sunday_visitors: document.getElementById('sundayVisitors').value,
-    weekend_dress_orders: document.getElementById('weekendDressOrders').value,
-    weekend_wedding_reservations: document.getElementById('weekendWeddingReservations').value,
+    saturday_festa_dress_orders: document.getElementById('saturdayFestaDressOrders').value,
+    sunday_festa_dress_orders: document.getElementById('sundayFestaDressOrders').value,
+    saturday_wedding_reservations: document.getElementById('saturdayWeddingReservations').value,
+    sunday_wedding_reservations: document.getElementById('sundayWeddingReservations').value,
     contract_top: document.getElementById('contractTop').value,
     contract_bottom: document.getElementById('contractBottom').value
   };

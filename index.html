@@ -115,9 +115,12 @@
           <div class="metric-item"><label class="metric-label">전일 DB건수</label><input type="number" class="metric-input" id="dbCount" placeholder="0"></div>
           <div class="metric-item"><label class="metric-label">누적 DB건수</label><input type="number" class="metric-input" id="cumulativeDbCount" placeholder="0"></div>
           
-          <!-- 월요일에만 노출될 주말 입력창 -->
-          <div class="metric-item monday-only hidden" id="weekendDressItem"><label class="metric-label">주말 드레스발주건수</label><input type="number" class="metric-input" id="weekendDressOrders" placeholder="0"></div>
-          <div class="metric-item monday-only hidden" id="weekendWeddingItem"><label class="metric-label">주말 혼수예약건수</label><input type="number" class="metric-input" id="weekendWeddingReservations" placeholder="0"></div>
+          <!-- 월요일에만 노출될 주말 입력창 (토/일 구분) -->
+          <div class="metric-item monday-only hidden" id="satFestaDressItem"><label class="metric-label">토요일 페스타드레스발주건수</label><input type="number" class="metric-input" id="saturdayFestaDressOrders" placeholder="0"></div>
+          <div class="metric-item monday-only hidden" id="sunFestaDressItem"><label class="metric-label">일요일 페스타드레스발주건수</label><input type="number" class="metric-input" id="sundayFestaDressOrders" placeholder="0"></div>
+          
+          <div class="metric-item monday-only hidden" id="satWeddingItem"><label class="metric-label">토요일 혼수예약건수</label><input type="number" class="metric-input" id="saturdayWeddingReservations" placeholder="0"></div>
+          <div class="metric-item monday-only hidden" id="sunWeddingItem"><label class="metric-label">일요일 혼수예약건수</label><input type="number" class="metric-input" id="sundayWeddingReservations" placeholder="0"></div>
 
           <div class="metric-item"><label class="metric-label">이번주 토요일 방문</label><input type="number" class="metric-input" id="saturdayVisitors" placeholder="0"></div>
           <div class="metric-item"><label class="metric-label">이번주 일요일 방문</label><input type="number" class="metric-input" id="sundayVisitors" placeholder="0"></div>
