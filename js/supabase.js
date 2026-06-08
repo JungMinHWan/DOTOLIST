@@ -130,6 +130,8 @@ const api = {
       return data || { 
         contracts_count: '', 
         db_count: '', 
+        cumulative_contracts_count: '',
+        cumulative_db_count: '',
         saturday_visitors: '', 
         sunday_visitors: '',
         weekend_dress_orders: '',
@@ -142,6 +144,8 @@ const api = {
       return { 
         contracts_count: '', 
         db_count: '', 
+        cumulative_contracts_count: '',
+        cumulative_db_count: '',
         saturday_visitors: '', 
         sunday_visitors: '',
         weekend_dress_orders: '',
@@ -160,6 +164,8 @@ const api = {
           date: dateStr,
           contracts_count: val.contracts_count ? parseInt(val.contracts_count) : null,
           db_count: val.db_count ? parseInt(val.db_count) : null,
+          cumulative_contracts_count: val.cumulative_contracts_count ? parseInt(val.cumulative_contracts_count) : null,
+          cumulative_db_count: val.cumulative_db_count ? parseInt(val.cumulative_db_count) : null,
           saturday_visitors: val.saturday_visitors ? parseInt(val.saturday_visitors) : null,
           sunday_visitors: val.sunday_visitors ? parseInt(val.sunday_visitors) : null,
           weekend_dress_orders: val.weekend_dress_orders ? parseInt(val.weekend_dress_orders) : null,

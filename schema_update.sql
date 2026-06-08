@@ -29,3 +29,8 @@ ADD COLUMN IF NOT EXISTS weekend_wedding_reservations INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS contract_top TEXT DEFAULT '',
 ADD COLUMN IF NOT EXISTS contract_bottom TEXT DEFAULT '';
 
+-- 일일 지표 누적 계약건수 및 누적 DB건수 컬럼 추가
+ALTER TABLE daily_metrics
+ADD COLUMN IF NOT EXISTS cumulative_contracts_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS cumulative_db_count INTEGER DEFAULT 0;
+

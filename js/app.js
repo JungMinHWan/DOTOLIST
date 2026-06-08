@@ -625,7 +625,9 @@ async function refreshAllData() {
   console.log('api.getDailyMetrics resolved', m);
   if(m) {
     document.getElementById('contractsCount').value = m.contracts_count !== null && m.contracts_count !== undefined ? m.contracts_count : '';
+    document.getElementById('cumulativeContractsCount').value = m.cumulative_contracts_count !== null && m.cumulative_contracts_count !== undefined ? m.cumulative_contracts_count : '';
     document.getElementById('dbCount').value = m.db_count !== null && m.db_count !== undefined ? m.db_count : '';
+    document.getElementById('cumulativeDbCount').value = m.cumulative_db_count !== null && m.cumulative_db_count !== undefined ? m.cumulative_db_count : '';
     document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
     document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
     
@@ -893,7 +895,9 @@ async function saveMetrics() {
   
   const val = {
     contracts_count: document.getElementById('contractsCount').value,
+    cumulative_contracts_count: document.getElementById('cumulativeContractsCount').value,
     db_count: document.getElementById('dbCount').value,
+    cumulative_db_count: document.getElementById('cumulativeDbCount').value,
     saturday_visitors: document.getElementById('saturdayVisitors').value,
     sunday_visitors: document.getElementById('sundayVisitors').value,
     weekend_dress_orders: document.getElementById('weekendDressOrders').value,
