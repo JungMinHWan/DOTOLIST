@@ -338,6 +338,37 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
   setupAutoSaveEvents();
+
+  // === 디버그용 인디케이터 추가 (캐시 및 단축키 동작 확인용) ===
+  const debugDiv = document.createElement('div');
+  debugDiv.id = 'shortcutDebugDiv';
+  debugDiv.style.position = 'fixed';
+  debugDiv.style.bottom = '10px';
+  debugDiv.style.right = '10px';
+  debugDiv.style.background = 'rgba(0, 0, 0, 0.8)';
+  debugDiv.style.color = '#fff';
+  debugDiv.style.padding = '6px 12px';
+  debugDiv.style.borderRadius = '20px';
+  debugDiv.style.fontSize = '12px';
+  debugDiv.style.fontWeight = 'bold';
+  debugDiv.style.zIndex = '99999';
+  debugDiv.style.pointerEvents = 'none'; // 클릭 방지
+  debugDiv.innerText = 'App v3.3 (로딩 완료)';
+  document.body.appendChild(debugDiv);
+
+  window.addEventListener('keydown', (e) => {
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+    debugDiv.innerText = `입력: ${e.key} (${e.code}) | Cmd/Ctrl: ${isCmdOrCtrl} | Shift: ${e.shiftKey}`;
+    debugDiv.style.background = 'rgba(239, 68, 68, 0.9)'; // 입력 감지 시 빨간색 강조
+    
+    // 2초 후 기본 텍스트로 초기화
+    setTimeout(() => {
+      if (document.getElementById('shortcutDebugDiv')) {
+        debugDiv.innerText = 'App v3.3 (대기 중)';
+        debugDiv.style.background = 'rgba(0, 0, 0, 0.8)';
+      }
+    }, 2000);
+  });
 });
 
 async function loadGoal() {
@@ -1608,11 +1639,85 @@ function setupVaultEvents() {
   };
 }
 
+// 선택한 텍스트에 취소선(Unicode Combining Strikethrough)을 적용/해제하는 단축키 등록 함수
+function setupStrikethroughShortcut(textarea) {
+  if (!textarea) return;
+  textarea.addEventListener('keydown', (e) => {
+    // 1. 다양한 취소선 단축키 조합 지원 (단축키 충돌 방지)
+    // - Slack 스타일: Cmd/Ctrl + Shift + X
+    // - Notion 스타일: Cmd/Ctrl + Shift + S
+    // - Google Docs 스타일: Alt + Shift + 5
+    const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+    const isX = e.key.toLowerCase() === 'x' || e.code === 'KeyX' || e.key === 'ㅌ' || e.keyCode === 88;
+    const isS = e.key.toLowerCase() === 's' || e.code === 'KeyS' || e.key === 'ㄴ' || e.keyCode === 83;
+    const isFive = e.key === '5' || e.code === 'Digit5' || e.keyCode === 53;
+    
+    const isShortcutPressed = (isCmdOrCtrl && e.shiftKey && (isX || isS)) || (e.altKey && e.shiftKey && isFive);
+    
+    if (isShortcutPressed) {
+      e.preventDefault();
+      
+      let start = textarea.selectionStart;
+      let end = textarea.selectionEnd;
+      const text = textarea.value;
+      
+      let selectedText = '';
+      let newSelectedText = '';
+      
+      // 선택 영역이 없는 경우 기본 예시 텍스트 삽입 후 드래그 선택 처리
+      if (start === end) {
+        selectedText = '텍스트';
+        newSelectedText = '텍̶스̶트̶';
+        const originalScrollTop = textarea.scrollTop;
+        textarea.value = text.substring(0, start) + newSelectedText + text.substring(end);
+        
+        textarea.selectionStart = start;
+        textarea.selectionEnd = start + newSelectedText.length;
+        textarea.scrollTop = originalScrollTop;
+        textarea.dispatchEvent(new Event('input'));
+        return;
+      }
+      
+      selectedText = text.substring(start, end);
+      
+      // 유니코드 취소선 문자(\u0336) 포함 여부로 토글 결정
+      const hasStrikethrough = selectedText.includes('\u0336');
+      
+      if (hasStrikethrough) {
+        // 취소선 제거
+        newSelectedText = selectedText.replace(/\u0336/g, '');
+      } else {
+        // 취소선 추가 (줄바꿈 문자는 제외하고 각 문자 뒤에 \u0336 추가)
+        newSelectedText = Array.from(selectedText).map(char => {
+          if (char === '\n' || char === '\r') return char;
+          return char + '\u0336';
+        }).join('');
+      }
+      
+      const originalScrollTop = textarea.scrollTop;
+      textarea.value = text.substring(0, start) + newSelectedText + text.substring(end);
+      
+      // 선택 영역 및 스크롤 위치 복구
+      textarea.selectionStart = start;
+      textarea.selectionEnd = start + newSelectedText.length;
+      textarea.scrollTop = originalScrollTop;
+      
+      // 실시간 저장을 유도하기 위해 input 이벤트 발생
+      textarea.dispatchEvent(new Event('input'));
+    }
+  });
+}
+
 // 메모, 일기, 신문 실시간 자동 저장 기능
 function setupAutoSaveEvents() {
   const memoInput = document.getElementById('memoInput');
   const diaryInput = document.getElementById('diaryInput');
   const newsInput = document.getElementById('newsInput');
+  
+  // 취소선 단축키 적용
+  setupStrikethroughShortcut(memoInput);
+  setupStrikethroughShortcut(diaryInput);
+  setupStrikethroughShortcut(newsInput);
   
   let memoAutoSaveTimeout = null;
   let diaryAutoSaveTimeout = null;
