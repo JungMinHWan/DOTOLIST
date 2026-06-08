@@ -873,6 +873,7 @@ async function saveMemo() {
     updateMemoBadge(content);
     fetchAllDates();
     setTimeout(() => st.innerText = '', 2000);
+    closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '메모 저장';
     alert('저장에 실패했습니다.');
@@ -892,6 +893,7 @@ async function saveDiary() {
     updateBadge('diaryBadge', content);
     fetchAllDates();
     setTimeout(() => st.innerText = '', 2000);
+    closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '일기 저장';
     alert('저장에 실패했습니다.');
@@ -911,6 +913,7 @@ async function saveNews() {
     updateBadge('newsBadge', content);
     fetchAllDates();
     setTimeout(() => st.innerText = '', 2000);
+    closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '신문 저장';
     alert('저장에 실패했습니다.');
