@@ -1067,7 +1067,16 @@ async function toggleStatus(id, st) {
   const res = await api.updateTaskStatus(id, st);
   if(res.success) {
     loadTasks();
-    triggerTasksQuestUpdate();
+    await triggerTasksQuestUpdate();
+    
+    const xpAmount = (st === '완료') ? 2 : -2;
+    const xpRes = await api.addRealtimeTaskXp(xpAmount);
+    if (xpRes && xpRes.success) {
+      userStats = xpRes.stats;
+      renderLevelHUD(userStats);
+      showToast(`할 일 완료! ${xpAmount > 0 ? '+' : ''}${xpAmount} XP`);
+      if (xpRes.leveledUp) handleLevelUp(userStats.level);
+    }
   }
 }
 
@@ -1114,10 +1123,22 @@ function editTask(id) {
 
 async function deleteTask(id) { 
   if(confirm('삭제?')) {
+    const task = loadedTasks.find(t => t.task_id === id);
+    const wasCompleted = task && task.status === '완료';
+    
     const res = await api.deleteTask(id);
     if(res.success) {
       loadTasks();
-      triggerTasksQuestUpdate();
+      await triggerTasksQuestUpdate();
+      
+      if (wasCompleted) {
+        const xpRes = await api.addRealtimeTaskXp(-2);
+        if (xpRes && xpRes.success) {
+          userStats = xpRes.stats;
+          renderLevelHUD(userStats);
+          showToast("할 일이 삭제되어 -2 XP 차감되었습니다.");
+        }
+      }
     }
   }
 }
@@ -1985,11 +2006,11 @@ async function checkAndRewardQuests() {
   const todayStr = getTodayString();
   let updated = false;
 
-  // 퀘스트 1: 할 일 마스터 (+30 XP)
+  // 퀘스트 1: 할 일 마스터 (+10 XP 보너스, 개당 2 XP씩 총 30 XP)
   if ((currentQuestStatus.completed_tasks_count || 0) >= 10 && !currentQuestStatus.quest_1_completed) {
-    const res = await api.claimQuestReward(todayStr, 1, 30);
+    const res = await api.claimQuestReward(todayStr, 1, 10);
     if (res.success) {
-      showToast("✨ 일일 미션 달성: 할 일 마스터! (+30 XP)");
+      showToast("✨ 일일 미션 달성: 할 일 마스터! (+10 XP 보너스)");
       userStats = res.stats;
       renderLevelHUD(userStats);
       currentQuestStatus.quest_1_completed = true;
@@ -1998,12 +2019,12 @@ async function checkAndRewardQuests() {
     }
   }
 
-  // 퀘스트 2: 기록 삼위일체 (+50 XP)
+  // 퀘스트 2: 기록 삼위일체 (+20 XP 보너스, 개당 10 XP씩 총 50 XP)
   const isLogsComplete = currentQuestStatus.memo_written && currentQuestStatus.diary_written && currentQuestStatus.news_written;
   if (isLogsComplete && !currentQuestStatus.quest_2_completed) {
-    const res = await api.claimQuestReward(todayStr, 2, 50);
+    const res = await api.claimQuestReward(todayStr, 2, 20);
     if (res.success) {
-      showToast("✨ 일일 미션 달성: 기록 삼위일체! (+50 XP)");
+      showToast("✨ 일일 미션 달성: 기록 삼위일체! (+20 XP 보너스)");
       userStats = res.stats;
       renderLevelHUD(userStats);
       currentQuestStatus.quest_2_completed = true;
@@ -2070,6 +2091,19 @@ async function triggerQuestUpdate(field, value) {
   if (res.success && res.data) {
     currentQuestStatus = res.data;
     renderQuestWidget(currentQuestStatus);
+    
+    if (res.xpAdded > 0) {
+      let fieldNameStr = "기록";
+      if (field === 'memo_written') fieldNameStr = "메모";
+      else if (field === 'diary_written') fieldNameStr = "일기";
+      else if (field === 'news_written') fieldNameStr = "신문";
+      
+      showToast(`✍️ ${fieldNameStr} 작성 완료! +${res.xpAdded} XP`);
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+    
     await checkAndRewardQuests();
   }
 }

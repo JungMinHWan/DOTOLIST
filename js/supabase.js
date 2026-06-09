@@ -765,7 +765,8 @@ const api = {
       const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
       if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
 
-      await this.getDailyQuestStatus(dateStr);
+      const prevStatus = await this.getDailyQuestStatus(dateStr);
+      const prevVal = prevStatus ? prevStatus[field] : null;
 
       const updateData = { updated_at: new Date().toISOString() };
       updateData[field] = value;
@@ -779,7 +780,24 @@ const api = {
         .single();
 
       if (error) throw error;
-      return { success: true, data };
+
+      let xpAdded = 0;
+      let leveledUp = false;
+      let stats = null;
+
+      // 메모, 일기, 신문 최초 기록 시 10 XP 지급
+      if (['memo_written', 'diary_written', 'news_written'].includes(field)) {
+        if (!prevVal && value === true) {
+          const xpRes = await this._addXp(user.id, 10);
+          if (xpRes.success) {
+            xpAdded = 10;
+            stats = xpRes.stats;
+            leveledUp = xpRes.leveledUp;
+          }
+        }
+      }
+
+      return { success: true, data, xpAdded, stats, leveledUp };
     } catch (e) {
       console.error("updateQuestProgress error:", e);
       return { success: false, error: e.message };
@@ -857,6 +875,20 @@ const api = {
       return await this._addXp(user.id, rewardXp);
     } catch (e) {
       console.error("claimAllClearReward error:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 7. 실시간 할 일 완료/취소 경험치 처리 (+2 XP / -2 XP)
+  async addRealtimeTaskXp(xpAmount) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+      
+      // 만약 음수 경험치를 차감하더라도 0 이하로 떨어지지 않도록 addXp에서 자동 처리
+      return await this._addXp(user.id, xpAmount);
+    } catch (e) {
+      console.error("addRealtimeTaskXp error:", e);
       return { success: false, error: e.message };
     }
   },
