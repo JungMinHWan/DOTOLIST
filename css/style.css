@@ -1190,3 +1190,259 @@ body {
   font-size: 0.9rem;
 }
 
+/* === Grow Quest Level HUD & Daily Quests Styles === */
+
+/* 1. Level HUD */
+.level-hud-container {
+  margin-top: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  padding: 10px 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.level-hud-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.level-badge {
+  background: white;
+  color: var(--theme-primary-dark);
+  font-weight: 900;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  white-space: nowrap;
+}
+.level-bar-wrapper {
+  flex: 1;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.level-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #0ea5e9 100%);
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.level-xp-text {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+}
+
+/* 2. Daily Quests Section */
+.quest-section {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+.quest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.quest-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+.quest-all-clear-badge {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.9; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.quest-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.quest-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--bg-color);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+}
+.quest-card:hover {
+  background: white;
+  border-color: var(--theme-primary);
+  box-shadow: var(--shadow-sm);
+}
+.quest-card.completed {
+  opacity: 0.7;
+  background: #f8fafc;
+  border-color: transparent;
+  box-shadow: none;
+}
+.quest-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.quest-card-status-icon {
+  font-size: 20px;
+}
+.quest-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.quest-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quest-xp-reward {
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.quest-card.completed .quest-xp-reward {
+  background: #e2e8f0;
+  color: #94a3b8;
+}
+.quest-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.quest-card.completed .quest-card-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.quest-card-checkbox {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+.quest-card.completed .quest-card-checkbox {
+  background: #10b981;
+  border-color: #10b981;
+}
+.quest-card.completed .quest-card-checkbox::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+/* 3. Level Up Celebration Modal */
+.level-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+.level-modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  display: none !important;
+}
+.level-modal {
+  background: white;
+  border-radius: 28px;
+  padding: 36px 24px;
+  width: calc(100% - 40px);
+  max-width: 360px;
+  text-align: center;
+  box-shadow: 0 32px 64px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.8);
+  animation: levelPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+@keyframes levelPop {
+  from { opacity: 0; transform: scale(0.7) translateY(40px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.level-modal-sparkle {
+  font-size: 48px;
+  animation: bounce 1.5s infinite;
+}
+.level-modal-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--text-main);
+  letter-spacing: -0.5px;
+}
+.level-modal-badge {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: white;
+  font-weight: 900;
+  font-size: 20px;
+  padding: 8px 24px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(2, 132, 199, 0.3);
+}
+.level-modal-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  font-weight: 600;
+  margin-top: 4px;
+}
+.level-modal-close-btn {
+  background: var(--theme-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px 36px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.level-modal-close-btn:hover {
+  background: var(--theme-primary-dark);
+  transform: translateY(-2px);
+}
+
+

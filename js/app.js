@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   fetchAllDates(); 
   refreshAllData();
+  loadGamification();
   loadGoal();
   loadBooks();
   
@@ -200,6 +201,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       document.getElementById('inputDueDate').value = currentMetricsDate;
       applyThemeByDate(currentMetricsDate);
       refreshAllData();
+      loadGamification();
     };
   });
   
@@ -519,6 +521,7 @@ function selectDateFromCalendar(dateStr) {
   applyThemeByDate(dateStr);
   updateUIForCustomDate();
   refreshAllData();
+  loadGamification();
   
   document.getElementById('customCalendarWrapper').classList.remove('show');
 }
@@ -916,6 +919,7 @@ async function saveMetrics() {
   if(res.success) {
     btn.disabled = false; btn.innerText = '저장'; st.innerText = 'V';
     setTimeout(() => st.innerText = '', 2000);
+    triggerQuestUpdate('metrics_logged', true);
   } else {
     btn.disabled = false; btn.innerText = '저장'; 
     alert('저장에 실패했습니다.');
@@ -935,6 +939,7 @@ async function saveMemo() {
     updateMemoBadge(content);
     fetchAllDates();
     setTimeout(() => st.innerText = '', 2000);
+    triggerQuestUpdate('memo_written', true);
     closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '메모 저장';
@@ -954,6 +959,7 @@ async function saveDiary() {
     const st = document.getElementById('diaryStatus'); st.innerText = '완료';
     updateBadge('diaryBadge', content);
     fetchAllDates();
+    triggerQuestUpdate('diary_written', true);
     setTimeout(() => st.innerText = '', 2000);
     closeAllHeaders();
   } else {
@@ -974,6 +980,7 @@ async function saveNews() {
     const st = document.getElementById('newsStatus'); st.innerText = '완료';
     updateBadge('newsBadge', content);
     fetchAllDates();
+    triggerQuestUpdate('news_written', true);
     setTimeout(() => st.innerText = '', 2000);
     closeAllHeaders();
   } else {
@@ -1034,7 +1041,10 @@ async function handleStatusBadgeClick(taskId) {
 
 async function toggleStatus(id, st) { 
   const res = await api.updateTaskStatus(id, st);
-  if(res.success) loadTasks();
+  if(res.success) {
+    loadTasks();
+    triggerTasksQuestUpdate();
+  }
 }
 
 function editTask(id) {
@@ -1081,7 +1091,10 @@ function editTask(id) {
 async function deleteTask(id) { 
   if(confirm('삭제?')) {
     const res = await api.deleteTask(id);
-    if(res.success) loadTasks();
+    if(res.success) {
+      loadTasks();
+      triggerTasksQuestUpdate();
+    }
   }
 }
 
@@ -1173,6 +1186,7 @@ async function addBook() {
   if (res.success) {
     input.value = '';
     await loadBooks();
+    triggerQuestUpdate('book_logged', true);
   } else {
     alert('책 추가에 실패했습니다.');
   }
@@ -1222,6 +1236,7 @@ function closeBookNotesModal() {
 async function changeBookStatus(bookId, newStatus) {
   const res = await api.updateBookStatus(bookId, newStatus);
   if (res.success) {
+    triggerQuestUpdate('book_logged', true);
     if (selectedBook && selectedBook.book_id === bookId) {
       selectedBook.status = newStatus;
       
@@ -1256,6 +1271,7 @@ async function saveBookNotesRealtime() {
   if (res.success) {
     selectedBook.notes = notes;
     statusEl.innerText = '실시간 저장 완료';
+    triggerQuestUpdate('book_logged', true);
     statusEl.style.color = '#10b981';
     statusEl.style.fontWeight = '800';
     setTimeout(() => {
@@ -1757,6 +1773,7 @@ async function saveMemoRealtime() {
     statusEl.style.color = '#10b981';
     statusEl.style.fontWeight = '800';
     updateMemoBadge(content);
+    triggerQuestUpdate('memo_written', true);
     fetchAllDates();
     setTimeout(() => {
       if (statusEl.innerText === '실시간 저장 완료') {
@@ -1782,6 +1799,7 @@ async function saveDiaryRealtime() {
     statusEl.style.color = '#10b981';
     statusEl.style.fontWeight = '800';
     updateBadge('diaryBadge', content);
+    triggerQuestUpdate('diary_written', true);
     fetchAllDates();
     setTimeout(() => {
       if (statusEl.innerText === '실시간 저장 완료') {
@@ -1807,6 +1825,7 @@ async function saveNewsRealtime() {
     statusEl.style.color = '#10b981';
     statusEl.style.fontWeight = '800';
     updateBadge('newsBadge', content);
+    triggerQuestUpdate('news_written', true);
     fetchAllDates();
     setTimeout(() => {
       if (statusEl.innerText === '실시간 저장 완료') {
@@ -1818,4 +1837,310 @@ async function saveNewsRealtime() {
     statusEl.style.color = '#ef4444';
   }
 }
+
+// ==========================================
+// GROW QUEST 게이미피케이션 & 레벨업 시스템 연동
+// ==========================================
+
+let userStats = { level: 1, xp: 0 };
+let currentQuestStatus = null;
+
+// 1. 게이미피케이션 정보 로드 및 초기화
+async function loadGamification() {
+  try {
+    // 1-1. 사용자 스탯 가져오기
+    userStats = await api.getUserStats();
+    renderLevelHUD(userStats);
+
+    // 1-2. 오늘 날짜의 미션 현황판 로드
+    const todayStr = getTodayString();
+    currentQuestStatus = await api.getDailyQuestStatus(todayStr);
+    
+    // UI 갱신
+    renderQuestWidget(currentQuestStatus);
+    
+    // 미션 자동 체크 및 보상 지급
+    await checkAndRewardQuests();
+  } catch (e) {
+    console.error("loadGamification error:", e);
+  }
+}
+
+// 2. 레벨 HUD 그리기
+function renderLevelHUD(stats) {
+  const levelBadge = document.getElementById('hudLevel');
+  const levelBarFill = document.getElementById('hudLevelBar');
+  const xpText = document.getElementById('hudXpText');
+
+  if (levelBadge && levelBarFill && xpText) {
+    levelBadge.innerText = `Lv. ${stats.level}`;
+    const requiredXp = stats.level * 100;
+    const progressPercent = Math.min((stats.xp / requiredXp) * 100, 100);
+    levelBarFill.style.width = `${progressPercent}%`;
+    xpText.innerText = `${stats.xp} / ${requiredXp} XP`;
+  }
+}
+
+// 3. 일일 미션 현황판 그리기
+function renderQuestWidget(quest) {
+  if (!quest) return;
+
+  // 퀘스트 1: 할 일 마스터
+  const qDesc1 = document.getElementById('questDesc1');
+  const qCard1 = document.getElementById('questCard1');
+  if (qDesc1 && qCard1) {
+    const count = quest.completed_tasks_count || 0;
+    qDesc1.innerText = `오늘의 할 일 10개 완료 (${count}/10)`;
+    if (quest.quest_1_completed) {
+      qCard1.classList.add('completed');
+    } else {
+      qCard1.classList.remove('completed');
+    }
+  }
+
+  // 퀘스트 2: 기록 삼위일체
+  const qDesc2 = document.getElementById('questDesc2');
+  const qCard2 = document.getElementById('questCard2');
+  if (qDesc2 && qCard2) {
+    let checkCount = 0;
+    if (quest.memo_written) checkCount++;
+    if (quest.diary_written) checkCount++;
+    if (quest.news_written) checkCount++;
+    
+    qDesc2.innerText = `오늘 메모, 일기, 신문 모두 작성 (${checkCount}/3)`;
+    if (quest.quest_2_completed) {
+      qCard2.classList.add('completed');
+    } else {
+      qCard2.classList.remove('completed');
+    }
+  }
+
+  // 퀘스트 3: 지식의 기록
+  const qCard3 = document.getElementById('questCard3');
+  const qDesc3 = document.getElementById('questDesc3');
+  if (qCard3 && qDesc3) {
+    const logged = quest.book_logged ? 1 : 0;
+    qDesc3.innerText = `책 등록 또는 독서 메모 작성 (${logged}/1)`;
+    if (quest.quest_3_completed) {
+      qCard3.classList.add('completed');
+    } else {
+      qCard3.classList.remove('completed');
+    }
+  }
+
+  // 퀘스트 4: 오늘 지표 기록
+  const qCard4 = document.getElementById('questCard4');
+  const qDesc4 = document.getElementById('questDesc4');
+  if (qCard4 && qDesc4) {
+    const logged = quest.metrics_logged ? 1 : 0;
+    qDesc4.innerText = `오늘의 일일 지표 기록 및 저장 (${logged}/1)`;
+    if (quest.quest_4_completed) {
+      qCard4.classList.add('completed');
+    } else {
+      qCard4.classList.remove('completed');
+    }
+  }
+
+  // 올 클리어 배지 표시
+  const allClearBadge = document.getElementById('questAllClearBadge');
+  if (allClearBadge) {
+    if (quest.all_clear_completed) {
+      allClearBadge.style.display = 'inline-block';
+    } else {
+      allClearBadge.style.display = 'none';
+    }
+  }
+}
+
+// 4. 미션 달성 검사 및 보상 지급
+async function checkAndRewardQuests() {
+  if (!currentQuestStatus) return;
+
+  const todayStr = getTodayString();
+  let updated = false;
+
+  // 퀘스트 1: 할 일 마스터 (+30 XP)
+  if ((currentQuestStatus.completed_tasks_count || 0) >= 10 && !currentQuestStatus.quest_1_completed) {
+    const res = await api.claimQuestReward(todayStr, 1, 30);
+    if (res.success) {
+      showToast("✨ 일일 미션 달성: 할 일 마스터! (+30 XP)");
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      currentQuestStatus.quest_1_completed = true;
+      updated = true;
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+  }
+
+  // 퀘스트 2: 기록 삼위일체 (+50 XP)
+  const isLogsComplete = currentQuestStatus.memo_written && currentQuestStatus.diary_written && currentQuestStatus.news_written;
+  if (isLogsComplete && !currentQuestStatus.quest_2_completed) {
+    const res = await api.claimQuestReward(todayStr, 2, 50);
+    if (res.success) {
+      showToast("✨ 일일 미션 달성: 기록 삼위일체! (+50 XP)");
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      currentQuestStatus.quest_2_completed = true;
+      updated = true;
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+  }
+
+  // 퀘스트 3: 지식의 기록 (+20 XP)
+  if (currentQuestStatus.book_logged && !currentQuestStatus.quest_3_completed) {
+    const res = await api.claimQuestReward(todayStr, 3, 20);
+    if (res.success) {
+      showToast("✨ 일일 미션 달성: 지식의 기록! (+20 XP)");
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      currentQuestStatus.quest_3_completed = true;
+      updated = true;
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+  }
+
+  // 퀘스트 4: 오늘 지표 기록 (+20 XP)
+  if (currentQuestStatus.metrics_logged && !currentQuestStatus.quest_4_completed) {
+    const res = await api.claimQuestReward(todayStr, 4, 20);
+    if (res.success) {
+      showToast("✨ 일일 미션 달성: 지표 기록 완료! (+20 XP)");
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      currentQuestStatus.quest_4_completed = true;
+      updated = true;
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+  }
+
+  // 올 클리어 보너스 (+50 XP)
+  const isAllClear = currentQuestStatus.quest_1_completed && 
+                     currentQuestStatus.quest_2_completed && 
+                     currentQuestStatus.quest_3_completed && 
+                     currentQuestStatus.quest_4_completed;
+
+  if (isAllClear && !currentQuestStatus.all_clear_completed) {
+    const res = await api.claimAllClearReward(todayStr, 50);
+    if (res.success) {
+      showToast("🏆 올 클리어 보너스 획득! (+50 XP)");
+      userStats = res.stats;
+      renderLevelHUD(userStats);
+      currentQuestStatus.all_clear_completed = true;
+      updated = true;
+      
+      triggerConfettiShow();
+      if (res.leveledUp) handleLevelUp(userStats.level);
+    }
+  }
+
+  if (updated) {
+    renderQuestWidget(currentQuestStatus);
+  }
+}
+
+// 5. 미션 진행 상황 업데이트 래퍼 함수
+async function triggerQuestUpdate(field, value) {
+  const todayStr = getTodayString();
+  const res = await api.updateQuestProgress(todayStr, field, value);
+  if (res.success && res.data) {
+    currentQuestStatus = res.data;
+    renderQuestWidget(currentQuestStatus);
+    await checkAndRewardQuests();
+  }
+}
+
+// 6. 완료한 할 일 수 업데이트 래퍼
+async function triggerTasksQuestUpdate() {
+  const todayStr = getTodayString();
+  const res = await api.updateCompletedTasksQuestCount(todayStr);
+  if (res.success && res.data) {
+    currentQuestStatus = res.data;
+    renderQuestWidget(currentQuestStatus);
+    await checkAndRewardQuests();
+  }
+}
+
+// 7. 레벨업 핸들러
+function handleLevelUp(newLevel) {
+  triggerConfettiShow();
+  
+  const modal = document.getElementById('levelUpModalOverlay');
+  const badge = document.getElementById('levelUpModalBadge');
+  const closeBtn = document.getElementById('levelUpModalCloseBtn');
+  
+  if (modal && badge) {
+    badge.innerText = `Lv. ${newLevel}`;
+    modal.classList.remove('hidden');
+    modal.classList.add('show');
+    
+    closeBtn.onclick = () => {
+      modal.classList.remove('show');
+      modal.classList.add('hidden');
+    };
+  }
+}
+
+// 8. 꽃가루 연출
+function triggerConfettiShow() {
+  if (typeof confetti === 'function') {
+    const duration = 2.5 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.8 }
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.8 }
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
+  }
+}
+
+// 9. 가볍고 세련된 토스트 메시지 함수
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.innerText = message;
+  toast.style.position = 'fixed';
+  toast.style.bottom = '100px';
+  toast.style.left = '50%';
+  toast.style.transform = 'translateX(-50%)';
+  toast.style.background = 'rgba(15, 23, 42, 0.9)';
+  toast.style.color = '#ffffff';
+  toast.style.padding = '12px 24px';
+  toast.style.borderRadius = '24px';
+  toast.style.fontSize = '14px';
+  toast.style.fontWeight = '800';
+  toast.style.zIndex = '10000';
+  toast.style.boxShadow = '0 10px 25px rgba(0,0,0,0.2)';
+  toast.style.border = '1px solid rgba(255,255,255,0.1)';
+  toast.style.animation = 'fadeInOut 2.5s ease forwards';
+  
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translate(-50%, 20px); }
+      15% { opacity: 1; transform: translate(-50%, 0); }
+      85% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -20px); }
+    }
+  `;
+  document.head.appendChild(style);
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.remove();
+    style.remove();
+  }, 2500);
+}
+
 

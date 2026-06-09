@@ -661,5 +661,245 @@ const api = {
       console.error(e);
       return { success: false, error: e.message };
     }
+  },
+
+  // === 게이미피케이션 & 일일 미션 API ===
+
+  // 1. 사용자 스탯 가져오기 (없으면 새로 생성)
+  async getUserStats() {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      const { data, error } = await supabaseClient
+        .from('user_stats')
+        .select()
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (!data) {
+        const { data: newStats, error: insertError } = await supabaseClient
+          .from('user_stats')
+          .insert({ user_id: user.id, level: 1, xp: 0 })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        return newStats;
+      }
+      return data;
+    } catch (e) {
+      console.error("getUserStats error:", e);
+      return { level: 1, xp: 0 };
+    }
+  },
+
+  // 2. 특정 날짜의 일일 미션 현황 조회 (없으면 기본값 생성)
+  async getDailyQuestStatus(dateStr) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      const { data, error } = await supabaseClient
+        .from('daily_quest_status')
+        .select()
+        .eq('user_id', user.id)
+        .eq('date', dateStr)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!data) {
+        // 오늘 날짜의 미션 진행도가 없으면 새로 생성
+        const targetDate = new Date(dateStr);
+        const s = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+        const e = new Date(s.getTime() + 86400000);
+        
+        const { count, error: countError } = await supabaseClient
+          .from('tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', '완료')
+          .gte('created_at', s.toISOString())
+          .lt('created_at', e.toISOString());
+
+        const [{data: memo}, {data: diary}, {data: news}] = await Promise.all([
+          supabaseClient.from('daily_memos').select('content').eq('date', dateStr).maybeSingle(),
+          supabaseClient.from('daily_diaries').select('content').eq('date', dateStr).maybeSingle(),
+          supabaseClient.from('daily_news').select('content').eq('date', dateStr).maybeSingle()
+        ]);
+
+        const memoWritten = !!(memo && memo.content && memo.content.trim().length > 0);
+        const diaryWritten = !!(diary && diary.content && diary.content.trim().length > 0);
+        const newsWritten = !!(news && news.content && news.content.trim().length > 0);
+
+        const { data: newQuest, error: insertError } = await supabaseClient
+          .from('daily_quest_status')
+          .insert({
+            user_id: user.id,
+            date: dateStr,
+            completed_tasks_count: countError ? 0 : (count || 0),
+            memo_written: memoWritten,
+            diary_written: diaryWritten,
+            news_written: newsWritten,
+            book_logged: false,
+            metrics_logged: false
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        return newQuest;
+      }
+      return data;
+    } catch (e) {
+      console.error("getDailyQuestStatus error:", e);
+      return null;
+    }
+  },
+
+  // 3. 일일 미션 진행도 업데이트
+  async updateQuestProgress(dateStr, field, value) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      await this.getDailyQuestStatus(dateStr);
+
+      const updateData = { updated_at: new Date().toISOString() };
+      updateData[field] = value;
+
+      const { data, error } = await supabaseClient
+        .from('daily_quest_status')
+        .update(updateData)
+        .eq('user_id', user.id)
+        .eq('date', dateStr)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error("updateQuestProgress error:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 4. 할 일 완료 개수 갱신
+  async updateCompletedTasksQuestCount(dateStr) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      const targetDate = new Date(dateStr);
+      const s = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+      const e = new Date(s.getTime() + 86400000);
+
+      const { count, error: countError } = await supabaseClient
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', '완료')
+        .gte('created_at', s.toISOString())
+        .lt('created_at', e.toISOString());
+
+      if (countError) throw countError;
+
+      return await this.updateQuestProgress(dateStr, 'completed_tasks_count', count || 0);
+    } catch (e) {
+      console.error("updateCompletedTasksQuestCount error:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 5. 미션 완료 및 보상 처리
+  async claimQuestReward(dateStr, questNum, rewardXp) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      const questField = `quest_${questNum}_completed`;
+      const updateQuest = { updated_at: new Date().toISOString() };
+      updateQuest[questField] = true;
+
+      const { error: questError } = await supabaseClient
+        .from('daily_quest_status')
+        .update(updateQuest)
+        .eq('user_id', user.id)
+        .eq('date', dateStr);
+
+      if (questError) throw questError;
+
+      return await this._addXp(user.id, rewardXp);
+    } catch (e) {
+      console.error("claimQuestReward error:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 6. 올 클리어 보상 처리
+  async claimAllClearReward(dateStr, rewardXp) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+
+      const { error: questError } = await supabaseClient
+        .from('daily_quest_status')
+        .update({
+          all_clear_completed: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+        .eq('date', dateStr);
+
+      if (questError) throw questError;
+
+      return await this._addXp(user.id, rewardXp);
+    } catch (e) {
+      console.error("claimAllClearReward error:", e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // 내부 경험치 가산 공통 함수
+  async _addXp(userId, xpToAdd) {
+    const { data: stats, error: statsError } = await supabaseClient
+      .from('user_stats')
+      .select()
+      .eq('user_id', userId)
+      .single();
+
+    if (statsError) throw statsError;
+
+    let newXp = stats.xp + xpToAdd;
+    let newLevel = stats.level;
+    let leveledUp = false;
+
+    while (true) {
+      const requiredXp = newLevel * 100;
+      if (newXp >= requiredXp) {
+        newXp -= requiredXp;
+        newLevel += 1;
+        leveledUp = true;
+      } else {
+        break;
+      }
+    }
+
+    const { data: updatedStats, error: updateError } = await supabaseClient
+      .from('user_stats')
+      .update({
+        level: newLevel,
+        xp: newXp,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    return { success: true, stats: updatedStats, leveledUp };
   }
 };
+

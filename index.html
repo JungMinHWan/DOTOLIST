@@ -3,18 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <title>Todo List</title>
+  <title>Grow Quest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css?v=3.1">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Confetti 라이브러리 추가 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
   <div class="header">
     <div class="header-top">
-      <h1 id="todoListHeaderTitle" style="user-select: none; -webkit-user-select: none; cursor: pointer;"><img src="./images/logo.png" alt="로고" class="header-logo"> TODO LIST</h1>
+      <h1 id="todoListHeaderTitle" style="user-select: none; -webkit-user-select: none; cursor: pointer;"><img src="./images/logo.png" alt="로고" class="header-logo"> GROW QUEST</h1>
       <div class="header-actions">
         <button class="icon-btn" id="searchToggleBtn">🔍</button>
         <button class="icon-btn" id="memoToggleBtn" title="메모">
@@ -87,9 +89,77 @@
         <button class="action-btn" id="saveNewsBtn">신문 저장</button>
       </div>
     </div>
+
+    <!-- 레벨 HUD 추가 -->
+    <div class="level-hud-container">
+      <div class="level-hud-info">
+        <div class="level-badge" id="hudLevel">Lv. 1</div>
+        <div class="level-bar-wrapper">
+          <div class="level-bar-fill" id="hudLevelBar" style="width: 0%;"></div>
+        </div>
+        <div class="level-xp-text" id="hudXpText">0 / 100 XP</div>
+      </div>
+    </div>
   </div>
   
   <div class="container">
+    <!-- 오늘의 미션 현황판 추가 -->
+    <div class="quest-section" id="questSection">
+      <div class="quest-header">
+        <span class="quest-title">🎯 오늘의 미션</span>
+        <span class="quest-all-clear-badge" id="questAllClearBadge" style="display: none;">ALL CLEAR! (+50 XP)</span>
+      </div>
+      <div class="quest-list-wrapper">
+        <!-- 퀘스트 1: 할 일 마스터 -->
+        <div class="quest-card" id="questCard1">
+          <div class="quest-card-left">
+            <span class="quest-card-status-icon">🏃</span>
+            <div class="quest-card-text">
+              <div class="quest-card-title">할 일 마스터 <span class="quest-xp-reward">+30 XP</span></div>
+              <div class="quest-card-desc" id="questDesc1">오늘의 할 일 10개 완료 (0/10)</div>
+            </div>
+          </div>
+          <div class="quest-card-checkbox" id="questCheck1"></div>
+        </div>
+        
+        <!-- 퀘스트 2: 기록 삼위일체 -->
+        <div class="quest-card" id="questCard2">
+          <div class="quest-card-left">
+            <span class="quest-card-status-icon">✍️</span>
+            <div class="quest-card-text">
+              <div class="quest-card-title">기록 삼위일체 <span class="quest-xp-reward">+50 XP</span></div>
+              <div class="quest-card-desc" id="questDesc2">오늘 메모, 일기, 신문 모두 작성 (0/3)</div>
+            </div>
+          </div>
+          <div class="quest-card-checkbox" id="questCheck2"></div>
+        </div>
+
+        <!-- 퀘스트 3: 지식의 기록 -->
+        <div class="quest-card" id="questCard3">
+          <div class="quest-card-left">
+            <span class="quest-card-status-icon">📚</span>
+            <div class="quest-card-text">
+              <div class="quest-card-title">지식의 기록 <span class="quest-xp-reward">+20 XP</span></div>
+              <div class="quest-card-desc" id="questDesc3">책 등록 또는 독서 메모 작성 (0/1)</div>
+            </div>
+          </div>
+          <div class="quest-card-checkbox" id="questCheck3"></div>
+        </div>
+
+        <!-- 퀘스트 4: 오늘 지표 기록 -->
+        <div class="quest-card" id="questCard4">
+          <div class="quest-card-left">
+            <span class="quest-card-status-icon">📊</span>
+            <div class="quest-card-text">
+              <div class="quest-card-title">지표 기록 완료 <span class="quest-xp-reward">+20 XP</span></div>
+              <div class="quest-card-desc" id="questDesc4">오늘의 일일 지표 기록 및 저장 (0/1)</div>
+            </div>
+          </div>
+          <div class="quest-card-checkbox" id="questCheck4"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="goal-section" id="goalSection">
       <div class="goal-label">🎯 목표</div>
       <div class="goal-bar" id="goalBar">
@@ -321,6 +391,17 @@
           <div class="vault-auth-error hidden" id="vaultChangePwError">비밀번호가 일치하지 않습니다.</div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Level Up Modal -->
+  <div class="level-modal-overlay hidden" id="levelUpModalOverlay">
+    <div class="level-modal">
+      <div class="level-modal-sparkle">👑</div>
+      <div class="level-modal-title">LEVEL UP!</div>
+      <div class="level-modal-badge" id="levelUpModalBadge">Lv. 2</div>
+      <div class="level-modal-desc">축하합니다! 새로운 성장을 응원합니다.</div>
+      <button class="level-modal-close-btn" id="levelUpModalCloseBtn">확인</button>
     </div>
   </div>
 
