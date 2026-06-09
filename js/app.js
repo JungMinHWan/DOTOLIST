@@ -340,6 +340,30 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
   setupAutoSaveEvents();
+
+  // === 오늘의 미션 드롭다운 토글 기능 바인딩 ===
+  const levelHudInfo = document.getElementById('levelHudInfo');
+  const questSection = document.getElementById('questSection');
+  const levelToggleArrow = document.getElementById('levelToggleArrow');
+  if (levelHudInfo && questSection) {
+    levelHudInfo.onclick = () => {
+      const isCollapsed = questSection.classList.toggle('collapsed');
+      if (levelToggleArrow) {
+        levelToggleArrow.classList.toggle('rotated', !isCollapsed);
+      }
+      localStorage.setItem('questSectionCollapsed', isCollapsed ? 'true' : 'false');
+    };
+    
+    // 초기 접힘 상태 복원 (기본값은 접혀 있는 true)
+    const storedCollapsed = localStorage.getItem('questSectionCollapsed');
+    if (storedCollapsed === 'false') {
+      questSection.classList.remove('collapsed');
+      if (levelToggleArrow) levelToggleArrow.classList.add('rotated');
+    } else {
+      questSection.classList.add('collapsed');
+      if (levelToggleArrow) levelToggleArrow.classList.remove('rotated');
+    }
+  }
 });
 
 async function loadGoal() {
@@ -1868,12 +1892,14 @@ async function loadGamification() {
 
 // 2. 레벨 HUD 그리기
 function renderLevelHUD(stats) {
-  const levelBadge = document.getElementById('hudLevel');
+  const levelNum = document.getElementById('hudLevelNum');
   const levelBarFill = document.getElementById('hudLevelBar');
   const xpText = document.getElementById('hudXpText');
 
-  if (levelBadge && levelBarFill && xpText) {
-    levelBadge.innerText = `Lv. ${stats.level}`;
+  if (levelNum) {
+    levelNum.innerText = stats.level;
+  }
+  if (levelBarFill && xpText) {
     const requiredXp = stats.level * 100;
     const progressPercent = Math.min((stats.xp / requiredXp) * 100, 100);
     levelBarFill.style.width = `${progressPercent}%`;

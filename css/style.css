@@ -1196,26 +1196,45 @@ body {
 .level-hud-container {
   margin-top: 14px;
   background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: var(--radius-md);
-  padding: 10px 16px;
+  padding: 12px 16px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .level-hud-info {
   display: flex;
   align-items: center;
   gap: 12px;
+  user-select: none;
+}
+.level-hud-info:hover .level-badge {
+  background: var(--theme-light-bg);
+  transform: translateY(-1px);
 }
 .level-badge {
   background: white;
   color: var(--theme-primary-dark);
-  font-weight: 900;
+  font-weight: 950;
   font-size: 13px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 12px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+.toggle-arrow {
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+.toggle-arrow.rotated {
+  transform: rotate(180deg);
 }
 .level-bar-wrapper {
   flex: 1;
@@ -1241,12 +1260,23 @@ body {
 
 /* 2. Daily Quests Section */
 .quest-section {
-  background: var(--card-bg);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 800px;
+  opacity: 1;
+  overflow: hidden;
+  margin-top: 14px;
+  padding: 16px 12px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+.quest-section.collapsed {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 0;
+  opacity: 0;
+  border-top-color: transparent;
+  pointer-events: none;
 }
 .quest-header {
   display: flex;

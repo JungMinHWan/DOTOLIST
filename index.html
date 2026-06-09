@@ -90,77 +90,76 @@
       </div>
     </div>
 
-    <!-- 레벨 HUD 추가 -->
+    <!-- 레벨 HUD 및 오늘의 미션 (드롭다운 구성) -->
     <div class="level-hud-container">
-      <div class="level-hud-info">
-        <div class="level-badge" id="hudLevel">Lv. 1</div>
+      <div class="level-hud-info" id="levelHudInfo" style="cursor: pointer;">
+        <div class="level-badge" id="hudLevel">Lv. <span id="hudLevelNum">1</span> <span class="toggle-arrow" id="levelToggleArrow">▼</span></div>
         <div class="level-bar-wrapper">
           <div class="level-bar-fill" id="hudLevelBar" style="width: 0%;"></div>
         </div>
         <div class="level-xp-text" id="hudXpText">0 / 100 XP</div>
       </div>
+      
+      <!-- 오늘의 미션 현황판 추가 (레벨 HUD 하위로 이동, 기본 접힘) -->
+      <div class="quest-section collapsed" id="questSection">
+        <div class="quest-header">
+          <span class="quest-title">🎯 오늘의 미션</span>
+          <span class="quest-all-clear-badge" id="questAllClearBadge" style="display: none;">ALL CLEAR! (+50 XP)</span>
+        </div>
+        <div class="quest-list-wrapper">
+          <!-- 퀘스트 1: 할 일 마스터 -->
+          <div class="quest-card" id="questCard1">
+            <div class="quest-card-left">
+              <span class="quest-card-status-icon">🏃</span>
+              <div class="quest-card-text">
+                <div class="quest-card-title">할 일 마스터 <span class="quest-xp-reward">+30 XP</span></div>
+                <div class="quest-card-desc" id="questDesc1">오늘의 할 일 10개 완료 (0/10)</div>
+              </div>
+            </div>
+            <div class="quest-card-checkbox" id="questCheck1"></div>
+          </div>
+          
+          <!-- 퀘스트 2: 기록 삼위일체 -->
+          <div class="quest-card" id="questCard2">
+            <div class="quest-card-left">
+              <span class="quest-card-status-icon">✍️</span>
+              <div class="quest-card-text">
+                <div class="quest-card-title">기록 삼위일체 <span class="quest-xp-reward">+50 XP</span></div>
+                <div class="quest-card-desc" id="questDesc2">오늘 메모, 일기, 신문 모두 작성 (0/3)</div>
+              </div>
+            </div>
+            <div class="quest-card-checkbox" id="questCheck2"></div>
+          </div>
+
+          <!-- 퀘스트 3: 지식의 기록 -->
+          <div class="quest-card" id="questCard3">
+            <div class="quest-card-left">
+              <span class="quest-card-status-icon">📚</span>
+              <div class="quest-card-text">
+                <div class="quest-card-title">지식의 기록 <span class="quest-xp-reward">+20 XP</span></div>
+                <div class="quest-card-desc" id="questDesc3">책 등록 또는 독서 메모 작성 (0/1)</div>
+              </div>
+            </div>
+            <div class="quest-card-checkbox" id="questCheck3"></div>
+          </div>
+
+          <!-- 퀘스트 4: 오늘 지표 기록 -->
+          <div class="quest-card" id="questCard4">
+            <div class="quest-card-left">
+              <span class="quest-card-status-icon">📊</span>
+              <div class="quest-card-text">
+                <div class="quest-card-title">지표 기록 완료 <span class="quest-xp-reward">+20 XP</span></div>
+                <div class="quest-card-desc" id="questDesc4">오늘의 일일 지표 기록 및 저장 (0/1)</div>
+              </div>
+            </div>
+            <div class="quest-card-checkbox" id="questCheck4"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   
   <div class="container">
-    <!-- 오늘의 미션 현황판 추가 -->
-    <div class="quest-section" id="questSection">
-      <div class="quest-header">
-        <span class="quest-title">🎯 오늘의 미션</span>
-        <span class="quest-all-clear-badge" id="questAllClearBadge" style="display: none;">ALL CLEAR! (+50 XP)</span>
-      </div>
-      <div class="quest-list-wrapper">
-        <!-- 퀘스트 1: 할 일 마스터 -->
-        <div class="quest-card" id="questCard1">
-          <div class="quest-card-left">
-            <span class="quest-card-status-icon">🏃</span>
-            <div class="quest-card-text">
-              <div class="quest-card-title">할 일 마스터 <span class="quest-xp-reward">+30 XP</span></div>
-              <div class="quest-card-desc" id="questDesc1">오늘의 할 일 10개 완료 (0/10)</div>
-            </div>
-          </div>
-          <div class="quest-card-checkbox" id="questCheck1"></div>
-        </div>
-        
-        <!-- 퀘스트 2: 기록 삼위일체 -->
-        <div class="quest-card" id="questCard2">
-          <div class="quest-card-left">
-            <span class="quest-card-status-icon">✍️</span>
-            <div class="quest-card-text">
-              <div class="quest-card-title">기록 삼위일체 <span class="quest-xp-reward">+50 XP</span></div>
-              <div class="quest-card-desc" id="questDesc2">오늘 메모, 일기, 신문 모두 작성 (0/3)</div>
-            </div>
-          </div>
-          <div class="quest-card-checkbox" id="questCheck2"></div>
-        </div>
-
-        <!-- 퀘스트 3: 지식의 기록 -->
-        <div class="quest-card" id="questCard3">
-          <div class="quest-card-left">
-            <span class="quest-card-status-icon">📚</span>
-            <div class="quest-card-text">
-              <div class="quest-card-title">지식의 기록 <span class="quest-xp-reward">+20 XP</span></div>
-              <div class="quest-card-desc" id="questDesc3">책 등록 또는 독서 메모 작성 (0/1)</div>
-            </div>
-          </div>
-          <div class="quest-card-checkbox" id="questCheck3"></div>
-        </div>
-
-        <!-- 퀘스트 4: 오늘 지표 기록 -->
-        <div class="quest-card" id="questCard4">
-          <div class="quest-card-left">
-            <span class="quest-card-status-icon">📊</span>
-            <div class="quest-card-text">
-              <div class="quest-card-title">지표 기록 완료 <span class="quest-xp-reward">+20 XP</span></div>
-              <div class="quest-card-desc" id="questDesc4">오늘의 일일 지표 기록 및 저장 (0/1)</div>
-            </div>
-          </div>
-          <div class="quest-card-checkbox" id="questCheck4"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="goal-section" id="goalSection">
       <div class="goal-label">🎯 목표</div>
       <div class="goal-bar" id="goalBar">
         <span id="goalText">오늘의 목표를 설정해보세요.</span>
