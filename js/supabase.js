@@ -237,7 +237,7 @@ const api = {
         createdAt.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
       }
 
-      // 해당 일자의 기존 태스크들을 조회해 가장 큰 sort_order 값을 찾음
+      // 해당 일자의 기존 태스크들을 조회해 가장 작은 sort_order 값을 찾음 (상단에 띄우기 위해)
       const s = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate());
       const e = new Date(s.getTime() + 86400000);
       
@@ -249,8 +249,8 @@ const api = {
         
       let nextOrder = 1;
       if (!fetchError && existingTasks && existingTasks.length > 0) {
-        const orders = existingTasks.map(t => t.sort_order || 0);
-        nextOrder = Math.max(...orders) + 1;
+        const orders = existingTasks.map(t => t.sort_order !== undefined && t.sort_order !== null ? t.sort_order : 0);
+        nextOrder = Math.min(...orders) - 1;
       }
 
       const { error } = await supabaseClient
