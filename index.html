@@ -317,7 +317,7 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js?v=2')
+        navigator.serviceWorker.register('./service-worker.js?v=3')
           .then(reg => console.log('Service Worker registered!', reg))
           .catch(err => console.error('Service Worker registration failed:', err));
       });
@@ -404,7 +404,49 @@
     </div>
   </div>
 
+  <!-- Tetris Modal -->
+  <div class="tetris-modal-overlay hidden" id="tetrisModalOverlay">
+    <div class="tetris-modal">
+      <div class="tetris-modal-header">
+        <div class="tetris-title">👾 GROW TETRIS</div>
+        <button class="tetris-modal-close" id="tetrisModalClose">×</button>
+      </div>
+      <div class="tetris-modal-body">
+        <div class="tetris-game-area">
+          <canvas id="tetrisCanvas" width="240" height="480"></canvas>
+          <div class="tetris-side-panel">
+            <div class="tetris-next-panel">
+              <div class="tetris-label">NEXT</div>
+              <canvas id="tetrisNextCanvas" width="80" height="80"></canvas>
+            </div>
+            <div class="tetris-info-panel">
+              <div class="tetris-info-item">
+                <div class="tetris-label">SCORE</div>
+                <div class="tetris-value" id="tetrisScore">0</div>
+              </div>
+              <div class="tetris-info-item">
+                <div class="tetris-label">LEVEL</div>
+                <div class="tetris-value" id="tetrisLevel">1</div>
+              </div>
+            </div>
+            <button class="tetris-btn" id="tetrisPauseBtn">PAUSE</button>
+            <button class="tetris-btn" id="tetrisRestartBtn">RESET</button>
+          </div>
+        </div>
+        <!-- Mobile Virtual Controls -->
+        <div class="tetris-mobile-controls">
+          <button class="ctrl-btn ctrl-left" id="ctrlLeft">←</button>
+          <button class="ctrl-btn ctrl-rotate" id="ctrlRotate">↻</button>
+          <button class="ctrl-btn ctrl-right" id="ctrlRight">→</button>
+          <button class="ctrl-btn ctrl-soft" id="ctrlSoft">↓</button>
+          <button class="ctrl-btn ctrl-hard" id="ctrlHard">⚡</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/supabase.js"></script>
   <script src="./js/app.js?v=3.4"></script>
+  <script src="./js/tetris.js"></script>
 </body>
 </html>

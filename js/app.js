@@ -336,7 +336,50 @@ document.addEventListener('DOMContentLoaded', async function() {
 
   // === 회사 비밀번호 금고(비밀 메모장) 기능 바인딩 ===
   setupVaultEvents();
-  document.getElementById('todoListHeaderTitle').onclick = openVaultAuthModal;
+  
+  // === GROW QUEST 롱프레스(테트리스) 및 클릭(보안 인증) 통합 이벤트 바인딩 ===
+  const headerTitle = document.getElementById('todoListHeaderTitle');
+  let longPressTimer = null;
+  let isLongPressTriggered = false;
+
+  function startPress(e) {
+    isLongPressTriggered = false;
+    headerTitle.classList.add('long-press-active');
+    
+    longPressTimer = setTimeout(() => {
+      isLongPressTriggered = true;
+      headerTitle.classList.remove('long-press-active');
+      if (navigator.vibrate) {
+        navigator.vibrate([80]);
+      }
+      if (window.growTetris && typeof window.growTetris.open === 'function') {
+        window.growTetris.open();
+      }
+    }, 1200); // 1.2초
+  }
+
+  function endPress(e) {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    headerTitle.classList.remove('long-press-active');
+  }
+
+  headerTitle.addEventListener('mousedown', startPress);
+  headerTitle.addEventListener('touchstart', startPress, { passive: true });
+  headerTitle.addEventListener('mouseup', endPress);
+  headerTitle.addEventListener('mouseleave', endPress);
+  headerTitle.addEventListener('touchend', endPress);
+  headerTitle.addEventListener('touchcancel', endPress);
+
+  headerTitle.onclick = function(e) {
+    if (isLongPressTriggered) {
+      isLongPressTriggered = false; // 플래그 리셋
+      return;
+    }
+    openVaultAuthModal();
+  };
 
   // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
   setupAutoSaveEvents();
