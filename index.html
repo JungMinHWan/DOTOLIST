@@ -433,14 +433,121 @@
             <button class="tetris-btn" id="tetrisRestartBtn">RESET</button>
           </div>
         </div>
-        <!-- Mobile Virtual Controls -->
+        <!-- Mobile Virtual Controls (Reordered & Simplified) -->
         <div class="tetris-mobile-controls">
-          <button class="ctrl-btn ctrl-left" id="ctrlLeft">←</button>
-          <button class="ctrl-btn ctrl-rotate" id="ctrlRotate">↻</button>
-          <button class="ctrl-btn ctrl-right" id="ctrlRight">→</button>
-          <button class="ctrl-btn ctrl-soft" id="ctrlSoft">↓</button>
-          <button class="ctrl-btn ctrl-hard" id="ctrlHard">⚡</button>
+          <button class="ctrl-btn ctrl-hard" id="ctrlHard" title="한번에 내리기">⚡</button>
+          <button class="ctrl-btn ctrl-rotate" id="ctrlRotate" title="방향전환">↻</button>
+          <button class="ctrl-btn ctrl-left" id="ctrlLeft" title="왼쪽 이동">←</button>
+          <button class="ctrl-btn ctrl-right" id="ctrlRight" title="오른쪽 이동">→</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Selection Modal -->
+  <div class="feature-modal-overlay hidden" id="featureSelectionModal">
+    <div class="feature-modal">
+      <div class="feature-modal-header">
+        <div class="feature-modal-title">🛠️ GROW MENU</div>
+        <button class="feature-modal-close" id="featureSelectionClose">×</button>
+      </div>
+      <div class="feature-modal-body">
+        <p class="feature-modal-hint">실행할 도구를 선택해 주세요.</p>
+        <div class="feature-cards">
+          <div class="feature-card" id="btnSelectTetris">
+            <div class="feature-card-icon">👾</div>
+            <div class="feature-card-title">GROW TETRIS</div>
+            <div class="feature-card-desc">집중력을 높이는 테트리스 게임</div>
+          </div>
+          <div class="feature-card" id="btnSelectNap">
+            <div class="feature-card-icon">🎧</div>
+            <div class="feature-card-title">낮잠 바이노럴 비트</div>
+            <div class="feature-card-desc">40분 과학적 낮잠 플레이어</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nap Binaural Beats Modal -->
+  <div class="nap-modal-overlay hidden" id="napModalOverlay">
+    <div class="nap-modal">
+      <div class="nap-modal-header">
+        <div class="nap-title">🎧 낮잠 바이노럴 비트</div>
+        <button class="nap-modal-close" id="napModalClose">×</button>
+      </div>
+      <div class="nap-modal-body">
+        <div class="phase-bar-wrap">
+          <div class="phase-bar">
+            <div class="p1"></div>
+            <div class="p2"></div>
+            <div class="p3"></div>
+          </div>
+          <div class="phase-label-row">
+            <div class="phase-label">입면 유도<br>0–10분</div>
+            <div class="phase-label">낮잠 수면<br>10–35분</div>
+            <div class="phase-label">기상<br>35–40분</div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="napProg"></div>
+          </div>
+          <div class="time-row">
+            <span class="time-tick">0</span>
+            <span class="time-tick">10분</span>
+            <span class="time-tick">35분</span>
+            <span class="time-tick">40분</span>
+          </div>
+        </div>
+
+        <div class="big-timer">
+          <div class="elapsed" id="napElapsed">00:00</div>
+          <div class="total">/ 40:00</div>
+        </div>
+
+        <div class="phase-info" id="napPhaseInfo">
+          <div class="phase-dot" id="napPhaseDot" style="background:#9FE1CB"></div>
+          <div class="phase-info-text">
+            <div class="name" id="napPhaseName">대기 중</div>
+            <div class="desc" id="napPhaseDesc">시작 버튼을 눌러 낮잠을 시작하세요</div>
+          </div>
+        </div>
+
+        <div class="freq-cards">
+          <div class="freq-card">
+            <div class="label">왼쪽 귀</div>
+            <div class="val" id="napFreqL">300</div>
+            <div class="unit">Hz</div>
+          </div>
+          <div class="freq-card">
+            <div class="label">바이노럴 비트</div>
+            <div class="val" id="napFreqBeat">10</div>
+            <div class="unit">Hz</div>
+          </div>
+          <div class="freq-card">
+            <div class="label">오른쪽 귀</div>
+            <div class="val" id="napFreqR">310</div>
+            <div class="unit">Hz</div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button id="btnNapPlay">시작</button>
+          <button id="btnNapStop">정지</button>
+        </div>
+
+        <div class="vol-row">
+          <label for="napVol">볼륨</label>
+          <input type="range" id="napVol" min="0" max="100" value="40" step="1">
+          <span id="napVolOut">40</span>
+        </div>
+
+        <div class="alarm-row">
+          <label>기상 알람</label>
+          <button class="alarm-toggle on" id="napAlarmToggle" aria-label="기상 알람 켜기/끄기"></button>
+          <span id="napAlarmLabel" style="font-size:13px;color:rgba(255, 255, 255, 0.6)">켜짐</span>
+        </div>
+
+        <div class="notice">반드시 헤드폰을 착용하세요 — 이어폰도 좋습니다</div>
       </div>
     </div>
   </div>
@@ -448,5 +555,6 @@
   <script src="./js/supabase.js"></script>
   <script src="./js/app.js?v=3.4"></script>
   <script src="./js/tetris.js"></script>
+  <script src="./js/nap.js"></script>
 </body>
 </html>

@@ -352,8 +352,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (navigator.vibrate) {
         navigator.vibrate([80]);
       }
-      if (window.growTetris && typeof window.growTetris.open === 'function') {
-        window.growTetris.open();
+      if (window.featureMenu && typeof window.featureMenu.open === 'function') {
+        window.featureMenu.open();
       }
     }, 1200); // 1.2초
   }

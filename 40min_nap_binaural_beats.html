@@ -1,0 +1,287 @@
+
+<style>
+h2.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.wrap{padding:1.5rem 0}
+.header{text-align:center;margin-bottom:1.5rem}
+.phase-bar-wrap{background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:1rem 1.25rem;margin-bottom:1rem}
+.phase-label-row{display:flex;justify-content:space-between;margin-bottom:8px}
+.phase-label{font-size:12px;color:var(--color-text-secondary);text-align:center;flex:1}
+.phase-bar{display:flex;height:10px;border-radius:6px;overflow:hidden;margin-bottom:6px}
+.p1{background:#9FE1CB;flex:0 0 25%}
+.p2{background:#1D9E75;flex:0 0 62.5%}
+.p3{background:#5DCAA5;flex:0 0 12.5%}
+.progress-track{position:relative;height:10px;border-radius:6px;background:var(--color-border-tertiary);margin-top:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:6px;background:#1D9E75;width:0%;transition:width 1s linear}
+.time-row{display:flex;justify-content:space-between;margin-top:4px}
+.time-tick{font-size:11px;color:var(--color-text-tertiary)}
+.big-timer{text-align:center;margin:1.25rem 0}
+.big-timer .elapsed{font-size:48px;font-weight:500;letter-spacing:-1px;color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+.big-timer .total{font-size:14px;color:var(--color-text-secondary);margin-top:2px}
+.phase-info{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:12px}
+.phase-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.phase-info-text .name{font-size:14px;font-weight:500;color:var(--color-text-primary)}
+.phase-info-text .desc{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.freq-cards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:1rem}
+.freq-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.75rem;text-align:center}
+.freq-card .label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px}
+.freq-card .val{font-size:18px;font-weight:500;color:var(--color-text-primary);font-variant-numeric:tabular-nums}
+.freq-card .unit{font-size:11px;color:var(--color-text-secondary)}
+.btn-row{display:flex;gap:8px;justify-content:center;margin-bottom:1rem}
+.btn-row button{padding:0.6rem 1.5rem;font-size:14px;font-weight:500;border-radius:var(--border-radius-md);cursor:pointer}
+#btn-play{background:#1D9E75;color:#fff;border:none}
+#btn-play:hover{background:#0F6E56}
+#btn-stop{background:none;border:0.5px solid var(--color-border-secondary);color:var(--color-text-primary)}
+#btn-stop:hover{background:var(--color-background-secondary)}
+.vol-row{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:0.75rem}
+.vol-row label{font-size:13px;color:var(--color-text-secondary)}
+.vol-row input{width:120px}
+.vol-row span{font-size:13px;color:var(--color-text-primary);min-width:32px}
+.notice{font-size:12px;color:var(--color-text-tertiary);text-align:center;margin-top:0.5rem}
+.alarm-row{display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:1rem}
+.alarm-row label{font-size:13px;color:var(--color-text-secondary)}
+.alarm-toggle{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;background:var(--color-border-tertiary);transition:background .2s}
+.alarm-toggle.on{background:#1D9E75}
+.alarm-toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}
+.alarm-toggle.on::after{left:19px}
+</style>
+
+<div class="wrap">
+<h2 class="sr-only">40분 낮잠 바이노럴 비트 플레이어 — 입면 유도, 수면 유지, 기상 준비 3단계 자동 전환</h2>
+
+<div class="phase-bar-wrap">
+  <div class="phase-bar">
+    <div class="p1"></div>
+    <div class="p2"></div>
+    <div class="p3"></div>
+  </div>
+  <div class="phase-label-row">
+    <div class="phase-label">입면 유도<br>0–10분</div>
+    <div class="phase-label">낮잠 수면<br>10–35분</div>
+    <div class="phase-label">기상<br>35–40분</div>
+  </div>
+  <div class="progress-track">
+    <div class="progress-fill" id="prog"></div>
+  </div>
+  <div class="time-row">
+    <span class="time-tick">0</span>
+    <span class="time-tick">10분</span>
+    <span class="time-tick">35분</span>
+    <span class="time-tick">40분</span>
+  </div>
+</div>
+
+<div class="big-timer">
+  <div class="elapsed" id="elapsed">00:00</div>
+  <div class="total">/ 40:00</div>
+</div>
+
+<div class="phase-info" id="phase-info">
+  <div class="phase-dot" id="phase-dot" style="background:#9FE1CB"></div>
+  <div class="phase-info-text">
+    <div class="name" id="phase-name">대기 중</div>
+    <div class="desc" id="phase-desc">재생 버튼을 눌러 시작하세요</div>
+  </div>
+</div>
+
+<div class="freq-cards">
+  <div class="freq-card">
+    <div class="label">왼쪽 귀</div>
+    <div class="val" id="freq-l">300</div>
+    <div class="unit">Hz</div>
+  </div>
+  <div class="freq-card">
+    <div class="label">바이노럴 비트</div>
+    <div class="val" id="freq-beat">10</div>
+    <div class="unit">Hz</div>
+  </div>
+  <div class="freq-card">
+    <div class="label">오른쪽 귀</div>
+    <div class="val" id="freq-r">310</div>
+    <div class="unit">Hz</div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button id="btn-play"><i class="ti ti-player-play" aria-hidden="true"></i> 시작</button>
+  <button id="btn-stop"><i class="ti ti-player-stop" aria-hidden="true"></i> 정지</button>
+</div>
+
+<div class="vol-row">
+  <label for="vol">볼륨</label>
+  <input type="range" id="vol" min="0" max="100" value="40" step="1">
+  <span id="vol-out">40</span>
+</div>
+
+<div class="alarm-row">
+  <label>기상 알람</label>
+  <button class="alarm-toggle on" id="alarm-toggle" aria-label="기상 알람 켜기/끄기"></button>
+  <span id="alarm-label" style="font-size:13px;color:var(--color-text-secondary)">켜짐</span>
+</div>
+
+<div class="notice">반드시 헤드폰을 착용하세요 — 이어폰도 좋습니다</div>
+</div>
+
+<script>
+const TOTAL = 40 * 60;
+const PHASES = [
+  {start:0,   end:10*60, name:'입면 유도',   desc:'Alpha→Theta — 졸음을 천천히 유도합니다',  dot:'#9FE1CB', beatStart:10, beatEnd:4,  baseFreq:300},
+  {start:10*60, end:35*60, name:'낮잠 수면', desc:'Theta — 가벼운 수면 상태를 유지합니다',    dot:'#1D9E75', beatStart:4,  beatEnd:4,  baseFreq:300},
+  {start:35*60, end:40*60, name:'기상 준비', desc:'Theta→Beta — 자연스럽게 깨어납니다',       dot:'#5DCAA5', beatStart:4,  beatEnd:14, baseFreq:300}
+];
+
+let ctx=null, leftOsc=null, rightOsc=null, merger=null, gainNode=null;
+let running=false, startTime=0, elapsed=0, animId=null, prevPhaseIdx=-1;
+let alarmOn=true;
+
+function initAudio(){
+  ctx=new(window.AudioContext||window.webkitAudioContext)();
+  merger=ctx.createChannelMerger(2);
+  gainNode=ctx.createGain();
+  gainNode.gain.value=parseFloat(document.getElementById('vol').value)/100*0.3;
+  merger.connect(gainNode);
+  gainNode.connect(ctx.destination);
+
+  leftOsc=ctx.createOscillator();
+  rightOsc=ctx.createOscillator();
+  leftOsc.type='sine';
+  rightOsc.type='sine';
+
+  const lGain=ctx.createGain(); lGain.gain.value=1;
+  const rGain=ctx.createGain(); rGain.gain.value=1;
+  leftOsc.connect(lGain);
+  rightOsc.connect(rGain);
+  lGain.connect(merger,0,0);
+  rGain.connect(merger,0,1);
+
+  leftOsc.start();
+  rightOsc.start();
+}
+
+function getPhaseIdx(t){
+  for(let i=0;i<PHASES.length;i++) if(t>=PHASES[i].start&&t<PHASES[i].end) return i;
+  return PHASES.length-1;
+}
+
+function getBeat(t){
+  const idx=getPhaseIdx(t);
+  const ph=PHASES[idx];
+  const prog=(t-ph.start)/(ph.end-ph.start);
+  return ph.beatStart+(ph.beatEnd-ph.beatStart)*prog;
+}
+
+function updateFreqs(t){
+  const beat=getBeat(t);
+  const ph=PHASES[getPhaseIdx(t)];
+  const lf=ph.baseFreq;
+  const rf=lf+beat;
+  leftOsc.frequency.setTargetAtTime(lf,ctx.currentTime,0.5);
+  rightOsc.frequency.setTargetAtTime(rf,ctx.currentTime,0.5);
+  document.getElementById('freq-l').textContent=lf.toFixed(0);
+  document.getElementById('freq-beat').textContent=beat.toFixed(1);
+  document.getElementById('freq-r').textContent=rf.toFixed(1);
+}
+
+function updateUI(t){
+  const mins=Math.floor(t/60);
+  const secs=Math.floor(t%60);
+  document.getElementById('elapsed').textContent=String(mins).padStart(2,'0')+':'+String(secs).padStart(2,'0');
+  document.getElementById('prog').style.width=(t/TOTAL*100).toFixed(2)+'%';
+
+  const idx=getPhaseIdx(t);
+  const ph=PHASES[idx];
+  if(idx!==prevPhaseIdx){
+    document.getElementById('phase-name').textContent=ph.name;
+    document.getElementById('phase-desc').textContent=ph.desc;
+    document.getElementById('phase-dot').style.background=ph.dot;
+    prevPhaseIdx=idx;
+  }
+}
+
+function playAlarm(){
+  if(!alarmOn||!ctx) return;
+  const alarmCtx=ctx;
+  const a=alarmCtx.createOscillator();
+  const g=alarmCtx.createGain();
+  a.connect(g); g.connect(alarmCtx.destination);
+  a.frequency.value=880;
+  a.type='sine';
+  g.gain.setValueAtTime(0,alarmCtx.currentTime);
+  g.gain.linearRampToValueAtTime(0.3,alarmCtx.currentTime+0.2);
+  g.gain.linearRampToValueAtTime(0,alarmCtx.currentTime+0.8);
+  g.gain.linearRampToValueAtTime(0.3,alarmCtx.currentTime+1.0);
+  g.gain.linearRampToValueAtTime(0,alarmCtx.currentTime+1.8);
+  g.gain.linearRampToValueAtTime(0.3,alarmCtx.currentTime+2.0);
+  g.gain.linearRampToValueAtTime(0,alarmCtx.currentTime+2.8);
+  a.start();
+  a.stop(alarmCtx.currentTime+3);
+}
+
+function tick(){
+  if(!running) return;
+  elapsed=(Date.now()-startTime)/1000;
+  if(elapsed>=TOTAL){
+    elapsed=TOTAL;
+    updateUI(elapsed);
+    document.getElementById('prog').style.width='100%';
+    stopAll();
+    playAlarm();
+    document.getElementById('phase-name').textContent='완료!';
+    document.getElementById('phase-desc').textContent='40분 낮잠이 끝났습니다. 개운하게 일어나세요 :)';
+    document.getElementById('btn-play').innerHTML='<i class="ti ti-player-play" aria-hidden="true"></i> 시작';
+    return;
+  }
+  updateFreqs(elapsed);
+  updateUI(elapsed);
+  animId=requestAnimationFrame(tick);
+}
+
+function stopAll(){
+  running=false;
+  if(animId) cancelAnimationFrame(animId);
+}
+
+document.getElementById('btn-play').addEventListener('click',function(){
+  if(!running){
+    if(!ctx) initAudio();
+    else if(ctx.state==='suspended') ctx.resume();
+    if(elapsed>=TOTAL) elapsed=0;
+    startTime=Date.now()-elapsed*1000;
+    running=true;
+    prevPhaseIdx=-1;
+    this.innerHTML='<i class="ti ti-player-pause" aria-hidden="true"></i> 일시정지';
+    tick();
+  } else {
+    stopAll();
+    this.innerHTML='<i class="ti ti-player-play" aria-hidden="true"></i> 재개';
+  }
+});
+
+document.getElementById('btn-stop').addEventListener('click',function(){
+  stopAll();
+  elapsed=0;
+  prevPhaseIdx=-1;
+  document.getElementById('elapsed').textContent='00:00';
+  document.getElementById('prog').style.width='0%';
+  document.getElementById('freq-beat').textContent='10';
+  document.getElementById('freq-l').textContent='300';
+  document.getElementById('freq-r').textContent='310';
+  document.getElementById('phase-name').textContent='대기 중';
+  document.getElementById('phase-desc').textContent='재생 버튼을 눌러 시작하세요';
+  document.getElementById('phase-dot').style.background='#9FE1CB';
+  document.getElementById('btn-play').innerHTML='<i class="ti ti-player-play" aria-hidden="true"></i> 시작';
+  if(ctx){ctx.close();ctx=null;leftOsc=null;rightOsc=null;}
+});
+
+document.getElementById('vol').addEventListener('input',function(){
+  document.getElementById('vol-out').textContent=this.value;
+  if(gainNode) gainNode.gain.value=parseInt(this.value)/100*0.3;
+});
+
+document.getElementById('alarm-toggle').addEventListener('click',function(){
+  alarmOn=!alarmOn;
+  this.classList.toggle('on',alarmOn);
+  document.getElementById('alarm-label').textContent=alarmOn?'켜짐':'꺼짐';
+});
+</script>
