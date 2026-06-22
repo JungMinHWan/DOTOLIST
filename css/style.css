@@ -2169,27 +2169,7 @@ body {
 }
 
 .cal-dot.secret-letter {
-  background: #ff9800 !important;
-}
-
-.secret-letter-modal {
-  max-width: 440px;
-  background: rgba(255, 255, 255, 0.98) !important;
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 152, 0, 0.3) !important;
-}
-
-.secret-letter-modal textarea {
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.secret-letter-modal textarea:focus {
-  border-color: #ff9800 !important;
-  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15) !important;
-  background: white !important;
-}
-
-/* ==========================================================================
+  backgr/* ==========================================================================
    🧩 백칸 수학 (100-Cell Math Game) 스타일
    ========================================================================== */
 .math-modal-overlay {
@@ -2218,8 +2198,8 @@ body {
   padding: 20px;
   width: calc(100% - 32px);
   max-width: 820px; /* 10x10 그리드를 위해 넉넉한 가로폭 */
-  max-height: 90vh;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15);
+  max-height: 95vh; /* 뷰포트 높이 내에서 최대 사용 */
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -2240,8 +2220,8 @@ body {
 .math-title {
   font-size: 18px;
   font-weight: 900;
-  color: #8b5cf6;
-  text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  color: #3b82f6; /* 보라색에서 파란색으로 변경 */
+  text-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
   letter-spacing: 0.5px;
 }
 
@@ -2426,7 +2406,7 @@ body {
 .math-info-value {
   font-size: 16px;
   font-weight: 800;
-  color: #8b5cf6;
+  color: #3b82f6; /* 파란색으로 변경 */
   font-family: monospace;
 }
 
@@ -2444,9 +2424,10 @@ body {
 .math-message.info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
 .math-message.warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
 
-/* 10x10 그리드 스크롤 컨테이너 */
+/* 10x10 그리드 스크롤 컨테이너 - 스크롤바 삭제 및 화면 맞춤 개선 */
 .math-grid-wrapper {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
   background: rgba(2, 6, 23, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
@@ -2456,11 +2437,11 @@ body {
 }
 
 .math-grid-container {
-  display: inline-grid;
-  grid-template-columns: 50px repeat(10, 50px);
-  grid-template-rows: 50px repeat(10, 50px);
+  display: grid;
+  width: 100%;
+  max-width: 680px; /* 그리드가 너무 거대해지는 것을 방지 */
+  grid-template-columns: 1.2fr repeat(10, 1fr); /* 등비율 분배로 가로 스크롤 제거 */
   gap: 3px;
-  min-width: min-content;
 }
 
 .math-cell {
@@ -2475,21 +2456,24 @@ body {
   user-select: none;
   position: relative;
   transition: all 0.15s ease;
+  aspect-ratio: 1; /* 고정 50px 높이 대신 가로폭에 비례하는 정사각형 비율 */
+  width: 100%;
+  height: 100%;
 }
 
-/* 헤더 셀 */
+/* 헤더 셀 - 파란색 및 초록색 조합의 그라디언트 적용 */
 .math-cell.header {
-  background: linear-gradient(135deg, #4c1d95 0%, #311042 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #065f46 100%); /* 보라에서 파랑-초록 믹스로 변경 */
   color: #fff;
-  border-color: rgba(139, 92, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.3);
   font-size: 14px;
 }
 
 /* 코너 셀 */
 .math-cell.corner {
   background: #1e293b;
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.3);
+  color: #10b981; /* 주황색에서 초록색 포인트로 변경 */
+  border-color: rgba(16, 185, 129, 0.3);
   font-size: 18px;
 }
 
@@ -2500,14 +2484,14 @@ body {
 }
 
 .math-cell.input:hover {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .math-cell.input:focus-within {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: #8b5cf6;
-  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
 }
 
 /* 인풋 필드 */
@@ -2543,7 +2527,7 @@ body {
 }
 
 .math-cell.input.negative {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(59, 130, 246, 0.08);
 }
 
 /* 빼기 연산 시 음수 토글 버튼 */
@@ -2633,9 +2617,9 @@ body {
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
-.math-control-btn.primary { background: #8b5cf6; }
-.math-control-btn.primary:hover { background: #7c3aed; }
-.math-control-btn.success { background: #10b981; }
+.math-control-btn.primary { background: #3b82f6; } /* 파란색으로 변경 */
+.math-control-btn.primary:hover { background: #2563eb; }
+.math-control-btn.success { background: #10b981; } /* 초록색으로 변경 */
 .math-control-btn.success:hover { background: #059669; }
 .math-control-btn.danger { background: #ef4444; }
 .math-control-btn.danger:hover { background: #dc2626; }
@@ -2657,7 +2641,7 @@ body {
 .math-rank-submit-box {
   background: #0f172a;
   border-radius: 20px;
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.3); /* 파란색으로 변경 */
   padding: 24px;
   width: calc(100% - 40px);
   max-width: 340px;
@@ -2669,7 +2653,7 @@ body {
 
 .math-rank-submit-box h3 {
   font-size: 20px;
-  color: #f59e0b;
+  color: #10b981; /* 초록색으로 변경 */
   margin-bottom: 6px;
   font-weight: 900;
 }
@@ -2708,7 +2692,7 @@ body {
 }
 
 .math-rank-submit-box input:focus {
-  border-color: #8b5cf6;
+  border-color: #3b82f6;
 }
 
 .math-rank-actions {
@@ -2726,7 +2710,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 반응형 모바일 지원 */
+/* 반응형 모바일 지원 - 고정 크기에서 100% 유동형으로 일관성 유지 */
 @media (max-width: 768px) {
   .math-modal {
     padding: 14px;
@@ -2747,12 +2731,11 @@ body {
   }
 
   .math-grid-wrapper {
-    justify-content: flex-start; /* 모바일에서 좌측 정렬 후 가로 스크롤 가능케 함 */
+    padding: 6px;
   }
 
   .math-grid-container {
-    grid-template-columns: 36px repeat(10, 36px);
-    grid-template-rows: 36px repeat(10, 36px);
+    grid-template-columns: 1.2fr repeat(10, 1fr); /* 좁은 모바일에서도 동일하게 100% 비율 분배 */
     gap: 2px;
   }
 
@@ -2761,15 +2744,15 @@ body {
   }
 
   .math-cell.header {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .math-cell.corner {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .math-cell.input input {
-    font-size: 11px;
+    font-size: 10px;
   }
 
   .math-minus-toggle {
