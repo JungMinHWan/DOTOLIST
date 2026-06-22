@@ -2718,8 +2718,8 @@ body {
 /* 반응형 모바일 지원 - 고정 크기에서 100% 유동형으로 일관성 유지 */
 @media (max-width: 768px) {
   .math-modal {
-    padding: 10px 8px; /* 모바일 여백 최소화 */
-    width: calc(100% - 12px);
+    padding: 8px 4px; /* 모바일 여백 극단적 최소화 */
+    width: calc(100% - 8px);
   }
 
   .math-operation-select {
@@ -2736,38 +2736,41 @@ body {
   }
 
   .math-grid-wrapper {
-    padding: 6px;
-    justify-content: flex-start; /* 화면보다 커지면 스크롤이 자연스럽게 시작점에서 이동하도록 설정 */
-    -webkit-overflow-scrolling: touch; /* 모바일 부드러운 스크롤 터치 활성화 */
+    padding: 4px;
+    justify-content: center; /* 축소로 화면 내에 들어오므로 중앙 배치 */
+    -webkit-overflow-scrolling: touch;
   }
 
   .math-grid-container {
-    grid-template-columns: 46px repeat(10, 40px); /* 11칸의 최소입력 폭 보장을 위해 고정 픽셀 세팅 */
+    grid-template-columns: 36px repeat(10, 32px); /* 46px/40px에서 20% 축소 적용 */
     gap: 2px;
-    width: max-content; /* 비율 축소 차단하고 콘텐츠 너비 그대로 확보 */
+    width: max-content;
   }
 
   .math-cell {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .math-cell.header {
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .math-cell.corner {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .math-cell.input input {
     font-size: 10px;
+    padding: 0;
+    margin: 0;
   }
 
   .math-minus-toggle {
-    width: 10px;
-    height: 10px;
-    font-size: 6px;
+    width: 8px; /* 20% 축소 */
+    height: 8px;
+    font-size: 5px;
     left: 1px;
     bottom: 1px;
+    border-radius: 2px;
   }
 }
