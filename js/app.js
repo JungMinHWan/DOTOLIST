@@ -841,6 +841,14 @@ function updateUIForCustomDate() {
 }
 
 function handleSwipeGesture() {
+  // 모달 오버레이들이 열려 있는 경우 날짜 스와이프 차단
+  const isMathOpen = document.getElementById('mathModalOverlay') && !document.getElementById('mathModalOverlay').classList.contains('hidden');
+  const isTetrisOpen = document.getElementById('tetrisModalOverlay') && !document.getElementById('tetrisModalOverlay').classList.contains('hidden');
+  const isNapOpen = document.getElementById('napModalOverlay') && !document.getElementById('napModalOverlay').classList.contains('hidden');
+  const isFeatureSelectionOpen = document.getElementById('featureSelectionModal') && !document.getElementById('featureSelectionModal').classList.contains('hidden');
+  
+  if (isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen) return;
+
   if(document.getElementById('searchWrapper').classList.contains('show') || 
      document.getElementById('memoWrapper').classList.contains('show') ||
      document.getElementById('diaryWrapper').classList.contains('show') ||

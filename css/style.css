@@ -2169,7 +2169,10 @@ body {
 }
 
 .cal-dot.secret-letter {
-  backgr/* ==========================================================================
+  background: #ff9800 !important;
+}
+
+/* ==========================================================================
    🧩 백칸 수학 (100-Cell Math Game) 스타일
    ========================================================================== */
 .math-modal-overlay {
@@ -2180,10 +2183,12 @@ body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* 수직 상단 시작 배치로 모바일 대응 */
   justify-content: center;
   transition: opacity 0.3s ease;
   overscroll-behavior: contain;
+  overflow-y: auto; /* 내용이 길어질 경우 모달 오버레이 자체 스크롤 활성화 */
+  padding: 30px 10px; /* 상하좌우 여백 확보 */
 }
 
 .math-modal-overlay.hidden {
@@ -2198,14 +2203,13 @@ body {
   padding: 20px;
   width: calc(100% - 32px);
   max-width: 820px; /* 10x10 그리드를 위해 넉넉한 가로폭 */
-  max-height: 95vh; /* 뷰포트 높이 내에서 최대 사용 */
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(59, 130, 246, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   gap: 14px;
   color: #f8fafc;
-  overflow-y: auto;
+  margin: 0 auto; /* 수평 중앙 정렬 */
 }
 
 .math-modal-header {

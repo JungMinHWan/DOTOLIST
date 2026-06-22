@@ -41,8 +41,11 @@
       this.startTime = null;
       this.timerInterval = null;
       this.elapsedSeconds = 0;
-      this.mistakesCount = 0;
-      this.playerNameCache = localStorage.getItem('math_player_name') || '';
+      let cachedName = '';
+      try {
+        cachedName = localStorage.getItem('math_player_name') || '';
+      } catch (_) {}
+      this.playerNameCache = cachedName;
 
       this.operationSymbols = {
         'add': '+',
@@ -558,7 +561,9 @@
 
       // 캐싱 및 로컬스토리지 저장
       this.playerNameCache = playerName;
-      localStorage.setItem('math_player_name', playerName);
+      try {
+        localStorage.setItem('math_player_name', playerName);
+      } catch (_) {}
 
       try {
         const res = await window.api.saveMathScore(
