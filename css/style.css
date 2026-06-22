@@ -329,13 +329,24 @@ body {
 .task-description { font-size: 14px; font-weight: 300; color: #475569; word-wrap: break-word; line-height: 1.4; white-space: pre-wrap; }
 .task-description.completed { text-decoration: line-through; color: #cbd5e1; }
 .task-meta { font-size: 11px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.task-meta .push-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 10px;
+}
 
 .task-actions { display: flex; flex-direction: row; justify-content: flex-start; gap: 10px; align-items: center; opacity: 0; transition: opacity 0.2s; }
 .task-item:hover .task-actions { opacity: 1; }
 /* Mobile always show actions */
 @media (max-width: 768px) { .task-actions { opacity: 1; flex-direction: row; align-items: center; } }
 
-.task-edit, .task-delete { 
+.task-edit, .task-delete, .task-push-btn { 
   background: var(--bg-color); border: none; width: 36px; height: 36px; border-radius: 50%;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: all 0.2s ease; font-size: 16px;
@@ -344,6 +355,10 @@ body {
 .task-edit:hover { background: var(--theme-light-bg); color: var(--theme-primary); transform: scale(1.1); }
 .task-delete { color: #ef4444; }
 .task-delete:hover { background: #fee2e2; transform: scale(1.1); }
+.task-push-btn { color: #94a3b8; font-size: 15px; }
+.task-push-btn:hover { background: var(--theme-light-bg); color: var(--theme-primary); transform: scale(1.1); }
+.task-push-btn.active { color: var(--theme-primary); background: var(--theme-light-bg); }
+
 
 /* Add Form - Floating style */
 .add-form { 
@@ -1892,21 +1907,43 @@ body {
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 6px;
+  gap: 2px;
 }
-.nap-modal .p1 { background: #9fe1cb; flex: 0 0 25%; }
-.nap-modal .p2 { background: #1d9e75; flex: 0 0 62.5%; }
-.nap-modal .p3 { background: #5dcaa5; flex: 0 0 12.5%; }
+.nap-modal .phase-seg {
+  height: 6px;
+  border-radius: 3px;
+  transition: opacity 0.3s;
+}
 .nap-modal .phase-label-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 10px;
+  gap: 2px;
 }
-.nap-modal .phase-label {
-  font-size: 10px;
+.nap-modal .phase-seg-label {
+  font-size: 9px;
   color: #94a3b8;
   text-align: center;
-  flex: 1;
-  line-height: 1.3;
+  line-height: 1.2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.nap-preset-select {
+  width: 100%;
+  background: #1a1a26;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  color: #f8fafc;
+  padding: 10px;
+  font-size: 13.5px;
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.nap-preset-select:focus {
+  border-color: #1d9e75;
 }
 .nap-modal .progress-track {
   position: relative;
@@ -2107,5 +2144,639 @@ body {
   margin-top: 2px;
 }
 
+/* Push Modal Specific Styling */
+.push-modal {
+  max-width: 400px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: var(--shadow-float);
+}
 
+.push-modal .vault-modal-title {
+  color: var(--theme-primary-dark);
+}
 
+/* --- Secret Letter Calendar & Modal Styles --- */
+.cal-day.has-secret {
+  color: #ff9800 !important;
+  font-weight: 800 !important;
+  text-shadow: 0 0 1px rgba(255, 152, 0, 0.2);
+}
+
+.cal-day.has-secret.selected {
+  background: #ff9800 !important;
+  color: white !important;
+  box-shadow: 0 4px 10px rgba(255, 152, 0, 0.35) !important;
+}
+
+.cal-dot.secret-letter {
+  background: #ff9800 !important;
+}
+
+.secret-letter-modal {
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 152, 0, 0.3) !important;
+}
+
+.secret-letter-modal textarea {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.secret-letter-modal textarea:focus {
+  border-color: #ff9800 !important;
+  box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.15) !important;
+  background: white !important;
+}
+
+/* ==========================================================================
+   🧩 백칸 수학 (100-Cell Math Game) 스타일
+   ========================================================================== */
+.math-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3100;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+  overscroll-behavior: contain;
+}
+
+.math-modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+  display: none !important;
+}
+
+.math-modal {
+  background: #0b0f19;
+  border-radius: 24px;
+  padding: 20px;
+  width: calc(100% - 32px);
+  max-width: 820px; /* 10x10 그리드를 위해 넉넉한 가로폭 */
+  max-height: 90vh;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #f8fafc;
+  overflow-y: auto;
+}
+
+.math-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.math-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #8b5cf6;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+  letter-spacing: 0.5px;
+}
+
+.math-modal-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  transition: all 0.2s;
+}
+
+.math-modal-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.math-modal-body {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+}
+
+/* 1. Setup Screen */
+.math-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+.math-setup h2 {
+  font-size: 16px;
+  color: #94a3b8;
+  text-align: center;
+  font-weight: 700;
+}
+
+.math-operation-select {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.math-op-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 20px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.math-op-card:hover {
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.math-op-card.add:hover { border-color: #10b981; }
+.math-op-card.subtract:hover { border-color: #ef4444; }
+.math-op-card.multiply:hover { border-color: #f59e0b; }
+.math-op-card.divide:hover { border-color: #3b82f6; }
+
+.math-op-symbol {
+  font-size: 28px;
+  font-weight: 900;
+  margin-bottom: 6px;
+}
+
+.math-op-card.add .math-op-symbol { color: #10b981; }
+.math-op-card.subtract .math-op-symbol { color: #ef4444; }
+.math-op-card.multiply .math-op-symbol { color: #f59e0b; }
+.math-op-card.divide .math-op-symbol { color: #3b82f6; }
+
+.math-op-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+/* 랭킹 보드 */
+.math-ranking-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.math-ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+}
+
+.math-ranking-header h3 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.math-ranking-header select {
+  background: #1a1a26;
+  border: 1px solid #2a2a3a;
+  color: #f8fafc;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+}
+
+.math-ranking-table-wrapper {
+  overflow-x: auto;
+}
+
+.math-ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+}
+
+.math-ranking-table th, .math-ranking-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.math-ranking-table th {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.math-ranking-table td {
+  color: #e2e8f0;
+}
+
+.math-ranking-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 2. Play Screen */
+.math-game-area {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+.math-game-info {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.math-info-item {
+  text-align: center;
+  flex: 1;
+}
+
+.math-info-label {
+  font-size: 10px;
+  color: #64748b;
+  margin-bottom: 2px;
+  font-weight: 700;
+}
+
+.math-info-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: #8b5cf6;
+  font-family: monospace;
+}
+
+.math-message {
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  display: none;
+}
+
+.math-message.success { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.math-message.error { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+.math-message.info { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+.math-message.warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+
+/* 10x10 그리드 스크롤 컨테이너 */
+.math-grid-wrapper {
+  overflow-x: auto;
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+}
+
+.math-grid-container {
+  display: inline-grid;
+  grid-template-columns: 50px repeat(10, 50px);
+  grid-template-rows: 50px repeat(10, 50px);
+  gap: 3px;
+  min-width: min-content;
+}
+
+.math-cell {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  user-select: none;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+/* 헤더 셀 */
+.math-cell.header {
+  background: linear-gradient(135deg, #4c1d95 0%, #311042 100%);
+  color: #fff;
+  border-color: rgba(139, 92, 246, 0.3);
+  font-size: 14px;
+}
+
+/* 코너 셀 */
+.math-cell.corner {
+  background: #1e293b;
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+  font-size: 18px;
+}
+
+/* 입력 셀 */
+.math-cell.input {
+  background: rgba(255, 255, 255, 0.04);
+  cursor: text;
+}
+
+.math-cell.input:hover {
+  background: rgba(139, 92, 246, 0.08);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.math-cell.input:focus-within {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: #8b5cf6;
+  box-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+/* 인풋 필드 */
+.math-cell.input input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  outline: none;
+}
+
+/* 채점 스타일 */
+.math-cell.input.filled {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: #10b981 !important;
+}
+
+.math-cell.input.filled input {
+  color: #34d399 !important;
+}
+
+.math-cell.input.wrong {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+}
+
+.math-cell.input.wrong input {
+  color: #f87171 !important;
+}
+
+.math-cell.input.negative {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+/* 빼기 연산 시 음수 토글 버튼 */
+.math-cell-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.math-minus-toggle {
+  position: absolute;
+  left: 2px;
+  bottom: 2px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 4px;
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: all 0.1s ease;
+}
+
+.math-minus-toggle:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.math-minus-toggle.active {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+/* 오답 마크 */
+.math-wrong-mark {
+  position: absolute;
+  top: 1px;
+  right: 3px;
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+/* 음수 인디케이터 */
+.math-minus-indicator {
+  position: absolute;
+  top: 1px;
+  left: 3px;
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+/* 제어 버튼들 */
+.math-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.math-control-btn {
+  padding: 10px 20px;
+  font-size: 13px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 700;
+  color: white;
+  background: #475569;
+}
+
+.math-control-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.math-control-btn.primary { background: #8b5cf6; }
+.math-control-btn.primary:hover { background: #7c3aed; }
+.math-control-btn.success { background: #10b981; }
+.math-control-btn.success:hover { background: #059669; }
+.math-control-btn.danger { background: #ef4444; }
+.math-control-btn.danger:hover { background: #dc2626; }
+
+/* 3. 랭킹 등록용 오버레이 */
+.math-rank-submit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.math-rank-submit-box {
+  background: #0f172a;
+  border-radius: 20px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 24px;
+  width: calc(100% - 40px);
+  max-width: 340px;
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: levelPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.math-rank-submit-box h3 {
+  font-size: 20px;
+  color: #f59e0b;
+  margin-bottom: 6px;
+  font-weight: 900;
+}
+
+.math-rank-submit-box p {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.math-rank-stats {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.math-rank-submit-box input {
+  width: 100%;
+  background: #1a1a26;
+  border: 1px solid #2a2a3a;
+  border-radius: 8px;
+  color: #fff;
+  padding: 10px;
+  font-size: 14px;
+  text-align: center;
+  outline: none;
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+
+.math-rank-submit-box input:focus {
+  border-color: #8b5cf6;
+}
+
+.math-rank-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.math-rank-actions button {
+  flex: 1;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 반응형 모바일 지원 */
+@media (max-width: 768px) {
+  .math-modal {
+    padding: 14px;
+    width: calc(100% - 16px);
+  }
+
+  .math-operation-select {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .math-op-card {
+    padding: 12px 6px;
+  }
+
+  .math-op-symbol {
+    font-size: 22px;
+  }
+
+  .math-grid-wrapper {
+    justify-content: flex-start; /* 모바일에서 좌측 정렬 후 가로 스크롤 가능케 함 */
+  }
+
+  .math-grid-container {
+    grid-template-columns: 36px repeat(10, 36px);
+    grid-template-rows: 36px repeat(10, 36px);
+    gap: 2px;
+  }
+
+  .math-cell {
+    font-size: 10px;
+  }
+
+  .math-cell.header {
+    font-size: 11px;
+  }
+
+  .math-cell.corner {
+    font-size: 14px;
+  }
+
+  .math-cell.input input {
+    font-size: 11px;
+  }
+
+  .math-minus-toggle {
+    width: 10px;
+    height: 10px;
+    font-size: 6px;
+    left: 1px;
+    bottom: 1px;
+  }
+}

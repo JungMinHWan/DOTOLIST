@@ -6,6 +6,7 @@ let calDisplayDate = new Date();
 let memoDatesSet = new Set();
 let diaryDatesSet = new Set();
 let newsDatesSet = new Set();
+let secretLetterDatesSet = new Set();
 
 let currentGoal = null;
 let currentBooks = [];
@@ -160,7 +161,73 @@ document.addEventListener('DOMContentLoaded', async function() {
   }, {passive: true});
   
   document.getElementById('searchToggleBtn').onclick = () => toggleHeader('search');
-  document.getElementById('memoToggleBtn').onclick = () => toggleHeader('memo');
+  
+  // === 메모 버튼 롱프레스(비밀편지) 및 숏클릭(메모 토글) 통합 바인딩 ===
+  const memoToggleBtn = document.getElementById('memoToggleBtn');
+  let memoLongPressTimer = null;
+  let isMemoLongPressTriggered = false;
+  let memoPressStartTime = 0;
+  const MEMO_LONG_PRESS_DURATION = 800; // 0.8초
+
+  function startMemoPress(e) {
+    if (e.type === 'touchstart' && e.cancelable) {
+      e.preventDefault();
+    }
+    isMemoLongPressTriggered = false;
+    memoPressStartTime = Date.now();
+    
+    if (memoLongPressTimer) {
+      clearTimeout(memoLongPressTimer);
+    }
+    
+    memoLongPressTimer = setTimeout(() => {
+      isMemoLongPressTriggered = true;
+      if (navigator.vibrate) {
+        navigator.vibrate([60]);
+      }
+      openSecretLetterModal();
+    }, MEMO_LONG_PRESS_DURATION);
+  }
+
+  function endMemoPress(e) {
+    if (memoLongPressTimer) {
+      clearTimeout(memoLongPressTimer);
+      memoLongPressTimer = null;
+    }
+
+    if (isMemoLongPressTriggered) {
+      isMemoLongPressTriggered = false;
+      if (e.cancelable) e.preventDefault();
+      return;
+    }
+
+    const duration = Date.now() - memoPressStartTime;
+    if (duration > 10 && (e.type === 'mouseup' || e.type === 'touchend')) {
+      toggleHeader('memo');
+    }
+
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+  }
+
+  function cancelMemoPress(e) {
+    if (memoLongPressTimer) {
+      clearTimeout(memoLongPressTimer);
+      memoLongPressTimer = null;
+    }
+  }
+
+  memoToggleBtn.addEventListener('mousedown', startMemoPress);
+  memoToggleBtn.addEventListener('mouseup', endMemoPress);
+  memoToggleBtn.addEventListener('mouseleave', cancelMemoPress);
+
+  memoToggleBtn.addEventListener('touchstart', startMemoPress, { passive: false });
+  memoToggleBtn.addEventListener('touchend', endMemoPress, { passive: false });
+  memoToggleBtn.addEventListener('touchcancel', cancelMemoPress);
+
+  memoToggleBtn.addEventListener('contextmenu', e => e.preventDefault());
+
   document.getElementById('diaryToggleBtn').onclick = () => toggleHeader('diary');
   document.getElementById('newsToggleBtn').onclick = () => toggleHeader('news');
   document.getElementById('calendarBtn').onclick = () => {
@@ -341,10 +408,22 @@ document.addEventListener('DOMContentLoaded', async function() {
   const headerTitle = document.getElementById('todoListHeaderTitle');
   let longPressTimer = null;
   let isLongPressTriggered = false;
+  let pressStartTime = 0;
+  const LONG_PRESS_DURATION = 1000; // 1.0초
 
   function startPress(e) {
+    // 터치 스크롤이나 시스템의 롱프레스 기본 동작 방해 차단
+    if (e.type === 'touchstart' && e.cancelable) {
+      e.preventDefault();
+    }
+    
     isLongPressTriggered = false;
+    pressStartTime = Date.now();
     headerTitle.classList.add('long-press-active');
+    
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+    }
     
     longPressTimer = setTimeout(() => {
       isLongPressTriggered = true;
@@ -355,7 +434,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (window.featureMenu && typeof window.featureMenu.open === 'function') {
         window.featureMenu.open();
       }
-    }, 1200); // 1.2초
+    }, LONG_PRESS_DURATION);
   }
 
   function endPress(e) {
@@ -364,22 +443,48 @@ document.addEventListener('DOMContentLoaded', async function() {
       longPressTimer = null;
     }
     headerTitle.classList.remove('long-press-active');
-  }
 
-  headerTitle.addEventListener('mousedown', startPress);
-  headerTitle.addEventListener('touchstart', startPress, { passive: true });
-  headerTitle.addEventListener('mouseup', endPress);
-  headerTitle.addEventListener('mouseleave', endPress);
-  headerTitle.addEventListener('touchend', endPress);
-  headerTitle.addEventListener('touchcancel', endPress);
-
-  headerTitle.onclick = function(e) {
+    // 이미 롱프레스가 트리거되었다면 클릭 동작 차단
     if (isLongPressTriggered) {
-      isLongPressTriggered = false; // 플래그 리셋
+      isLongPressTriggered = false;
+      if (e.cancelable) e.preventDefault();
       return;
     }
-    openVaultAuthModal();
-  };
+
+    // 누른 시간을 측정하여 숏 클릭으로 판단되는 경우 보안 금고 모달 실행
+    const duration = Date.now() - pressStartTime;
+    // 아주 짧은 터치 노이즈 필터링 (10ms 이상) 및 마우스/터치 정상 해제 시에만 작동
+    if (duration > 10 && (e.type === 'mouseup' || e.type === 'touchend')) {
+      openVaultAuthModal();
+    }
+
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+  }
+
+  function cancelPress(e) {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+    headerTitle.classList.remove('long-press-active');
+  }
+
+  // 데스크톱 마우스 이벤트
+  headerTitle.addEventListener('mousedown', startPress);
+  headerTitle.addEventListener('mouseup', endPress);
+  headerTitle.addEventListener('mouseleave', cancelPress);
+
+  // 모바일/태블릿 터치 이벤트 (passive: false로 줌으로써 preventDefault 차단 작동)
+  headerTitle.addEventListener('touchstart', startPress, { passive: false });
+  headerTitle.addEventListener('touchend', endPress, { passive: false });
+  headerTitle.addEventListener('touchcancel', cancelPress);
+
+  // 브라우저 기본 컨텍스트 메뉴, 텍스트 선택, 드래그 방지하여 롱프레스 감지 방해 예방
+  headerTitle.addEventListener('contextmenu', e => e.preventDefault());
+  headerTitle.addEventListener('selectstart', e => e.preventDefault());
+  headerTitle.addEventListener('dragstart', e => e.preventDefault());
 
   // === 메모, 일기, 신문 실시간 자동 저장 바인딩 ===
   setupAutoSaveEvents();
@@ -407,7 +512,84 @@ document.addEventListener('DOMContentLoaded', async function() {
       if (levelToggleArrow) levelToggleArrow.classList.remove('rotated');
     }
   }
+
+  // === 푸시 알림 예약 모달 이벤트 바인딩 및 세팅 ===
+  setupPushModalEvents();
+  setupPushNotification();
+  startLocalNotificationScheduler();
+
+  // === 비밀 편지 모달 이벤트 바인딩 ===
+  const secretCloseBtn = document.getElementById('secretLetterModalClose');
+  if (secretCloseBtn) {
+    secretCloseBtn.onclick = closeSecretLetterModal;
+  }
+  const secretSaveBtn = document.getElementById('saveSecretLetterBtn');
+  if (secretSaveBtn) {
+    secretSaveBtn.onclick = saveSecretLetter;
+  }
+  const secretOverlay = document.getElementById('secretLetterModalOverlay');
+  if (secretOverlay) {
+    secretOverlay.onclick = (e) => {
+      if(e.target === secretOverlay) closeSecretLetterModal();
+    };
+  }
 });
+
+
+// === 비밀 편지 모달 제어 함수 ===
+async function openSecretLetterModal() {
+  const modal = document.getElementById('secretLetterModalOverlay');
+  const label = document.getElementById('secretLetterDateLabel');
+  const input = document.getElementById('secretLetterInput');
+  const status = document.getElementById('secretLetterSaveStatus');
+
+  if (!modal || !label || !input) return;
+
+  label.textContent = `${formatDateKorean(currentMetricsDate)}의 비밀 편지`;
+  input.value = '';
+  input.placeholder = '로딩 중...';
+  if (status) status.textContent = '';
+  
+  modal.classList.remove('hidden');
+  modal.classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  // 내용 불러오기
+  const content = await api.getSecretLetter(currentMetricsDate) || '';
+  input.value = content;
+  input.placeholder = '오늘 하루를 마무리하며 나에게, 혹은 누군가에게 전하는 비밀 편지를 기록해보세요...';
+}
+
+function closeSecretLetterModal() {
+  const modal = document.getElementById('secretLetterModalOverlay');
+  if (modal) {
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
+  }
+  document.body.style.overflow = '';
+}
+
+async function saveSecretLetter() {
+  const input = document.getElementById('secretLetterInput');
+  const status = document.getElementById('secretLetterSaveStatus');
+
+  if (!input) return;
+
+  const content = input.value;
+  if (status) status.textContent = '저장 중...';
+  
+  const res = await api.saveSecretLetter(currentMetricsDate, content);
+  if (res.success) {
+    if (status) status.textContent = '저장 완료!';
+    // 달력 데이터 세트 갱신
+    await fetchAllDates();
+    setTimeout(() => {
+      closeSecretLetterModal();
+    }, 600);
+  } else {
+    if (status) status.textContent = '저장 실패';
+  }
+}
 
 async function loadGoal() {
   currentGoal = await api.getGoal();
@@ -501,14 +683,16 @@ async function deleteGoalExecution(id) {
 
 async function fetchAllDates() {
   console.log('fetchAllDates called');
-  const [memoDates, diaryDates, newsDates] = await Promise.all([
+  const [memoDates, diaryDates, newsDates, secretLetterDates] = await Promise.all([
     api.getAllMemoDates(),
     api.getAllDiaryDates(),
-    api.getAllNewsDates()
+    api.getAllNewsDates(),
+    api.getAllSecretLetterDates()
   ]);
   memoDatesSet = new Set(memoDates);
   diaryDatesSet = new Set(diaryDates);
   newsDatesSet = new Set(newsDates);
+  secretLetterDatesSet = new Set(secretLetterDates);
   renderCalendar();
 }
 
@@ -541,8 +725,9 @@ function renderCalendar() {
     const hasMemo = memoDatesSet.has(dateStr);
     const hasDiary = diaryDatesSet.has(dateStr);
     const hasNews = newsDatesSet.has(dateStr);
+    const hasSecret = secretLetterDatesSet.has(dateStr);
     
-    if(hasMemo || hasDiary || hasNews) {
+    if(hasMemo || hasDiary || hasNews || hasSecret) {
       const dotsRow = document.createElement('div');
       dotsRow.className = 'cal-dots-row';
       if(hasMemo) {
@@ -560,9 +745,15 @@ function renderCalendar() {
         dot.className = 'cal-dot news';
         dotsRow.appendChild(dot);
       }
+      if(hasSecret) {
+        const dot = document.createElement('div');
+        dot.className = 'cal-dot secret-letter';
+        dotsRow.appendChild(dot);
+      }
       div.appendChild(dotsRow);
     }
     
+    if(hasSecret) div.classList.add('has-secret');
     if(dateStr === todayStr) div.classList.add('today');
     if(dateStr === currentMetricsDate) div.classList.add('selected');
     
@@ -796,14 +987,30 @@ function renderTasks(tasks) {
     const w = ['일', '월', '화', '수', '목', '금', '토'];
     const dateStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()}(${w[dateObj.getDay()]})`;
     
+    // push_time이 있으면 ⏰ 배지와 활성화 클래스 적용
+    let pushBadge = '';
+    let pushBtnActive = '';
+    if (t.push_time) {
+      const pTime = new Date(t.push_time);
+      const pHour = String(pTime.getHours()).padStart(2, '0');
+      const pMin = String(pTime.getMinutes()).padStart(2, '0');
+      pushBadge = `<span class="push-badge" title="예약된 푸시 알림">⏰ ${pHour}:${pMin}</span>`;
+      pushBtnActive = 'active';
+    }
+    
     return `<div class="task-item ${compClass}" data-id="${t.task_id}" draggable="false">
       <div class="drag-handle" title="끌어서 순서 조정">☰</div>
       <div class="task-checkbox ${checked}" onclick="toggleStatus('${t.task_id}', '${t.status==='완료'?'진행중':'완료'}')"></div>
       <div class="task-content">
         <div class="task-description ${compClass}">${escapeHtml(t.description)}</div>
-        <div class="task-meta"><span>${dateStr}</span><span class="status-badge ${t.status}" onclick="handleStatusBadgeClick('${t.task_id}')">${t.status}</span></div>
+        <div class="task-meta">
+          <span>${dateStr}</span>
+          ${pushBadge}
+          <span class="status-badge ${t.status}" onclick="handleStatusBadgeClick('${t.task_id}')">${t.status}</span>
+        </div>
       </div>
       <div class="task-actions">
+        <button class="task-push-btn ${pushBtnActive}" onclick="openPushModal('${t.task_id}')" title="알림 예약">🔔</button>
         <button class="task-edit" onclick="editTask('${t.task_id}')">✎</button>
         <button class="task-delete" onclick="deleteTask('${t.task_id}')">×</button>
       </div>
@@ -2246,4 +2453,276 @@ function showToast(message) {
   }, 2500);
 }
 
+// === 푸시 알림 예약 기능 로직 ===
+let activePushTaskId = null;
+let notifiedTasksSet = new Set(); // 이번 세션에서 알림이 발송된 taskId 목록 (중복 발송 방지)
 
+// VAPID Public Key (테스트용 Dummy Key - 실제 푸시 전송 시 백엔드 키와 매칭 필요)
+const VAPID_PUBLIC_KEY = 'BIb5vOqK_Rz7QvH9sVj_L-8h3iN8JjLhP5X79L3S9F8k2e3c8g9h1i0j2k3l4m5n6o7p8q9r0s1t2u3v4w5x6y7z';
+
+function setupPushModalEvents() {
+  const overlay = document.getElementById('pushModalOverlay');
+  const closeBtn = document.getElementById('pushModalClose');
+  const cancelBtn = document.getElementById('btnDeletePushReservation');
+  const saveBtn = document.getElementById('btnSavePushReservation');
+  const permBtn = document.getElementById('btnRequestPushPermission');
+
+  closeBtn.onclick = closePushModal;
+  cancelBtn.onclick = deletePushReservation;
+  saveBtn.onclick = savePushReservation;
+  
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closePushModal();
+  };
+
+  permBtn.onclick = async () => {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      showToast('알림 권한이 허용되었습니다!');
+      setupPushNotification();
+      // 모달 상태 갱신
+      if (activePushTaskId) openPushModal(activePushTaskId);
+    } else {
+      alert('알림 권한이 거부되었습니다. 기기 설정에서 알림을 허용해주세요.');
+    }
+  };
+}
+
+function openPushModal(taskId) {
+  activePushTaskId = taskId;
+  const task = loadedTasks.find(t => t.task_id === taskId);
+  if (!task) return;
+
+  const overlay = document.getElementById('pushModalOverlay');
+  const titleEl = document.getElementById('pushTaskTitle');
+  const dateInput = document.getElementById('pushModalDate');
+  const timeInput = document.getElementById('pushModalTime');
+  const warningEl = document.getElementById('pushPermissionWarning');
+  const saveBtn = document.getElementById('btnSavePushReservation');
+  const deleteBtn = document.getElementById('btnDeletePushReservation');
+
+  titleEl.innerText = `"${task.description}"`;
+  
+  // 권한 체크하여 UI 활성/비활성 처리
+  if (Notification.permission !== 'granted') {
+    warningEl.classList.remove('hidden');
+    dateInput.disabled = true;
+    timeInput.disabled = true;
+    saveBtn.disabled = true;
+    deleteBtn.disabled = true;
+  } else {
+    warningEl.classList.add('hidden');
+    dateInput.disabled = false;
+    timeInput.disabled = false;
+    saveBtn.disabled = false;
+    deleteBtn.disabled = false;
+  }
+
+  // 기존 예약 시간 매핑
+  if (task.push_time) {
+    const pTime = new Date(task.push_time);
+    
+    // 로컬 시간 기준 포맷팅
+    const yyyy = pTime.getFullYear();
+    const mm = String(pTime.getMonth() + 1).padStart(2, '0');
+    const dd = String(pTime.getDate()).padStart(2, '0');
+    const hh = String(pTime.getHours()).padStart(2, '0');
+    const min = String(pTime.getMinutes()).padStart(2, '0');
+    
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+    timeInput.value = `${hh}:${min}`;
+  } else {
+    // 기본값: 오늘 날짜 및 현재 시간 + 10분
+    const now = new Date();
+    now.setMinutes(now.getMinutes() + 10);
+    
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+    timeInput.value = `${hh}:${min}`;
+  }
+
+  overlay.classList.remove('hidden');
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePushModal() {
+  const overlay = document.getElementById('pushModalOverlay');
+  overlay.classList.remove('show');
+  overlay.classList.add('hidden');
+  activePushTaskId = null;
+  checkAndUnlockBodyScroll();
+}
+
+async function savePushReservation() {
+  if (!activePushTaskId) return;
+
+  const dateVal = document.getElementById('pushModalDate').value;
+  const timeVal = document.getElementById('pushModalTime').value;
+
+  if (!dateVal || !timeVal) {
+    alert('날짜와 시간을 모두 입력해주세요.');
+    return;
+  }
+
+  const reservationDateTime = new Date(`${dateVal}T${timeVal}:00`);
+  if (isNaN(reservationDateTime.getTime())) {
+    alert('유효하지 않은 날짜/시간 형식입니다.');
+    return;
+  }
+
+  if (reservationDateTime < new Date()) {
+    alert('현재 시간 이후의 미래 시간으로 예약해 주세요.');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btnSavePushReservation');
+  saveBtn.disabled = true;
+  saveBtn.innerText = '저장 중...';
+
+  const res = await api.updateTaskPushTime(activePushTaskId, reservationDateTime.toISOString());
+  
+  saveBtn.disabled = false;
+  saveBtn.innerText = '예약 저장';
+
+  if (res.success) {
+    showToast('🔔 푸시 알림 예약이 완료되었습니다!');
+    closePushModal();
+    loadTasks();
+  } else {
+    alert('알림 예약 저장에 실패했습니다: ' + res.error);
+  }
+}
+
+async function deletePushReservation() {
+  if (!activePushTaskId) return;
+
+  const deleteBtn = document.getElementById('btnDeletePushReservation');
+  deleteBtn.disabled = true;
+  deleteBtn.innerText = '해제 중...';
+
+  const res = await api.updateTaskPushTime(activePushTaskId, null);
+  
+  deleteBtn.disabled = false;
+  deleteBtn.innerText = '알림 해제';
+
+  if (res.success) {
+    showToast('🔕 예약된 푸시 알림을 해제했습니다.');
+    closePushModal();
+    loadTasks();
+  } else {
+    alert('알림 해제에 실패했습니다: ' + res.error);
+  }
+}
+
+// === 브라우저 알림 권한 획득 & PWA 구독 로직 ===
+async function setupPushNotification() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.log('이 브라우저는 푸시 알림 기능을 지원하지 않습니다.');
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    
+    // 이미 알림 권한이 허용된 상태라면 구독 진행
+    if (Notification.permission === 'granted') {
+      await subscribeUserToPush(registration);
+    }
+  } catch (err) {
+    console.error('Push Notification setup failed:', err);
+  }
+}
+
+async function subscribeUserToPush(registration) {
+  try {
+    // 1. 기존 구독 확인
+    let subscription = await registration.pushManager.getSubscription();
+    
+    // 2. 없으면 신규 구독 신청
+    if (!subscription) {
+      const convertedKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey
+      });
+      console.log('User subscribed to push:', subscription);
+    }
+
+    // 3. Supabase에 구독 정보 저장
+    if (subscription) {
+      await api.savePushSubscription(subscription.toJSON());
+    }
+  } catch (e) {
+    console.warn('푸시 알림 서비스 구독에 실패했습니다. (로컬 타이머는 정상 작동합니다.)', e);
+  }
+}
+
+// Helper: VAPID Key 변환용
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+// === 실시간 로컬 알림 스케줄러 (하이브리드 방식) ===
+function startLocalNotificationScheduler() {
+  // 10초마다 체크하여 알림 대상이 있는지 모니터링
+  setInterval(async () => {
+    const now = new Date();
+    
+    for (const t of loadedTasks) {
+      if (t.push_time && t.status === '진행중' && !notifiedTasksSet.has(t.task_id)) {
+        const pTime = new Date(t.push_time);
+        
+        // 현재 시간이 예약 시간보다 같거나 지난 경우 알림 트리거
+        if (now >= pTime) {
+          notifiedTasksSet.add(t.task_id);
+          
+          // 1. 브라우저 로컬 알림 실행
+          triggerLocalNotification(t.description);
+
+          // 2. 알림 완료 후 중복 방지를 위해 DB의 push_time을 null로 리셋
+          await api.updateTaskPushTime(t.task_id, null);
+          
+          // 3. 할일 목록 리프레시
+          loadTasks();
+        }
+      }
+    }
+  }, 10000);
+}
+
+function triggerLocalNotification(bodyText) {
+  if (Notification.permission === 'granted') {
+    const options = {
+      body: bodyText,
+      icon: './images/logo.png',
+      badge: './images/logo.png',
+      vibrate: [100, 50, 100],
+      requireInteraction: true // 사용자가 닫을 때까지 배너 유지
+    };
+    
+    // 서비스 워커를 활용해 알림을 띄우는 것이 백그라운드에서도 원활하게 작동함
+    navigator.serviceWorker.ready.then(registration => {
+      registration.showNotification('Grow Quest 알림', options);
+    }).catch(() => {
+      // 서비스 워커 불능 시 일반 브라우저 알림 백업
+      new Notification('Grow Quest 알림', options);
+    });
+  }
+}

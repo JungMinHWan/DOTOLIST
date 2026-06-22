@@ -5,6 +5,30 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const api = {
+  async getAllSecretLetterDates() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('vault')
+        .select('key')
+        .like('key', 'secret_letter_%')
+        .neq('value', '');
+      
+      if (error) throw error;
+      return (data || []).map(row => row.key.replace('secret_letter_', ''));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async getSecretLetter(dateStr) {
+    return this.getVaultValue(`secret_letter_${dateStr}`);
+  },
+
+  async saveSecretLetter(dateStr, content) {
+    return this.saveVaultValue(`secret_letter_${dateStr}`, content);
+  },
+
   async getAllMemoDates() {
     try {
       const { data, error } = await supabaseClient
@@ -932,6 +956,148 @@ const api = {
     if (updateError) throw updateError;
 
     return { success: true, stats: updatedStats, leveledUp };
+  },
+
+  // === 예약 알림 푸시 API ===
+  async updateTaskPushTime(taskId, pushTime) {
+    try {
+      const { error } = await supabaseClient
+        .from('tasks')
+        .update({
+          push_time: pushTime || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('task_id', taskId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async savePushSubscription(subscription) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+      
+      const endpoint = subscription.endpoint;
+      
+      // 1. 이미 존재하는 구독인지 확인을 위해 목록 조회
+      const { data: list, error: listError } = await supabaseClient
+        .from('push_subscriptions')
+        .select('id, subscription')
+        .eq('user_id', user.id);
+        
+      if (listError) throw listError;
+      
+      const match = (list || []).find(item => item.subscription && item.subscription.endpoint === endpoint);
+      
+      if (match) {
+        // 이미 존재하므로 업데이트
+        const { error: updateErr } = await supabaseClient
+          .from('push_subscriptions')
+          .update({
+            subscription: subscription,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', match.id);
+        if (updateErr) throw updateErr;
+      } else {
+        // 새로운 구독 추가
+        const { error: insertErr } = await supabaseClient
+          .from('push_subscriptions')
+          .insert({
+            user_id: user.id,
+            subscription: subscription
+          });
+        if (insertErr) throw insertErr;
+      }
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deletePushSubscription(endpoint) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인된 사용자가 없습니다.");
+      
+      const { data: list, error: listError } = await supabaseClient
+        .from('push_subscriptions')
+        .select('id, subscription')
+        .eq('user_id', user.id);
+        
+      if (listError) throw listError;
+      
+      const match = (list || []).find(item => item.subscription && item.subscription.endpoint === endpoint);
+      if (match) {
+        const { error: deleteErr } = await supabaseClient
+          .from('push_subscriptions')
+          .delete()
+          .eq('id', match.id);
+        if (deleteErr) throw deleteErr;
+      }
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  // === 백칸 수학 API ===
+  async saveMathScore(playerName, operation, score, elapsedSeconds, mistakes) {
+    try {
+      let userId = null;
+      try {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) userId = user.id;
+      } catch (_) {}
+
+      const { error } = await supabaseClient
+        .from('math_scores')
+        .insert({
+          player_name: playerName || '무명',
+          operation: operation,
+          score: parseInt(score) || 0,
+          elapsed_time: parseInt(elapsedSeconds) || 0,
+          mistakes: parseInt(mistakes) || 0,
+          user_id: userId
+        });
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('saveMathScore error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async getTopMathScores(operation, limit = 10) {
+    try {
+      let query = supabaseClient
+        .from('math_scores')
+        .select('*');
+
+      if (operation) {
+        query = query.eq('operation', operation);
+      }
+
+      // 점수(score) 내림차순, 소요시간(elapsed_time) 오름차순, 실수(mistakes) 오름차순
+      const { data, error } = await query
+        .order('score', { ascending: false })
+        .order('elapsed_time', { ascending: true })
+        .order('mistakes', { ascending: true })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('getTopMathScores error:', e);
+      return [];
+    }
   }
 };
-

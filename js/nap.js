@@ -128,6 +128,7 @@
       this.closeBtn = document.getElementById('featureSelectionClose');
       this.btnTetris = document.getElementById('btnSelectTetris');
       this.btnNap = document.getElementById('btnSelectNap');
+      this.btnMath = document.getElementById('btnSelectMath');
       
       this.initEvents();
     }
@@ -158,6 +159,15 @@
           }
         };
       }
+
+      if (this.btnMath) {
+        this.btnMath.onclick = () => {
+          this.close();
+          if (window.mathGame && typeof window.mathGame.open === 'function') {
+            window.mathGame.open();
+          }
+        };
+      }
     }
     
     open() {
@@ -170,7 +180,7 @@
     close() {
       if (this.modal) {
         this.modal.classList.add('hidden');
-        const isAnyModalOpen = document.querySelectorAll('.tetris-modal-overlay:not(.hidden), .nap-modal-overlay:not(.hidden)').length > 0;
+        const isAnyModalOpen = document.querySelectorAll('.tetris-modal-overlay:not(.hidden), .nap-modal-overlay:not(.hidden), .math-modal-overlay:not(.hidden)').length > 0;
         if (!isAnyModalOpen) {
           document.body.style.overflow = '';
         }

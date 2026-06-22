@@ -134,6 +134,7 @@ const PHASES = [
 let ctx=null, leftOsc=null, rightOsc=null, merger=null, gainNode=null;
 let running=false, startTime=0, elapsed=0, animId=null, prevPhaseIdx=-1;
 let alarmOn=true;
+let lastLf=0, lastRf=0;
 
 function initAudio(){
   ctx=new(window.AudioContext||window.webkitAudioContext)();
@@ -176,8 +177,14 @@ function updateFreqs(t){
   const ph=PHASES[getPhaseIdx(t)];
   const lf=ph.baseFreq;
   const rf=lf+beat;
-  leftOsc.frequency.setTargetAtTime(lf,ctx.currentTime,0.5);
-  rightOsc.frequency.setTargetAtTime(rf,ctx.currentTime,0.5);
+  if(Math.abs(lf-lastLf)>0.01){
+    leftOsc.frequency.setTargetAtTime(lf,ctx.currentTime,0.1);
+    lastLf=lf;
+  }
+  if(Math.abs(rf-lastRf)>0.01){
+    rightOsc.frequency.setTargetAtTime(rf,ctx.currentTime,0.1);
+    lastRf=rf;
+  }
   document.getElementById('freq-l').textContent=lf.toFixed(0);
   document.getElementById('freq-beat').textContent=beat.toFixed(1);
   document.getElementById('freq-r').textContent=rf.toFixed(1);
@@ -240,6 +247,8 @@ function tick(){
 function stopAll(){
   running=false;
   if(animId) cancelAnimationFrame(animId);
+  lastLf=0;
+  lastRf=0;
 }
 
 document.getElementById('btn-play').addEventListener('click',function(){

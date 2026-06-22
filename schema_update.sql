@@ -79,5 +79,25 @@ CREATE POLICY "Allow authenticated users to read/write user_stats" ON public.use
 DROP POLICY IF EXISTS "Allow authenticated users to read/write daily_quest_status" ON public.daily_quest_status;
 CREATE POLICY "Allow authenticated users to read/write daily_quest_status" ON public.daily_quest_status TO authenticated USING (true) WITH CHECK (true);
 
+-- tasks 테이블 예약 푸시 시간 컬럼 추가
+ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS push_time TIMESTAMPTZ DEFAULT NULL;
 
+-- 푸시 구독 정보 저장 테이블
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  subscription JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
+-- RLS 활성화
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- 정책 설정
+DROP POLICY IF EXISTS "Users can manage their own subscriptions" ON public.push_subscriptions;
+CREATE POLICY "Users can manage their own subscriptions" 
+  ON public.push_subscriptions 
+  TO authenticated
+  USING (auth.uid() = user_id) 
+  WITH CHECK (auth.uid() = user_id);
