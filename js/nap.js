@@ -1,5 +1,127 @@
 (function() {
-  // === 1. Feature Selection Menu ===
+  // === 1. PRESETS & CONSTANTS ===
+  const PRESETS = {
+    powernap:{
+      name:'오리지널 낮잠 20분', category:'수면', color:'#5DCAA5',
+      desc:'Gnaural 오리지널 20분 설계. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.',
+      phases:[
+        {name:'입면 시작', desc:'Alpha 11Hz ➔ 8.8Hz로 빠르게 이완 유도', dur:13.17, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:163.349, freqStart:10.991, freqEnd:8.80596, volume:0.515339*1.5}]},
+        {name:'이완 심화', desc:'8.8Hz ➔ 7Hz로 낮잠 준비', dur:16.76, noiseVol:0.1, voices:[{pitchStart:163.349, pitchEnd:162.52, freqStart:8.80596, freqEnd:6.99479, volume:0.520837*1.5}]},
+        {name:'수면 진입', desc:'7Hz ➔ 5.2Hz 세타파 입면', dur:28.99, noiseVol:0.1, voices:[{pitchStart:162.52, pitchEnd:161.04, freqStart:6.99479, freqEnd:5.22245, volume:0.527834*1.5}]},
+        {name:'얕은 수면', desc:'5.2Hz ➔ 4.4Hz 깊은 휴식 유도', dur:38.06, noiseVol:0.1, voices:[{pitchStart:161.04, pitchEnd:159.204, freqStart:5.22245, freqEnd:4.39666, volume:0.539935*1.5}]},
+        {name:'세타 휴식', desc:'4.4Hz ➔ 4.15Hz 뇌파 안정화', dur:50.29, noiseVol:0.1, voices:[{pitchStart:159.204, pitchEnd:156.717, freqStart:4.39666, freqEnd:4.1511, volume:0.555823*1.5}]},
+        {name:'수면 유지', desc:'4.15Hz ➔ 4Hz 깊은 세타 수면 돌입', dur:67.92, noiseVol:0.1, voices:[{pitchStart:156.717, pitchEnd:153.359, freqStart:4.1511, freqEnd:4.00, volume:0.576815*1.5}]},
+        {name:'낮잠 상태', desc:'4Hz 깊은 세타 수면 유지 (핵심 단계)', dur:877.02, noiseVol:0.1, voices:[{pitchStart:153.359, pitchEnd:110.0, freqStart:4.00, freqEnd:4.00, volume:0.605162*1.5}]},
+        {name:'얕은 각성', desc:'기저 주파수 변화로 뇌를 깨우기 시작', dur:36.79, noiseVol:0.1, voices:[{pitchStart:110.0, pitchEnd:129.11, freqStart:4.00, freqEnd:4.15692, volume:0.971179}]},
+        {name:'의식 상승', desc:'세타 ➔ 알파파 상승 준비', dur:32.26, noiseVol:0.1, voices:[{pitchStart:129.11, pitchEnd:145.87, freqStart:4.15692, freqEnd:5.05209, volume:0.986534}]},
+        {name:'알파 활성', desc:'5Hz ➔ 6.8Hz 가벼운 각성', dur:19.81, noiseVol:0.1, voices:[{pitchStart:145.87, pitchEnd:156.16, freqStart:5.05209, freqEnd:6.83576, volume:1.0}]},
+        {name:'기상 유도', desc:'6.8Hz ➔ 9.8Hz 두뇌 회전 준비', dur:15.09, noiseVol:0.1, voices:[{pitchStart:156.16, pitchEnd:164.0, freqStart:6.83576, freqEnd:9.81165, volume:0.73053}]},
+        {name:'완전 기상', desc:'마무리 9.81Hz 기상', dur:3.77, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:164.0, freqStart:9.81165, freqEnd:9.81165, volume:0.515339*1.5}]}
+      ]
+    },
+    powernap40:{
+      name:'오리지널 낮잠 40분', category:'수면', color:'#3cb38d',
+      desc:'Gnaural 오리지널 설계를 40분으로 확장. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.',
+      phases:[
+        {name:'입면 시작', desc:'Alpha 11Hz ➔ 8.8Hz로 빠르게 이완 유도', dur:13.17*2, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:163.349, freqStart:10.991, freqEnd:8.80596, volume:0.515339*1.5}]},
+        {name:'이완 심화', desc:'8.8Hz ➔ 7Hz로 낮잠 준비', dur:16.76*2, noiseVol:0.1, voices:[{pitchStart:163.349, pitchEnd:162.52, freqStart:8.80596, freqEnd:6.99479, volume:0.520837*1.5}]},
+        {name:'수면 진입', desc:'7Hz ➔ 5.2Hz 세타파 입면', dur:28.99*2, noiseVol:0.1, voices:[{pitchStart:162.52, pitchEnd:161.04, freqStart:6.99479, freqEnd:5.22245, volume:0.527834*1.5}]},
+        {name:'얕은 수면', desc:'5.2Hz ➔ 4.4Hz 깊은 휴식 유도', dur:38.06*2, noiseVol:0.1, voices:[{pitchStart:161.04, pitchEnd:159.204, freqStart:5.22245, freqEnd:4.39666, volume:0.539935*1.5}]},
+        {name:'세타 휴식', desc:'4.4Hz ➔ 4.15Hz 뇌파 안정화', dur:50.29*2, noiseVol:0.1, voices:[{pitchStart:159.204, pitchEnd:156.717, freqStart:4.39666, freqEnd:4.1511, volume:0.555823*1.5}]},
+        {name:'수면 유지', desc:'4.15Hz ➔ 4Hz 깊은 세타 수면 돌입', dur:67.92*2, noiseVol:0.1, voices:[{pitchStart:156.717, pitchEnd:153.359, freqStart:4.1511, freqEnd:4.00, volume:0.576815*1.5}]},
+        {name:'낮잠 상태', desc:'4Hz 깊은 세타 수면 유지 (핵심 단계)', dur:877.02*2, noiseVol:0.1, voices:[{pitchStart:153.359, pitchEnd:110.0, freqStart:4.00, freqEnd:4.00, volume:0.605162*1.5}]},
+        {name:'얕은 각성', desc:'기저 주파수 변화로 뇌를 깨우기 시작', dur:36.79*2, noiseVol:0.1, voices:[{pitchStart:110.0, pitchEnd:129.11, freqStart:4.00, freqEnd:4.15692, volume:0.971179}]},
+        {name:'의식 상승', desc:'세타 ➔ 알파파 상승 준비', dur:32.26*2, noiseVol:0.1, voices:[{pitchStart:129.11, pitchEnd:145.87, freqStart:4.15692, freqEnd:5.05209, volume:0.986534}]},
+        {name:'알파 활성', desc:'5Hz ➔ 6.8Hz 가벼운 각성', dur:19.81*2, noiseVol:0.1, voices:[{pitchStart:145.87, pitchEnd:156.16, freqStart:5.05209, freqEnd:6.83576, volume:1.0}]},
+        {name:'기상 유도', desc:'6.8Hz ➔ 9.8Hz 두뇌 회전 준비', dur:15.09*2, noiseVol:0.1, voices:[{pitchStart:156.16, pitchEnd:164.0, freqStart:6.83576, freqEnd:9.81165, volume:0.73053}]},
+        {name:'완전 기상', desc:'마무리 9.81Hz 기상', dur:3.77*2, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:164.0, freqStart:9.81165, freqEnd:9.81165, volume:0.515339*1.5}]}
+      ]
+    },
+    sleep:{
+      name:'깊은 수면', category:'수면', color:'#4169E1',
+      desc:'Beta에서 Delta까지 천천히 내려가는 60분 세션. 밤잠 입면을 도와줍니다. 잠들기 전 재생하고 알람 없이 사용하세요.',
+      phases:[
+        {name:'이완 시작',desc:'Alpha — 몸과 마음을 이완합니다',color:'#6495ED',dur:10*60,noiseVol:0.15,voices:[{pitchStart:280,pitchEnd:280,freqStart:12,freqEnd:8,volume:0.6}]},
+        {name:'졸음 유도',desc:'Theta — 수면 직전 상태로 진입합니다',color:'#4169E1',dur:20*60,noiseVol:0.2,voices:[{pitchStart:280,pitchEnd:280,freqStart:8,freqEnd:4,volume:0.65}]},
+        {name:'깊은 수면',desc:'Delta — 깊은 수면 상태를 유지합니다',color:'#1C3A8A',dur:30*60,noiseVol:0.25,voices:[{pitchStart:280,pitchEnd:280,freqStart:4,freqEnd:1.5,volume:0.6}]}
+      ]
+    },
+    focus:{
+      name:'집중력 (오리지널)', category:'집중', color:'#FFD700',
+      desc:'432Hz 웰니스 피치 스케일 바탕음과 백색 소음 믹싱으로 업무/학습 집중도를 높입니다.',
+      phases:[
+        {name:'워밍업',desc:'Alpha➔Beta — 두뇌를 서서히 깨웁니다',color:'#FFE55C',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:10,freqEnd:15,volume:0.6}]},
+        {name:'집중 유지',desc:'Beta 15Hz — 안정적인 집중 상태',color:'#FFD700',dur:20*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:15,freqEnd:15,volume:0.65}]},
+        {name:'마무리',desc:'Beta➔Alpha — 부드럽게 마무리합니다',color:'#C8A800',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:15,freqEnd:10,volume:0.6}]}
+      ]
+    },
+    meditation_unity:{
+      name:'명상 (Unity 3중음)', category:'명상 / 이완', color:'#20B2AA',
+      desc:'3개의 바이노럴 비트 보이스(3.7Hz, 2.5Hz, 5.9Hz)가 동시에 작용하여 깊은 입체적 이완 상태를 제공합니다.',
+      phases:[
+        {
+          name:'깊은 이완',
+          desc:'Delta 및 Theta 3중 주파수 동조 상태',
+          color:'#20B2AA',
+          dur:60*60,
+          noiseVol:0.4,
+          voices:[
+            {pitchStart:432.0, pitchEnd:432.0, freqStart:3.7, freqEnd:3.7, volume:0.6},
+            {pitchStart:513.7, pitchEnd:513.7, freqStart:2.5, freqEnd:2.5, volume:0.6},
+            {pitchStart:647.3, pitchEnd:647.3, freqStart:5.9, freqEnd:5.9, volume:0.6}
+          ]
+        }
+      ]
+    },
+    healing_morphine:{
+      name:'치유 (Morphine 5중음)', category:'명상 / 이완', color:'#DDA0DD',
+      desc:'5개의 보이스가 동시에 작용하여 몸과 마음에 부드러운 하모니를 공급하고 긴장을 해소합니다.',
+      phases:[
+        {
+          name:'통증 완화 및 치유',
+          desc:'15Hz에서 0.5Hz까지 다양한 진동 자극 동시 적용',
+          color:'#DDA0DD',
+          dur:60*60,
+          noiseVol:0.4,
+          voices:[
+            {pitchStart:432.0, pitchEnd:432.0, freqStart:15, freqEnd:0.5, volume:0.5},
+            {pitchStart:513.7, pitchEnd:513.7, freqStart:10, freqEnd:10, volume:0.5},
+            {pitchStart:647.3, pitchEnd:647.3, freqStart:9,  freqEnd:9,  volume:0.5},
+            {pitchStart:769.7, pitchEnd:769.7, freqStart:7.5,freqEnd:7.5,volume:0.5},
+            {pitchStart:864.0, pitchEnd:864.0, freqStart:38, freqEnd:38, volume:0.5}
+          ]
+        }
+      ]
+    },
+    schumann:{
+      name:'슈만 공명 7.83Hz', category:'명상 / 이완', color:'#32CD32',
+      desc:'지구의 고유 전자기 공명 주파수(7.83Hz) 동조. 432Hz 웰니스 피치와 백색 소음 믹싱.',
+      phases:[
+        {name:'동조',desc:'Alpha → 슈만 — 7.83Hz에 맞춰갑니다',color:'#90EE90',dur:5*60,noiseVol:0.35,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:12,freqEnd:7.83,volume:0.6}]},
+        {name:'공명 유지',desc:'Schumann 7.83Hz — 지구 주파수와 동조',color:'#32CD32',dur:12*60,noiseVol:0.4,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:7.83,freqEnd:7.83,volume:0.65}]},
+        {name:'안정화',desc:'7.83Hz 유지 — 충분히 흡수합니다',color:'#228B22',dur:3*60,noiseVol:0.35,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:7.83,freqEnd:7.83,volume:0.6}]}
+      ]
+    },
+    hypnosis:{
+      name:'자기 최면 (Self Hypnosis)', category:'명상 / 이완', color:'#9370DB',
+      desc:'이완 ➔ 최면 유도 ➔ 각성의 3단계 자기 최면 세션. 백색 소음 믹싱.',
+      phases:[
+        {name:'긴장 완화',desc:'Alpha ➔ Theta로 긴장을 풉니다',color:'#C39BD3',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:12,freqEnd:4,volume:0.6}]},
+        {name:'최면 상태',desc:'Theta 4Hz 고정 — 잠재의식 활성화',color:'#9370DB',dur:10*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:4,freqEnd:4,volume:0.65}]},
+        {name:'각성',desc:'Theta ➔ Alpha — 정신을 맑게 깨웁니다',color:'#6A0DAD',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:4,freqEnd:12,volume:0.6}]}
+      ]
+    }
+  };
+
+  function getBwName(hz) {
+    if (hz < 4) return 'Delta';
+    if (hz < 8) return 'Theta';
+    if (hz < 14) return 'Alpha';
+    if (hz < 30) return 'Beta';
+    return 'Gamma';
+  }
+
+  // === 2. Feature Selection Menu ===
   class FeatureMenu {
     constructor() {
       this.modal = document.getElementById('featureSelectionModal');
@@ -48,7 +170,6 @@
     close() {
       if (this.modal) {
         this.modal.classList.add('hidden');
-        // 다른 모달이 열려 있지 않을 때만 스크롤 복원
         const isAnyModalOpen = document.querySelectorAll('.tetris-modal-overlay:not(.hidden), .nap-modal-overlay:not(.hidden)').length > 0;
         if (!isAnyModalOpen) {
           document.body.style.overflow = '';
@@ -57,46 +178,60 @@
     }
   }
 
-  // === 2. Nap Binaural Beats Player ===
+  // === 3. Binaural Beats Player ===
   class NapPlayer {
     constructor() {
+      // Modals and Close
       this.modal = document.getElementById('napModalOverlay');
       this.closeBtn = document.getElementById('napModalClose');
       
+      // Preset Selection & Info Elements
+      this.presetSelect = document.getElementById('napPresetSelect');
+      this.npCategory = document.getElementById('napNpCategory');
+      this.npName = document.getElementById('napNpName');
+      this.npDesc = document.getElementById('napNpDesc');
+      
+      // Phase Visualization Elements
+      this.phaseBar = document.getElementById('napPhaseBar');
+      this.phaseLabels = document.getElementById('napPhaseLabels');
+      this.timeTickEnd = document.getElementById('napTimeTickEnd');
+      
+      // Player Control Elements
       this.btnPlay = document.getElementById('btnNapPlay');
       this.btnStop = document.getElementById('btnNapStop');
+      
       this.volRange = document.getElementById('napVol');
       this.volOut = document.getElementById('napVolOut');
+      this.volNoiseRange = document.getElementById('napVolNoise');
+      this.volNoiseOut = document.getElementById('napVolNoiseOut');
+      
       this.alarmToggle = document.getElementById('napAlarmToggle');
       this.alarmLabel = document.getElementById('napAlarmLabel');
       
+      // Progress / Status Elements
       this.prog = document.getElementById('napProg');
       this.elapsedEl = document.getElementById('napElapsed');
+      this.timerTotal = document.getElementById('napTimerTotal');
       this.phaseDot = document.getElementById('napPhaseDot');
       this.phaseName = document.getElementById('napPhaseName');
       this.phaseDesc = document.getElementById('napPhaseDesc');
       
+      // Frequency Info Elements
       this.freqLEl = document.getElementById('napFreqL');
       this.freqBeatEl = document.getElementById('napFreqBeat');
       this.freqREl = document.getElementById('napFreqR');
       
-      // 상태 변수
-      this.TOTAL = 40 * 60; // 40분 = 2400초
-      this.PHASES = [
-        {start: 0,       end: 10 * 60,  name: '입면 유도', desc: 'Alpha→Theta — 졸음을 천천히 유도합니다',  dot: '#9FE1CB', beatStart: 10, beatEnd: 4,  baseFreq: 300},
-        {start: 10 * 60, end: 35 * 60,  name: '낮잠 수면', desc: 'Theta — 가벼운 수면 상태를 유지합니다',    dot: '#1D9E75', beatStart: 4,  beatEnd: 4,  baseFreq: 300},
-        {start: 35 * 60, end: 40 * 60,  name: '기상 준비', desc: 'Theta→Beta — 자연스럽게 깨어납니다',       dot: '#5DCAA5', beatStart: 4,  beatEnd: 14, baseFreq: 300}
-      ];
-      
+      // Audio Objects
       this.ctx = null;
-      this.leftOsc = null;
-      this.rightOsc = null;
       this.merger = null;
       this.gainNode = null;
+      this.noiseNode = null;
+      this.noiseGainNode = null;
+      this.activeVoices = [];
       
-      this.alarmOsc = null;
-      this.alarmGain = null;
-      
+      // Player States
+      this.currentPreset = PRESETS.powernap;
+      this.TOTAL = this.currentPreset.phases.reduce((s, p) => s + p.dur, 0);
       this.running = false;
       this.elapsed = 0;
       this.realStartTime = 0;
@@ -104,6 +239,7 @@
       this.prevPhaseIdx = -1;
       this.alarmOn = true;
       this.isOpen = false;
+      this.noiseMasterVolScale = 0.5;
       
       this.initEvents();
     }
@@ -114,6 +250,12 @@
       if (this.modal) {
         this.modal.onclick = (e) => {
           if (e.target === this.modal) this.close();
+        };
+      }
+      
+      if (this.presetSelect) {
+        this.presetSelect.onchange = (e) => {
+          this.selectPreset(e.target.value);
         };
       }
       
@@ -130,8 +272,20 @@
           const val = this.volRange.value;
           if (this.volOut) this.volOut.textContent = val;
           if (this.gainNode) {
-            // 볼륨 감쇄 조절 (Web Audio API 볼륨은 지수 스케일 적용 권장)
             this.gainNode.gain.value = (parseFloat(val) / 100) * 0.3;
+          }
+        };
+      }
+      
+      if (this.volNoiseRange) {
+        this.volNoiseRange.oninput = () => {
+          const val = this.volNoiseRange.value;
+          if (this.volNoiseOut) this.volNoiseOut.textContent = val;
+          this.noiseMasterVolScale = parseFloat(val) / 100;
+          if (this.running && this.noiseGainNode && this.ctx) {
+            const { ph } = this.getPhaseAt(this.elapsed);
+            const targetNoiseVol = (ph.noiseVol !== undefined ? ph.noiseVol : 0) * 0.2 * this.noiseMasterVolScale;
+            this.noiseGainNode.gain.setTargetAtTime(targetNoiseVol, this.ctx.currentTime, 0.1);
           }
         };
       }
@@ -141,14 +295,6 @@
           this.alarmOn = !this.alarmOn;
           this.alarmToggle.classList.toggle('on', this.alarmOn);
           if (this.alarmLabel) this.alarmLabel.textContent = this.alarmOn ? '켜짐' : '꺼짐';
-          
-          // 재생 중일 때 알람 예약 실시간 업데이트
-          if (this.running) {
-            this.cancelAlarm();
-            if (this.alarmOn) {
-              this.scheduleAlarm(this.elapsed, this.ctx.currentTime);
-            }
-          }
         };
       }
     }
@@ -166,126 +312,146 @@
       this.merger.connect(this.gainNode);
       this.gainNode.connect(this.ctx.destination);
       
-      this.leftOsc = this.ctx.createOscillator();
-      this.rightOsc = this.ctx.createOscillator();
-      
-      this.leftOsc.type = 'sine';
-      this.rightOsc.type = 'sine';
-      
-      const lGain = this.ctx.createGain(); lGain.gain.value = 1;
-      const rGain = this.ctx.createGain(); rGain.gain.value = 1;
-      
-      this.leftOsc.connect(lGain);
-      this.rightOsc.connect(rGain);
-      
-      lGain.connect(this.merger, 0, 0); // Left
-      rGain.connect(this.merger, 0, 1); // Right
-      
-      this.leftOsc.start();
-      this.rightOsc.start();
+      this.createWhiteNoise();
     }
     
-    getPhaseIdx(t) {
-      for (let i = 0; i < this.PHASES.length; i++) {
-        if (t >= this.PHASES[i].start && t < this.PHASES[i].end) return i;
+    createWhiteNoise() {
+      const bufferSize = 2 * this.ctx.sampleRate;
+      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
       }
-      return this.PHASES.length - 1;
+      
+      this.noiseNode = this.ctx.createBufferSource();
+      this.noiseNode.buffer = noiseBuffer;
+      this.noiseNode.loop = true;
+      
+      this.noiseGainNode = this.ctx.createGain();
+      this.noiseGainNode.gain.value = 0;
+      
+      this.noiseNode.connect(this.noiseGainNode);
+      this.noiseGainNode.connect(this.merger, 0, 0);
+      this.noiseGainNode.connect(this.merger, 0, 1);
+      
+      this.noiseNode.start();
     }
     
-    getBeat(t) {
-      const idx = this.getPhaseIdx(t);
-      const ph = this.PHASES[idx];
-      const prog = (t - ph.start) / (ph.end - ph.start);
-      return ph.beatStart + (ph.beatEnd - ph.beatStart) * prog;
+    startVoices(voicesData) {
+      this.stopVoices();
+      if (!this.ctx) this.initAudio();
+      else if (this.ctx.state === 'suspended') this.ctx.resume();
+      
+      this.activeVoices = voicesData.map(v => {
+        const leftOsc = this.ctx.createOscillator();
+        const rightOsc = this.ctx.createOscillator();
+        leftOsc.type = 'sine';
+        rightOsc.type = 'sine';
+        
+        const lg = this.ctx.createGain();
+        const rg = this.ctx.createGain();
+        
+        lg.gain.value = v.volume || 0.6;
+        rg.gain.value = v.volume || 0.6;
+        
+        leftOsc.connect(lg);
+        rightOsc.connect(rg);
+        
+        lg.connect(this.merger, 0, 0);
+        rg.connect(this.merger, 0, 1);
+        
+        leftOsc.start();
+        rightOsc.start();
+        
+        return {
+          leftOsc,
+          rightOsc,
+          lg,
+          rg,
+          pitchStart: v.pitchStart,
+          pitchEnd: v.pitchEnd,
+          freqStart: v.freqStart,
+          freqEnd: v.freqEnd
+        };
+      });
     }
     
-    scheduleAudioTimeline(elapsed, now) {
-      if (!this.ctx || !this.leftOsc || !this.rightOsc) return;
-      
-      // 기존 예약되어있던 주파수 스케줄 제거
-      this.leftOsc.frequency.cancelScheduledValues(now);
-      this.rightOsc.frequency.cancelScheduledValues(now);
-      
-      // 왼쪽 주파수는 300Hz 고정
-      this.leftOsc.frequency.setValueAtTime(300, now);
-      
-      // 오른쪽 귀 주파수 (300 + beat) 스케줄링
-      const rightParam = this.rightOsc.frequency;
-      
-      // 1. 현재 시점 예약
-      const currentBeat = this.getBeat(elapsed);
-      rightParam.setValueAtTime(300 + currentBeat, now);
-      
-      // 2. 이후 구간 경계별 점진적 주파수 변동 예약
-      // 입면 유도 구간 (0 ~ 10분)
-      if (elapsed < 600) {
-        const timeToPhase1End = 600 - elapsed;
-        rightParam.linearRampToValueAtTime(300 + 4, now + timeToPhase1End);
-      }
-      
-      // 낮잠 수면 구간 (10 ~ 35분)
-      if (elapsed < 2100) {
-        const timeToPhase2End = 2100 - elapsed;
-        rightParam.setValueAtTime(300 + 4, now + Math.max(0, 600 - elapsed));
-        rightParam.linearRampToValueAtTime(300 + 4, now + timeToPhase2End);
-      }
-      
-      // 기상 준비 구간 (35 ~ 40분)
-      if (elapsed < 2400) {
-        const timeToPhase3End = 2400 - elapsed;
-        rightParam.setValueAtTime(300 + 4, now + Math.max(0, 2100 - elapsed));
-        rightParam.linearRampToValueAtTime(300 + 14, now + timeToPhase3End);
-      }
-      
-      // 3. 기상 알람 예약
-      this.cancelAlarm();
-      if (this.alarmOn) {
-        this.scheduleAlarm(elapsed, now);
+    stopVoices() {
+      if (this.activeVoices && this.activeVoices.length > 0) {
+        this.activeVoices.forEach(v => {
+          try { v.leftOsc.stop(); } catch(e){}
+          try { v.rightOsc.stop(); } catch(e){}
+        });
+        this.activeVoices = [];
       }
     }
     
-    scheduleAlarm(elapsed, now) {
-      if (!this.ctx) return;
-      const timeToAlarm = this.TOTAL - elapsed;
-      if (timeToAlarm <= 0) return;
-      
-      const alarmTime = now + timeToAlarm;
-      
-      this.alarmOsc = this.ctx.createOscillator();
-      this.alarmGain = this.ctx.createGain();
-      
-      this.alarmOsc.type = 'sine';
-      this.alarmOsc.frequency.value = 880;
-      
-      this.alarmOsc.connect(this.alarmGain);
-      this.alarmGain.connect(this.ctx.destination);
-      
-      // 3초간 비프음 반복 (0.8초 온, 0.2초 오프)
-      this.alarmGain.gain.setValueAtTime(0, now);
-      this.alarmGain.gain.setValueAtTime(0, alarmTime);
-      this.alarmGain.gain.linearRampToValueAtTime(0.3, alarmTime + 0.2);
-      this.alarmGain.gain.linearRampToValueAtTime(0, alarmTime + 0.8);
-      this.alarmGain.gain.linearRampToValueAtTime(0.3, alarmTime + 1.0);
-      this.alarmGain.gain.linearRampToValueAtTime(0, alarmTime + 1.8);
-      this.alarmGain.gain.linearRampToValueAtTime(0.3, alarmTime + 2.0);
-      this.alarmGain.gain.linearRampToValueAtTime(0, alarmTime + 2.8);
-      
-      this.alarmOsc.start(alarmTime);
-      this.alarmOsc.stop(alarmTime + 3);
+    getPhaseAt(t) {
+      let acc = 0;
+      const phases = this.currentPreset.phases;
+      for (let i = 0; i < phases.length; i++) {
+        const ph = phases[i];
+        if (t < acc + ph.dur) return { ph, idx: i, local: t - acc };
+        acc += ph.dur;
+      }
+      const last = phases[phases.length - 1];
+      return { ph: last, idx: phases.length - 1, local: last.dur };
     }
     
-    cancelAlarm() {
-      if (this.alarmOsc) {
-        try {
-          this.alarmOsc.stop();
-        } catch(e) {}
-        this.alarmOsc.disconnect();
-        this.alarmOsc = null;
-      }
-      if (this.alarmGain) {
-        this.alarmGain.disconnect();
-        this.alarmGain = null;
-      }
+    buildPhaseBar() {
+      const p = this.currentPreset;
+      const total = p.phases.reduce((s, ph) => s + ph.dur, 0);
+      if (this.phaseBar) this.phaseBar.innerHTML = '';
+      if (this.phaseLabels) this.phaseLabels.innerHTML = '';
+      
+      p.phases.forEach((ph, i) => {
+        const pct = (ph.dur / total * 100).toFixed(2) + '%';
+        const seg = document.createElement('div');
+        seg.className = 'phase-seg';
+        seg.id = 'nap-seg-' + i;
+        seg.style.cssText = `flex: 0 0 calc(${pct} - 2px); background: ${ph.color || p.color}; opacity: ${i === 0 ? 1 : 0.35}; height: 6px; border-radius: 3px; transition: opacity .3s;`;
+        if (this.phaseBar) this.phaseBar.appendChild(seg);
+        
+        const lbl = document.createElement('div');
+        lbl.className = 'phase-seg-label';
+        lbl.style.cssText = `flex: 0 0 ${pct}; font-size: 9px; color: #94a3b8; text-align: center; line-height: 1.2; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;`;
+        lbl.textContent = p.phases.length > 5 ? (i + 1) : ph.name;
+        if (this.phaseLabels) this.phaseLabels.appendChild(lbl);
+      });
+    }
+    
+    updateStaticUI() {
+      const p = this.currentPreset;
+      const total = p.phases.reduce((s, ph) => s + ph.dur, 0);
+      const totalMin = Math.floor(total / 60);
+      const totalSec = String(Math.floor(total % 60)).padStart(2, '0');
+      
+      if (this.npCategory) this.npCategory.textContent = p.category;
+      if (this.npName) this.npName.textContent = p.name;
+      if (this.npDesc) this.npDesc.textContent = p.desc;
+      if (this.timerTotal) this.timerTotal.textContent = `/ ${totalMin}:${totalSec}`;
+      if (this.timeTickEnd) this.timeTickEnd.textContent = `${totalMin}분`;
+      if (this.elapsedEl) this.elapsedEl.textContent = '00:00';
+      if (this.prog) this.prog.style.width = '0%';
+      
+      if (this.phaseName) this.phaseName.textContent = '대기 중';
+      if (this.phaseDesc) this.phaseDesc.textContent = '시작 버튼을 눌러 낮잠을 시작하세요';
+      if (this.phaseDot) this.phaseDot.style.background = p.color;
+      
+      const ph0 = p.phases[0];
+      const v0 = ph0.voices[0];
+      if (this.freqBeatEl) this.freqBeatEl.textContent = v0.freqStart.toFixed(1);
+      if (this.freqLEl) this.freqLEl.textContent = v0.pitchStart.toFixed(0);
+      if (this.freqREl) this.freqREl.textContent = (v0.pitchStart + v0.freqStart).toFixed(1);
+      
+      this.buildPhaseBar();
+    }
+    
+    selectPreset(key) {
+      this.stop();
+      this.currentPreset = PRESETS[key] || PRESETS.powernap;
+      this.TOTAL = this.currentPreset.phases.reduce((s, ph) => s + ph.dur, 0);
+      this.updateStaticUI();
     }
     
     updateUI(t) {
@@ -299,62 +465,74 @@
       if (this.prog) {
         this.prog.style.width = (t / this.TOTAL * 100).toFixed(2) + '%';
       }
-      
-      const idx = this.getPhaseIdx(t);
-      const ph = this.PHASES[idx];
-      
-      if (idx !== this.prevPhaseIdx) {
-        if (this.phaseName) this.phaseName.textContent = ph.name;
-        if (this.phaseDesc) this.phaseDesc.textContent = ph.desc;
-        if (this.phaseDot) this.phaseDot.style.background = ph.dot;
-        this.prevPhaseIdx = idx;
-      }
-      
-      // 주파수 실시간 렌더링
-      const beat = this.getBeat(t);
-      const lf = ph.baseFreq;
-      const rf = lf + beat;
-      
-      if (this.freqLEl) this.freqLEl.textContent = lf.toFixed(0);
-      if (this.freqBeatEl) this.freqBeatEl.textContent = beat.toFixed(1);
-      if (this.freqREl) this.freqREl.textContent = rf.toFixed(1);
     }
     
     tick() {
       if (!this.running) return;
       
-      // Date.now()와 실제 시작 시간을 비교하여 경과 시간을 계산하므로 백그라운드 멈춤 대응 가능
       this.elapsed = (Date.now() - this.realStartTime) / 1000;
+      const total = this.TOTAL;
       
-      if (this.elapsed >= this.TOTAL) {
-        this.elapsed = this.TOTAL;
+      if (this.elapsed >= total) {
+        this.elapsed = total;
         this.updateUI(this.elapsed);
-        this.running = false;
+        this.stop();
+        if (this.alarmOn) this.playAlarm();
         
         if (this.phaseName) this.phaseName.textContent = '완료!';
-        if (this.phaseDesc) this.phaseDesc.textContent = '40분 낮잠이 끝났습니다. 개운하게 일어나세요 :)';
-        if (this.btnPlay) this.btnPlay.textContent = '시작';
-        
-        // 오디오 정리
-        if (this.ctx) {
-          // 약간의 알람음 울릴 여유(3.2초)를 주고 컨텍스트 종료
-          setTimeout(() => {
-            if (!this.running && this.ctx) {
-              this.ctx.close();
-              this.ctx = null;
-            }
-          }, 3200);
-        }
+        if (this.phaseDesc) this.phaseDesc.textContent = `${this.currentPreset.name} 세션이 끝났습니다`;
         return;
       }
       
       this.updateUI(this.elapsed);
+      
+      const { ph, idx, local } = this.getPhaseAt(this.elapsed);
+      
+      if (idx !== this.prevPhaseIdx) {
+        if (this.phaseName) this.phaseName.textContent = ph.name;
+        if (this.phaseDesc) this.phaseDesc.textContent = ph.desc;
+        if (this.phaseDot) this.phaseDot.style.background = ph.color || this.currentPreset.color;
+        
+        const segments = this.phaseBar ? this.phaseBar.querySelectorAll('.phase-seg') : [];
+        segments.forEach((s, i) => {
+          s.style.opacity = (i === idx) ? '1' : '0.35';
+        });
+        
+        this.startVoices(ph.voices);
+        this.prevPhaseIdx = idx;
+      }
+      
+      const targetNoiseVol = (ph.noiseVol !== undefined ? ph.noiseVol : 0) * 0.2 * this.noiseMasterVolScale;
+      if (this.noiseGainNode && this.ctx) {
+        this.noiseGainNode.gain.setTargetAtTime(targetNoiseVol, this.ctx.currentTime, 0.2);
+      }
+      
+      if (this.activeVoices && this.activeVoices.length > 0 && this.ctx) {
+        this.activeVoices.forEach((v, vIdx) => {
+          const vData = ph.voices[vIdx];
+          if (!vData) return;
+          
+          const localProg = local / ph.dur;
+          const beat = vData.freqStart + (vData.freqEnd - vData.freqStart) * localProg;
+          const lf = vData.pitchStart + (vData.pitchEnd - vData.pitchStart) * localProg;
+          const rf = lf + beat;
+          
+          v.leftOsc.frequency.setTargetAtTime(lf, this.ctx.currentTime, 0.15);
+          v.rightOsc.frequency.setTargetAtTime(rf, this.ctx.currentTime, 0.15);
+          
+          if (vIdx === 0) {
+            if (this.freqLEl) this.freqLEl.textContent = lf.toFixed(0);
+            if (this.freqBeatEl) this.freqBeatEl.textContent = beat.toFixed(1);
+            if (this.freqREl) this.freqREl.textContent = rf.toFixed(1);
+          }
+        });
+      }
+      
       this.animId = requestAnimationFrame(() => this.tick());
     }
     
     togglePlay() {
       if (!this.running) {
-        // 재생 시작
         if (!this.ctx) {
           this.initAudio();
         } else if (this.ctx.state === 'suspended') {
@@ -371,20 +549,16 @@
         
         if (this.btnPlay) this.btnPlay.textContent = '일시정지';
         
-        // 오디오 파라미터 타임라인 스케줄 설정
-        this.scheduleAudioTimeline(this.elapsed, this.ctx.currentTime);
+        const { ph } = this.getPhaseAt(this.elapsed);
+        this.startVoices(ph.voices);
+        
         this.tick();
       } else {
-        // 일시 정지
         this.running = false;
         if (this.animId) cancelAnimationFrame(this.animId);
         
-        if (this.ctx) {
+        if (this.ctx && this.ctx.state === 'running') {
           this.ctx.suspend();
-          // 오디오 파라미터 예약 취소
-          if (this.leftOsc) this.leftOsc.frequency.cancelScheduledValues(0);
-          if (this.rightOsc) this.rightOsc.frequency.cancelScheduledValues(0);
-          this.cancelAlarm();
         }
         
         if (this.btnPlay) this.btnPlay.textContent = '재개';
@@ -398,24 +572,33 @@
       this.elapsed = 0;
       this.prevPhaseIdx = -1;
       
-      if (this.elapsedEl) this.elapsedEl.textContent = '00:00';
-      if (this.prog) this.prog.style.width = '0%';
-      if (this.freqBeatEl) this.freqBeatEl.textContent = '10';
-      if (this.freqLEl) this.freqLEl.textContent = '300';
-      if (this.freqREl) this.freqREl.textContent = '310';
-      if (this.phaseName) this.phaseName.textContent = '대기 중';
-      if (this.phaseDesc) this.phaseDesc.textContent = '시작 버튼을 눌러 낮잠을 시작하세요';
-      if (this.phaseDot) this.phaseDot.style.background = '#9FE1CB';
       if (this.btnPlay) this.btnPlay.textContent = '시작';
       
-      this.cancelAlarm();
-      
+      this.stopVoices();
+      if (this.noiseNode) {
+        try { this.noiseNode.stop(); } catch(e){}
+        this.noiseNode = null;
+      }
       if (this.ctx) {
         this.ctx.close();
         this.ctx = null;
-        this.leftOsc = null;
-        this.rightOsc = null;
       }
+      
+      this.updateStaticUI();
+    }
+    
+    playAlarm() {
+      if (!this.ctx) return;
+      const a = this.ctx.createOscillator(), g = this.ctx.createGain();
+      a.connect(g); g.connect(this.ctx.destination);
+      a.frequency.value = 880; a.type = 'sine';
+      const now = this.ctx.currentTime;
+      [[0, .2, .3], [.8, 1, .3], [1.8, 2, .3]].forEach(([s, p, v]) => {
+        g.gain.setValueAtTime(0, now + s);
+        g.gain.linearRampToValueAtTime(v, now + p);
+        g.gain.linearRampToValueAtTime(0, now + s + .8);
+      });
+      a.start(); a.stop(now + 3);
     }
     
     open() {
@@ -424,22 +607,23 @@
         this.modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
       }
+      this.updateStaticUI();
     }
     
     close() {
       this.isOpen = false;
       if (this.modal) {
         this.modal.classList.add('hidden');
-        // 테트리스가 열려있지 않을 때만 스크롤 복원
         const isTetrisOpen = !document.getElementById('tetrisModalOverlay').classList.contains('hidden');
         if (!isTetrisOpen) {
           document.body.style.overflow = '';
         }
       }
+      this.stop();
     }
   }
 
-  // === 3. 전역 인스턴스 등록 ===
+  // === 4. Instance Registration ===
   document.addEventListener('DOMContentLoaded', () => {
     window.featureMenu = new FeatureMenu();
     window.napPlayer = new NapPlayer();

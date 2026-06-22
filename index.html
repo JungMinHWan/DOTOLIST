@@ -323,6 +323,27 @@
       });
     }
   </script>
+  <!-- Secret Letter Modal -->
+  <div class="vault-modal-overlay hidden" id="secretLetterModalOverlay">
+    <div class="vault-modal secret-letter-modal" style="border: 1px solid rgba(255, 152, 0, 0.25); box-shadow: 0 20px 50px rgba(255, 152, 0, 0.15);">
+      <div class="vault-modal-header" style="border-bottom: 1px solid rgba(255, 152, 0, 0.15); padding-bottom: 12px; margin-bottom: 8px;">
+        <div class="vault-modal-title" style="color: #ff9800; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+          <span>🔒 비밀 편지</span>
+          <span style="font-size: 11px; background: rgba(255, 152, 0, 0.15); color: #ff9800; padding: 2px 8px; border-radius: 12px; font-weight: 700;">Secret Letter</span>
+        </div>
+        <button class="vault-modal-close" id="secretLetterModalClose">×</button>
+      </div>
+      <div class="vault-modal-body" style="padding-top: 10px;">
+        <p class="vault-hint" id="secretLetterDateLabel" style="font-weight: 700; color: var(--text-main); margin-bottom: 12px;">일자 선택됨</p>
+        <textarea class="vault-textarea" id="secretLetterInput" placeholder="오늘 하루를 마무리하며 나에게, 혹은 누군가에게 전하는 비밀 편지를 기록해보세요..." style="height: 200px; font-family: 'Nanum Pen Script', sans-serif; font-size: 24px; line-height: 1.5; color: #d35400; border-left: 3px solid #ff9800; padding-left: 14px; background: rgba(255, 152, 0, 0.02); resize: none;"></textarea>
+        <div class="vault-footer-row" style="display: flex; justify-content: flex-end; align-items: center; margin-top: 12px; gap: 8px;">
+          <span class="save-status" id="secretLetterSaveStatus" style="font-size: 12px; font-weight: 700; color: #ff9800;"></span>
+          <button class="vault-btn" id="saveSecretLetterBtn" style="background: #ff9800; border-color: #ff9800; color: white; font-weight: 700;">저장하기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Password Verification Modal -->
   <div class="vault-modal-overlay hidden" id="vaultAuthModal">
     <div class="vault-modal">
@@ -473,37 +494,62 @@
   <div class="nap-modal-overlay hidden" id="napModalOverlay">
     <div class="nap-modal">
       <div class="nap-modal-header">
-        <div class="nap-title">🎧 낮잠 바이노럴 비트</div>
+        <div class="nap-title">🎧 바이노럴 비트</div>
         <button class="nap-modal-close" id="napModalClose">×</button>
       </div>
       <div class="nap-modal-body">
+        <!-- Preset Dropdown Selector -->
+        <div class="nap-preset-row" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <label for="napPresetSelect" style="font-size: 11px; color: #94a3b8; font-weight: 700;">프리셋 선택</label>
+          <select id="napPresetSelect" class="nap-preset-select" style="width: 100%; background: #1a1a26; border: 1px solid #2a2a3a; border-radius: 8px; color: #f8fafc; padding: 10px; font-size: 13.5px; outline: none; -webkit-appearance: none; cursor: pointer;">
+            <optgroup label="🌙 수면" style="background: #12121a; color: #94a3b8;">
+              <option value="powernap" selected>오리지널 낮잠 20분 (20분)</option>
+              <option value="powernap40">오리지널 낮잠 40분 (40분)</option>
+              <option value="sleep">깊은 수면 (60분)</option>
+            </optgroup>
+            <optgroup label="⚡ 집중" style="background: #12121a; color: #94a3b8;">
+              <option value="focus">집중력 (오리지널) (30분)</option>
+            </optgroup>
+            <optgroup label="🧘 명상 / 이완" style="background: #12121a; color: #94a3b8;">
+              <option value="meditation_unity">명상 (Unity 3중음) (60분)</option>
+              <option value="healing_morphine">치유 (Morphine 5중음) (60분)</option>
+              <option value="schumann">슈만 공명 7.83Hz (20분)</option>
+              <option value="hypnosis">자기 최면 (20분)</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Now Playing Card -->
+        <div class="nap-np-card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+          <div class="nap-np-category" id="napNpCategory" style="font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 2px;">수면</div>
+          <div class="nap-np-name" id="napNpName" style="font-size: 16px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">오리지널 낮잠 20분</div>
+          <div class="nap-np-desc" id="napNpDesc" style="font-size: 11px; color: #94a3b8; line-height: 1.4;">Gnaural 오리지널 20분 설계. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.</div>
+        </div>
+
+        <!-- Progress Area -->
         <div class="phase-bar-wrap">
-          <div class="phase-bar">
-            <div class="p1"></div>
-            <div class="p2"></div>
-            <div class="p3"></div>
+          <div class="phase-bar" id="napPhaseBar" style="display: flex; height: 6px; border-radius: 3px; overflow: hidden; gap: 2px; margin-bottom: 6px;">
+            <!-- Dynamic elements -->
           </div>
-          <div class="phase-label-row">
-            <div class="phase-label">입면 유도<br>0–10분</div>
-            <div class="phase-label">낮잠 수면<br>10–35분</div>
-            <div class="phase-label">기상<br>35–40분</div>
+          <div class="phase-label-row" id="napPhaseLabels" style="display: flex; justify-content: space-between; margin-bottom: 10px; gap: 2px;">
+            <!-- Dynamic elements -->
           </div>
           <div class="progress-track">
             <div class="progress-fill" id="napProg"></div>
           </div>
-          <div class="time-row">
+          <div class="time-row" style="display: flex; justify-content: space-between; margin-top: 4px;">
             <span class="time-tick">0</span>
-            <span class="time-tick">10분</span>
-            <span class="time-tick">35분</span>
-            <span class="time-tick">40분</span>
+            <span class="time-tick" id="napTimeTickEnd">20분</span>
           </div>
         </div>
 
+        <!-- Timer Display -->
         <div class="big-timer">
           <div class="elapsed" id="napElapsed">00:00</div>
-          <div class="total">/ 40:00</div>
+          <div class="total" id="napTimerTotal">/ 20:00</div>
         </div>
 
+        <!-- Live Phase Status -->
         <div class="phase-info" id="napPhaseInfo">
           <div class="phase-dot" id="napPhaseDot" style="background:#9FE1CB"></div>
           <div class="phase-info-text">
@@ -512,33 +558,42 @@
           </div>
         </div>
 
+        <!-- Freq Cards -->
         <div class="freq-cards">
           <div class="freq-card">
             <div class="label">왼쪽 귀</div>
-            <div class="val" id="napFreqL">300</div>
+            <div class="val" id="napFreqL">164</div>
             <div class="unit">Hz</div>
           </div>
           <div class="freq-card">
             <div class="label">바이노럴 비트</div>
-            <div class="val" id="napFreqBeat">10</div>
+            <div class="val" id="napFreqBeat">11.0</div>
             <div class="unit">Hz</div>
           </div>
           <div class="freq-card">
             <div class="label">오른쪽 귀</div>
-            <div class="val" id="napFreqR">310</div>
+            <div class="val" id="napFreqR">175</div>
             <div class="unit">Hz</div>
           </div>
         </div>
 
+        <!-- Controls -->
         <div class="btn-row">
           <button id="btnNapPlay">시작</button>
           <button id="btnNapStop">정지</button>
         </div>
 
-        <div class="vol-row">
-          <label for="napVol">볼륨</label>
-          <input type="range" id="napVol" min="0" max="100" value="40" step="1">
-          <span id="napVolOut">40</span>
+        <div class="vol-row" style="display:flex; flex-direction:column; gap:8px; margin-bottom: 12px;">
+          <div style="display:flex; align-items:center; gap:10px; justify-content:center; width:100%;">
+            <label for="napVol" style="width:50px; font-size:12px; color:rgba(255,255,255,0.6);">마스터</label>
+            <input type="range" id="napVol" min="0" max="100" value="40" step="1" style="flex:1;">
+            <span id="napVolOut" style="min-width:24px; text-align:right; font-size:12px; color:rgba(255,255,255,0.6);">40</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; justify-content:center; width:100%;">
+            <label for="napVolNoise" style="width:50px; font-size:12px; color:rgba(255,255,255,0.6);">소음</label>
+            <input type="range" id="napVolNoise" min="0" max="100" value="50" step="1" style="flex:1;">
+            <span id="napVolNoiseOut" style="min-width:24px; text-align:right; font-size:12px; color:rgba(255,255,255,0.6);">50</span>
+          </div>
         </div>
 
         <div class="alarm-row">
@@ -547,7 +602,66 @@
           <span id="napAlarmLabel" style="font-size:13px;color:rgba(255, 255, 255, 0.6)">켜짐</span>
         </div>
 
-        <div class="notice">반드시 헤드폰을 착용하세요 — 이어폰도 좋습니다</div>
+        <div class="notice" style="margin-bottom: 10px;">반드시 헤드폰을 착용하세요 — 이어폰도 좋습니다</div>
+
+        <!-- Brainwave Legend -->
+        <div class="bw-legend" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 10px;">
+          <div class="bw-item" style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 4px 2px; text-align: center; border: 1px solid rgba(255,255,255,0.04);">
+            <div class="bn" style="color: #4169E1; font-size: 9px; font-weight: 700; margin-bottom: 1px;">Delta</div>
+            <div class="bf" style="font-size: 8px; color: #64748b;">1–4Hz</div>
+          </div>
+          <div class="bw-item" style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 4px 2px; text-align: center; border: 1px solid rgba(255,255,255,0.04);">
+            <div class="bn" style="color: #9370DB; font-size: 9px; font-weight: 700; margin-bottom: 1px;">Theta</div>
+            <div class="bf" style="font-size: 8px; color: #64748b;">4–8Hz</div>
+          </div>
+          <div class="bw-item" style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 4px 2px; text-align: center; border: 1px solid rgba(255,255,255,0.04);">
+            <div class="bn" style="color: #5DCAA5; font-size: 9px; font-weight: 700; margin-bottom: 1px;">Alpha</div>
+            <div class="bf" style="font-size: 8px; color: #64748b;">8–14Hz</div>
+          </div>
+          <div class="bw-item" style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 4px 2px; text-align: center; border: 1px solid rgba(255,255,255,0.04);">
+            <div class="bn" style="color: #FFD700; font-size: 9px; font-weight: 700; margin-bottom: 1px;">Beta</div>
+            <div class="bf" style="font-size: 8px; color: #64748b;">14–30Hz</div>
+          </div>
+          <div class="bw-item" style="background: rgba(255,255,255,0.02); border-radius: 6px; padding: 4px 2px; text-align: center; border: 1px solid rgba(255,255,255,0.04);">
+            <div class="bn" style="color: #FF4500; font-size: 9px; font-weight: 700; margin-bottom: 1px;">Gamma</div>
+            <div class="bf" style="font-size: 8px; color: #64748b;">30–40Hz</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Push Reservation Modal -->
+  <div class="vault-modal-overlay hidden" id="pushModalOverlay">
+    <div class="vault-modal push-modal">
+      <div class="vault-modal-header">
+        <div class="vault-modal-title">🔔 푸시 알림 예약</div>
+        <button class="vault-modal-close" id="pushModalClose">×</button>
+      </div>
+      <div class="vault-modal-body">
+        <p class="push-task-title" id="pushTaskTitle" style="font-weight: 700; font-size: 15px; margin-bottom: 12px; color: var(--theme-primary-dark); word-break: break-all;"></p>
+        
+        <!-- 알림 미허용 경고판 -->
+        <div class="push-permission-warning hidden" id="pushPermissionWarning" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 12.5px; color: #ef4444; text-align: center;">
+          현재 브라우저 알림 권한이 비활성화되어 있습니다.
+          <button class="vault-btn" id="btnRequestPushPermission" style="width: 100%; margin-top: 8px; background: #ef4444; border-color: #ef4444;">알림 권한 허용하기</button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: #94a3b8; font-weight: 700;">알림 일자</label>
+            <input type="date" id="pushModalDate" class="vault-input" style="width: 100%;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <label style="font-size: 11px; color: #94a3b8; font-weight: 700;">알림 시간</label>
+            <input type="time" id="pushModalTime" class="vault-input" style="width: 100%;">
+          </div>
+        </div>
+
+        <div class="push-modal-actions" style="display: flex; justify-content: space-between; gap: 8px;">
+          <button class="vault-btn-secondary" id="btnDeletePushReservation" style="flex: 1; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); color: #ef4444;">알림 해제</button>
+          <button class="vault-btn" id="btnSavePushReservation" style="flex: 2;">예약 저장</button>
+        </div>
       </div>
     </div>
   </div>
