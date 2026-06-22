@@ -78,6 +78,16 @@
       if (this.playerNameInput) {
         this.playerNameInput.value = this.playerNameCache;
       }
+
+      // 그리드 래퍼 터치 이벤트 전파 차단 (날짜 전환 스와이프 및 메인 스크롤 간섭 완전 해결)
+      const gridWrapper = document.querySelector('.math-grid-wrapper');
+      if (gridWrapper) {
+        ['touchstart', 'touchmove', 'touchend', 'touchcancel'].forEach(evtName => {
+          gridWrapper.addEventListener(evtName, (e) => {
+            e.stopPropagation();
+          }, { passive: true });
+        });
+      }
     }
 
     open() {

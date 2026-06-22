@@ -2431,13 +2431,13 @@ body {
 /* 10x10 그리드 스크롤 컨테이너 - 스크롤바 삭제 및 화면 맞춤 개선 */
 .math-grid-wrapper {
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: auto; /* 유동적 축소 실패 시 백업용 가로 스크롤 허용 */
   background: rgba(2, 6, 23, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 12px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start; /* 스크롤 시 짤림 방지를 위해 시작점 정렬 */
 }
 
 .math-grid-container {
@@ -2509,6 +2509,7 @@ body {
   font-weight: 800;
   color: #fff;
   outline: none;
+  min-width: 0; /* 브라우저 기본 min-width(150px 등) 차단하여 유동적 축소 허용 */
 }
 
 /* 채점 스타일 */
@@ -2717,8 +2718,8 @@ body {
 /* 반응형 모바일 지원 - 고정 크기에서 100% 유동형으로 일관성 유지 */
 @media (max-width: 768px) {
   .math-modal {
-    padding: 14px;
-    width: calc(100% - 16px);
+    padding: 10px 8px; /* 모바일 여백 최소화 */
+    width: calc(100% - 12px);
   }
 
   .math-operation-select {
@@ -2736,11 +2737,14 @@ body {
 
   .math-grid-wrapper {
     padding: 6px;
+    justify-content: flex-start; /* 화면보다 커지면 스크롤이 자연스럽게 시작점에서 이동하도록 설정 */
+    -webkit-overflow-scrolling: touch; /* 모바일 부드러운 스크롤 터치 활성화 */
   }
 
   .math-grid-container {
-    grid-template-columns: 1.2fr repeat(10, 1fr); /* 좁은 모바일에서도 동일하게 100% 비율 분배 */
+    grid-template-columns: 46px repeat(10, 40px); /* 11칸의 최소입력 폭 보장을 위해 고정 픽셀 세팅 */
     gap: 2px;
+    width: max-content; /* 비율 축소 차단하고 콘텐츠 너비 그대로 확보 */
   }
 
   .math-cell {
