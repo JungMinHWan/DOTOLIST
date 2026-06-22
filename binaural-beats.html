@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Binaural Beats</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;
+  --surface:#12121a;
+  --surface2:#1a1a26;
+  --border:#2a2a3a;
+  --text:#e8e8f0;
+  --muted:#6a6a88;
+  --accent:#4ade80;
+}
+body{background:var(--bg);color:var(--text);font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;padding:0}
+
+/* Layout */
+.app{display:grid;grid-template-columns:280px 1fr;min-height:100vh}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:1.5rem 0;overflow-y:auto}
+.main{padding:2rem;display:flex;flex-direction:column;gap:1.5rem}
+
+/* Sidebar */
+.sidebar-title{font-size:11px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:0 1.25rem;margin-bottom:.75rem}
+.category{margin-bottom:1.5rem}
+.preset-btn{width:100%;text-align:left;background:none;border:none;cursor:pointer;padding:.6rem 1.25rem;display:flex;align-items:center;gap:.75rem;color:var(--muted);font-size:13.5px;transition:all .15s;border-left:2px solid transparent}
+.preset-btn:hover{color:var(--text);background:var(--surface2)}
+.preset-btn.active{color:var(--text);border-left-color:var(--accent);background:var(--surface2)}
+.preset-btn .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;opacity:.7}
+.preset-btn.active .dot{opacity:1}
+.preset-btn .pname{flex:1;font-weight:500}
+.preset-btn .pdur{font-size:11px;color:var(--muted)}
+
+/* Now playing card */
+.now-playing{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:2rem;position:relative;overflow:hidden}
+.np-wave{position:absolute;inset:0;opacity:.04;background:radial-gradient(ellipse at 30% 50%, var(--accent) 0%, transparent 70%);pointer-events:none}
+.np-category{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+.np-name{font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:.4rem}
+.np-desc{font-size:13px;color:var(--muted);line-height:1.6;max-width:480px}
+
+/* Timer */
+.timer-block{display:flex;align-items:baseline;gap:.5rem;margin:1.5rem 0 1rem}
+.timer-elapsed{font-size:52px;font-weight:300;letter-spacing:-2px;font-variant-numeric:tabular-nums;line-height:1}
+.timer-total{font-size:16px;color:var(--muted)}
+
+/* Progress */
+.progress-wrap{margin-bottom:1.5rem}
+.phase-labels{display:flex;margin-bottom:.5rem;gap:2px}
+.phase-seg-label{font-size:10px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.phase-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;gap:2px;margin-bottom:.4rem}
+.phase-seg{border-radius:2px;transition:opacity .3s}
+.phase-seg.active{opacity:1!important}
+.progress-track{height:2px;background:var(--border);border-radius:1px;position:relative;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent);border-radius:1px;width:0%;transition:width .9s linear}
+
+/* Freq display */
+.freq-row{display:grid;grid-template-columns:1fr auto 1fr;gap:1rem;align-items:center;margin-bottom:1.5rem}
+.freq-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem}
+.freq-card .fl{font-size:10px;color:var(--muted);margin-bottom:2px}
+.freq-card .fv{font-size:22px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.freq-card .fu{font-size:11px;color:var(--muted)}
+.beat-badge{text-align:center}
+.beat-badge .bv{font-size:32px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.beat-badge .bl{font-size:11px;color:var(--muted)}
+.beat-badge .bw{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* Phase indicator */
+.phase-indicator{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem}
+.ph-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .5s}
+.ph-name{font-size:13px;font-weight:500}
+.ph-desc{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* Controls */
+.controls{display:flex;align-items:center;gap:1rem}
+.btn-play{background:var(--accent);color:#000;border:none;border-radius:50%;width:52px;height:52px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;transition:transform .1s,opacity .1s;flex-shrink:0}
+.btn-play:hover{opacity:.9}
+.btn-play:active{transform:scale(.95)}
+.btn-stop{background:none;border:1px solid var(--border);color:var(--muted);border-radius:50%;width:36px;height:36px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s}
+.btn-stop:hover{border-color:var(--text);color:var(--text)}
+.vol-wrap{display:flex;align-items:center;gap:.5rem;margin-left:auto}
+.vol-wrap label{font-size:12px;color:var(--muted)}
+.vol-wrap input[type=range]{width:90px;accent-color:var(--accent)}
+.vol-wrap span{font-size:12px;color:var(--muted);min-width:28px}
+.alarm-wrap{display:flex;align-items:center;gap:.5rem}
+.alarm-wrap label{font-size:12px;color:var(--muted)}
+.toggle{width:34px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;background:var(--border);transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle.on::after{left:19px}
+.notice{font-size:11px;color:var(--muted);margin-top:1rem;display:flex;align-items:center;gap:.4rem}
+.notice::before{content:'🎧';font-size:13px}
+
+/* Brainwave legend */
+.bw-legend{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:.5rem}
+.bw-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;text-align:center}
+.bw-item .bn{font-size:11px;font-weight:600;margin-bottom:1px}
+.bw-item .bf{font-size:10px;color:var(--muted)}
+.bw-item .bb{font-size:9px;color:var(--muted);margin-top:1px}
+
+@media(max-width:680px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border);display:flex;flex-direction:column;padding:1rem}
+  .category{margin-bottom:.75rem}
+  .preset-btn{padding:.5rem .75rem;font-size:13px}
+  .bw-legend{grid-template-columns:repeat(5,1fr)}
+  .freq-row{gap:.5rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="category">
+    <div class="sidebar-title">🌙 수면</div>
+    <button class="preset-btn active" data-preset="powernap" onclick="selectPreset(this)">
+      <span class="dot" style="background:#5DCAA5"></span>
+      <span class="pname">오리지널 낮잠 20분</span>
+      <span class="pdur">20분</span>
+    </button>
+    <button class="preset-btn" data-preset="powernap40" onclick="selectPreset(this)">
+      <span class="dot" style="background:#3cb38d"></span>
+      <span class="pname">오리지널 낮잠 40분</span>
+      <span class="pdur">40분</span>
+    </button>
+    <button class="preset-btn" data-preset="sleep" onclick="selectPreset(this)">
+      <span class="dot" style="background:#4169E1"></span>
+      <span class="pname">깊은 수면</span>
+      <span class="pdur">60분</span>
+    </button>
+  </div>
+  <div class="category">
+    <div class="sidebar-title">⚡ 집중</div>
+    <button class="preset-btn" data-preset="focus" onclick="selectPreset(this)">
+      <span class="dot" style="background:#FFD700"></span>
+      <span class="pname">집중력 (오리지널)</span>
+      <span class="pdur">30분</span>
+    </button>
+  </div>
+  <div class="category">
+    <div class="sidebar-title">🧘 명상 / 이완</div>
+    <button class="preset-btn" data-preset="meditation_unity" onclick="selectPreset(this)">
+      <span class="dot" style="background:#20B2AA"></span>
+      <span class="pname">명상 (Unity 3중음)</span>
+      <span class="pdur">60분</span>
+    </button>
+    <button class="preset-btn" data-preset="healing_morphine" onclick="selectPreset(this)">
+      <span class="dot" style="background:#DDA0DD"></span>
+      <span class="pname">치유 (Morphine 5중음)</span>
+      <span class="pdur">60분</span>
+    </button>
+    <button class="preset-btn" data-preset="schumann" onclick="selectPreset(this)">
+      <span class="dot" style="background:#32CD32"></span>
+      <span class="pname">슈만 공명 7.83Hz</span>
+      <span class="pdur">20분</span>
+    </button>
+    <button class="preset-btn" data-preset="hypnosis" onclick="selectPreset(this)">
+      <span class="dot" style="background:#9370DB"></span>
+      <span class="pname">자기 최면</span>
+      <span class="pdur">20분</span>
+    </button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="now-playing">
+    <div class="np-wave"></div>
+    <div class="np-category" id="np-category">수면</div>
+    <div class="np-name" id="np-name">오리지널 낮잠 20분</div>
+    <div class="np-desc" id="np-desc">Gnaural 오리지널 20분 설계. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.</div>
+  </div>
+
+  <!-- Timer -->
+  <div>
+    <div class="timer-block">
+      <div class="timer-elapsed" id="elapsed">00:00</div>
+      <div class="timer-total" id="timer-total">/ 20:00</div>
+    </div>
+    <div class="progress-wrap">
+      <div class="phase-labels" id="phase-labels"></div>
+      <div class="phase-bar" id="phase-bar"></div>
+      <div class="progress-track"><div class="progress-fill" id="prog"></div></div>
+    </div>
+  </div>
+
+  <!-- Phase indicator -->
+  <div class="phase-indicator">
+    <div class="ph-dot" id="ph-dot" style="background:#5DCAA5"></div>
+    <div>
+      <div class="ph-name" id="ph-name">대기 중</div>
+      <div class="ph-desc" id="ph-desc">재생 버튼을 눌러 시작하세요</div>
+    </div>
+  </div>
+
+  <!-- Freq display -->
+  <div class="freq-row">
+    <div class="freq-card">
+      <div class="fl">왼쪽 귀 (L)</div>
+      <div class="fv" id="freq-l">164</div>
+      <div class="fu">Hz</div>
+    </div>
+    <div class="beat-badge">
+      <div class="bv" id="freq-beat">11.0</div>
+      <div class="bl">바이노럴 비트</div>
+      <div class="bw" id="bw-type">Alpha</div>
+    </div>
+    <div class="freq-card" style="text-align:right">
+      <div class="fl">오른쪽 귀 (R)</div>
+      <div class="fv" id="freq-r">175</div>
+      <div class="fu">Hz</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="btn-play" id="btn-play" onclick="togglePlay()" aria-label="재생/일시정지">▶</button>
+    <button class="btn-stop" onclick="stopAll()" aria-label="정지">■</button>
+    <div class="alarm-wrap">
+      <label>알람</label>
+      <button class="toggle on" id="alarm-toggle" onclick="toggleAlarm()" aria-label="알람 켜기/끄기"></button>
+    </div>
+    <div class="vol-wrap" style="gap:1.5rem">
+      <div style="display:flex;align-items:center;gap:0.4rem">
+        <label for="vol">마스터</label>
+        <input type="range" id="vol" min="0" max="100" value="40" step="1" oninput="setVol(this.value)">
+        <span id="vol-out">40</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.4rem">
+        <label for="vol-noise">소음</label>
+        <input type="range" id="vol-noise" min="0" max="100" value="50" step="1" oninput="setNoiseVol(this.value)">
+        <span id="vol-noise-out">50</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="notice">반드시 헤드폰(또는 이어폰)을 착용하세요 — 좌우 귀에 다른 신호가 전달되어야 효과가 있습니다</div>
+
+  <!-- Brainwave legend -->
+  <div class="bw-legend">
+    <div class="bw-item"><div class="bn" style="color:#4169E1">Delta</div><div class="bf">1–4 Hz</div><div class="bb">깊은 수면</div></div>
+    <div class="bw-item"><div class="bn" style="color:#9370DB">Theta</div><div class="bf">4–8 Hz</div><div class="bb">명상·낮잠</div></div>
+    <div class="bw-item"><div class="bn" style="color:#5DCAA5">Alpha</div><div class="bf">8–14 Hz</div><div class="bb">이완·창의</div></div>
+    <div class="bw-item"><div class="bn" style="color:#FFD700">Beta</div><div class="bf">14–30 Hz</div><div class="bb">집중·각성</div></div>
+    <div class="bw-item"><div class="bn" style="color:#FF4500">Gamma</div><div class="bf">30–40 Hz</div><div class="bb">고강도 몰입</div></div>
+  </div>
+</main>
+</div>
+
+<script>
+const PRESETS = {
+  powernap:{
+    name:'오리지널 낮잠 20분', category:'수면', color:'#5DCAA5',
+    desc:'Gnaural 오리지널 20분 설계. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.',
+    phases:[
+      {name:'입면 시작', desc:'Alpha 11Hz ➔ 8.8Hz로 빠르게 이완 유도', dur:13.17, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:163.349, freqStart:10.991, freqEnd:8.80596, volume:0.515339*1.5}]},
+      {name:'이완 심화', desc:'8.8Hz ➔ 7Hz로 낮잠 준비', dur:16.76, noiseVol:0.1, voices:[{pitchStart:163.349, pitchEnd:162.52, freqStart:8.80596, freqEnd:6.99479, volume:0.520837*1.5}]},
+      {name:'수면 진입', desc:'7Hz ➔ 5.2Hz 세타파 입면', dur:28.99, noiseVol:0.1, voices:[{pitchStart:162.52, pitchEnd:161.04, freqStart:6.99479, freqEnd:5.22245, volume:0.527834*1.5}]},
+      {name:'얕은 수면', desc:'5.2Hz ➔ 4.4Hz 깊은 휴식 유도', dur:38.06, noiseVol:0.1, voices:[{pitchStart:161.04, pitchEnd:159.204, freqStart:5.22245, freqEnd:4.39666, volume:0.539935*1.5}]},
+      {name:'세타 휴식', desc:'4.4Hz ➔ 4.15Hz 뇌파 안정화', dur:50.29, noiseVol:0.1, voices:[{pitchStart:159.204, pitchEnd:156.717, freqStart:4.39666, freqEnd:4.1511, volume:0.555823*1.5}]},
+      {name:'수면 유지', desc:'4.15Hz ➔ 4Hz 깊은 세타 수면 돌입', dur:67.92, noiseVol:0.1, voices:[{pitchStart:156.717, pitchEnd:153.359, freqStart:4.1511, freqEnd:4.00, volume:0.576815*1.5}]},
+      {name:'낮잠 상태', desc:'4Hz 깊은 세타 수면 유지 (핵심 단계)', dur:877.02, noiseVol:0.1, voices:[{pitchStart:153.359, pitchEnd:110.0, freqStart:4.00, freqEnd:4.00, volume:0.605162*1.5}]},
+      {name:'얕은 각성', desc:'기저 주파수 변화로 뇌를 깨우기 시작', dur:36.79, noiseVol:0.1, voices:[{pitchStart:110.0, pitchEnd:129.11, freqStart:4.00, freqEnd:4.15692, volume:0.971179}]},
+      {name:'의식 상승', desc:'세타 ➔ 알파파 상승 준비', dur:32.26, noiseVol:0.1, voices:[{pitchStart:129.11, pitchEnd:145.87, freqStart:4.15692, freqEnd:5.05209, volume:0.986534}]},
+      {name:'알파 활성', desc:'5Hz ➔ 6.8Hz 가벼운 각성', dur:19.81, noiseVol:0.1, voices:[{pitchStart:145.87, pitchEnd:156.16, freqStart:5.05209, freqEnd:6.83576, volume:1.0}]},
+      {name:'기상 유도', desc:'6.8Hz ➔ 9.8Hz 두뇌 회전 준비', dur:15.09, noiseVol:0.1, voices:[{pitchStart:156.16, pitchEnd:164.0, freqStart:6.83576, freqEnd:9.81165, volume:0.73053}]},
+      {name:'완전 기상', desc:'마무리 9.81Hz 기상', dur:3.77, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:164.0, freqStart:9.81165, freqEnd:9.81165, volume:0.515339*1.5}]}
+    ]
+  },
+  powernap40:{
+    name:'오리지널 낮잠 40분', category:'수면', color:'#3cb38d',
+    desc:'Gnaural 오리지널 설계를 40분으로 확장. 12단계에 걸친 피치 전이와 백색 소음 믹싱으로 깊은 이완과 회복을 제공합니다.',
+    phases:[
+      {name:'입면 시작', desc:'Alpha 11Hz ➔ 8.8Hz로 빠르게 이완 유도', dur:13.17*2, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:163.349, freqStart:10.991, freqEnd:8.80596, volume:0.515339*1.5}]},
+      {name:'이완 심화', desc:'8.8Hz ➔ 7Hz로 낮잠 준비', dur:16.76*2, noiseVol:0.1, voices:[{pitchStart:163.349, pitchEnd:162.52, freqStart:8.80596, freqEnd:6.99479, volume:0.520837*1.5}]},
+      {name:'수면 진입', desc:'7Hz ➔ 5.2Hz 세타파 입면', dur:28.99*2, noiseVol:0.1, voices:[{pitchStart:162.52, pitchEnd:161.04, freqStart:6.99479, freqEnd:5.22245, volume:0.527834*1.5}]},
+      {name:'얕은 수면', desc:'5.2Hz ➔ 4.4Hz 깊은 휴식 유도', dur:38.06*2, noiseVol:0.1, voices:[{pitchStart:161.04, pitchEnd:159.204, freqStart:5.22245, freqEnd:4.39666, volume:0.539935*1.5}]},
+      {name:'세타 휴식', desc:'4.4Hz ➔ 4.15Hz 뇌파 안정화', dur:50.29*2, noiseVol:0.1, voices:[{pitchStart:159.204, pitchEnd:156.717, freqStart:4.39666, freqEnd:4.1511, volume:0.555823*1.5}]},
+      {name:'수면 유지', desc:'4.15Hz ➔ 4Hz 깊은 세타 수면 돌입', dur:67.92*2, noiseVol:0.1, voices:[{pitchStart:156.717, pitchEnd:153.359, freqStart:4.1511, freqEnd:4.00, volume:0.576815*1.5}]},
+      {name:'낮잠 상태', desc:'4Hz 깊은 세타 수면 유지 (핵심 단계)', dur:877.02*2, noiseVol:0.1, voices:[{pitchStart:153.359, pitchEnd:110.0, freqStart:4.00, freqEnd:4.00, volume:0.605162*1.5}]},
+      {name:'얕은 각성', desc:'기저 주파수 변화로 뇌를 깨우기 시작', dur:36.79*2, noiseVol:0.1, voices:[{pitchStart:110.0, pitchEnd:129.11, freqStart:4.00, freqEnd:4.15692, volume:0.971179}]},
+      {name:'의식 상승', desc:'세타 ➔ 알파파 상승 준비', dur:32.26*2, noiseVol:0.1, voices:[{pitchStart:129.11, pitchEnd:145.87, freqStart:4.15692, freqEnd:5.05209, volume:0.986534}]},
+      {name:'알파 활성', desc:'5Hz ➔ 6.8Hz 가벼운 각성', dur:19.81*2, noiseVol:0.1, voices:[{pitchStart:145.87, pitchEnd:156.16, freqStart:5.05209, freqEnd:6.83576, volume:1.0}]},
+      {name:'기상 유도', desc:'6.8Hz ➔ 9.8Hz 두뇌 회전 준비', dur:15.09*2, noiseVol:0.1, voices:[{pitchStart:156.16, pitchEnd:164.0, freqStart:6.83576, freqEnd:9.81165, volume:0.73053}]},
+      {name:'완전 기상', desc:'마무리 9.81Hz 기상', dur:3.77*2, noiseVol:0.1, voices:[{pitchStart:164.0, pitchEnd:164.0, freqStart:9.81165, freqEnd:9.81165, volume:0.515339*1.5}]}
+    ]
+  },
+  sleep:{
+    name:'깊은 수면', category:'수면', color:'#4169E1',
+    desc:'Beta에서 Delta까지 천천히 내려가는 60분 세션. 밤잠 입면을 도와줍니다. 잠들기 전 재생하고 알람 없이 사용하세요.',
+    phases:[
+      {name:'이완 시작',desc:'Alpha — 몸과 마음을 이완합니다',color:'#6495ED',dur:10*60,noiseVol:0.15,voices:[{pitchStart:280,pitchEnd:280,freqStart:12,freqEnd:8,volume:0.6}]},
+      {name:'졸음 유도',desc:'Theta — 수면 직전 상태로 진입합니다',color:'#4169E1',dur:20*60,noiseVol:0.2,voices:[{pitchStart:280,pitchEnd:280,freqStart:8,freqEnd:4,volume:0.65}]},
+      {name:'깊은 수면',desc:'Delta — 깊은 수면 상태를 유지합니다',color:'#1C3A8A',dur:30*60,noiseVol:0.25,voices:[{pitchStart:280,pitchEnd:280,freqStart:4,freqEnd:1.5,volume:0.6}]}
+    ]
+  },
+  focus:{
+    name:'집중력 (오리지널)', category:'집중', color:'#FFD700',
+    desc:'432Hz 웰니스 피치 스케일 바탕음과 백색 소음 믹싱으로 업무/학습 집중도를 높입니다.',
+    phases:[
+      {name:'워밍업',desc:'Alpha➔Beta — 두뇌를 서서히 깨웁니다',color:'#FFE55C',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:10,freqEnd:15,volume:0.6}]},
+      {name:'집중 유지',desc:'Beta 15Hz — 안정적인 집중 상태',color:'#FFD700',dur:20*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:15,freqEnd:15,volume:0.65}]},
+      {name:'마무리',desc:'Beta➔Alpha — 부드럽게 마무리합니다',color:'#C8A800',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:15,freqEnd:10,volume:0.6}]}
+    ]
+  },
+  meditation_unity:{
+    name:'명상 (Unity 3중음)', category:'명상 / 이완', color:'#20B2AA',
+    desc:'3개의 바이노럴 비트 보이스(3.7Hz, 2.5Hz, 5.9Hz)가 동시에 작용하여 깊은 입체적 이완 상태를 제공합니다.',
+    phases:[
+      {
+        name:'깊은 이완',
+        desc:'Delta 및 Theta 3중 주파수 동조 상태',
+        color:'#20B2AA',
+        dur:60*60,
+        noiseVol:0.4,
+        voices:[
+          {pitchStart:432.0, pitchEnd:432.0, freqStart:3.7, freqEnd:3.7, volume:0.6},
+          {pitchStart:513.7, pitchEnd:513.7, freqStart:2.5, freqEnd:2.5, volume:0.6},
+          {pitchStart:647.3, pitchEnd:647.3, freqStart:5.9, freqEnd:5.9, volume:0.6}
+        ]
+      }
+    ]
+  },
+  healing_morphine:{
+    name:'치유 (Morphine 5중음)', category:'명상 / 이완', color:'#DDA0DD',
+    desc:'5개의 보이스가 동시에 작용하여 몸과 마음에 부드러운 하모니를 공급하고 긴장을 해소합니다.',
+    phases:[
+      {
+        name:'통증 완화 및 치유',
+        desc:'15Hz에서 0.5Hz까지 다양한 진동 자극 동시 적용',
+        color:'#DDA0DD',
+        dur:60*60,
+        noiseVol:0.4,
+        voices:[
+          {pitchStart:432.0, pitchEnd:432.0, freqStart:15, freqEnd:0.5, volume:0.5},
+          {pitchStart:513.7, pitchEnd:513.7, freqStart:10, freqEnd:10, volume:0.5},
+          {pitchStart:647.3, pitchEnd:647.3, freqStart:9,  freqEnd:9,  volume:0.5},
+          {pitchStart:769.7, pitchEnd:769.7, freqStart:7.5,freqEnd:7.5,volume:0.5},
+          {pitchStart:864.0, pitchEnd:864.0, freqStart:38, freqEnd:38, volume:0.5}
+        ]
+      }
+    ]
+  },
+  schumann:{
+    name:'슈만 공명 7.83Hz', category:'명상 / 이완', color:'#32CD32',
+    desc:'지구의 고유 전자기 공명 주파수(7.83Hz) 동조. 432Hz 웰니스 피치와 백색 소음 믹싱.',
+    phases:[
+      {name:'동조',desc:'Alpha → 슈만 — 7.83Hz에 맞춰갑니다',color:'#90EE90',dur:5*60,noiseVol:0.35,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:12,freqEnd:7.83,volume:0.6}]},
+      {name:'공명 유지',desc:'Schumann 7.83Hz — 지구 주파수와 동조',color:'#32CD32',dur:12*60,noiseVol:0.4,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:7.83,freqEnd:7.83,volume:0.65}]},
+      {name:'안정화',desc:'7.83Hz 유지 — 충분히 흡수합니다',color:'#228B22',dur:3*60,noiseVol:0.35,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:7.83,freqEnd:7.83,volume:0.6}]}
+    ]
+  },
+  hypnosis:{
+    name:'자기 최면 (Self Hypnosis)', category:'명상 / 이완', color:'#9370DB',
+    desc:'이완 ➔ 최면 유도 ➔ 각성의 3단계 자기 최면 세션. 백색 소음 믹싱.',
+    phases:[
+      {name:'긴장 완화',desc:'Alpha ➔ Theta로 긴장을 풉니다',color:'#C39BD3',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:12,freqEnd:4,volume:0.6}]},
+      {name:'최면 상태',desc:'Theta 4Hz 고정 — 잠재의식 활성화',color:'#9370DB',dur:10*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:4,freqEnd:4,volume:0.65}]},
+      {name:'각성',desc:'Theta ➔ Alpha — 정신을 맑게 깨웁니다',color:'#6A0DAD',dur:5*60,noiseVol:0.3,voices:[{pitchStart:432.0,pitchEnd:432.0,freqStart:4,freqEnd:12,volume:0.6}]}
+    ]
+  }
+};
+
+function getBwName(hz){
+  if(hz<4) return 'Delta';
+  if(hz<8) return 'Theta';
+  if(hz<14) return 'Alpha';
+  if(hz<30) return 'Beta';
+  return 'Gamma';
+}
+
+let currentPreset=PRESETS.powernap;
+let ctx=null, merger=null, gainNode=null;
+let noiseNode=null, noiseGainNode=null;
+let activeVoices=[];
+let running=false,startTime=0,elapsed=0,animId=null,prevPhaseIdx=-1;
+let alarmOn=true;
+let noiseMasterVolScale=0.5;
+
+function buildPhaseBar(preset){
+  const total=preset.phases.reduce((s,p)=>s+p.dur,0);
+  const bar=document.getElementById('phase-bar');
+  const labels=document.getElementById('phase-labels');
+  bar.innerHTML='';labels.innerHTML='';
+  preset.phases.forEach((ph,i)=>{
+    const pct=(ph.dur/total*100).toFixed(2)+'%';
+    const seg=document.createElement('div');
+    seg.className='phase-seg';seg.id='seg-'+i;
+    seg.style.cssText=`flex:0 0 ${pct};background:${ph.color || preset.color};opacity:${i===0?1:0.35}`;
+    bar.appendChild(seg);
+    const lbl=document.createElement('div');
+    lbl.className='phase-seg-label';lbl.style.cssText=`flex:0 0 ${pct};padding-left:2px`;
+    lbl.textContent=preset.phases.length > 5 ? (i+1) : ph.name;
+    labels.appendChild(lbl);
+  });
+}
+
+function selectPreset(btn){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const key=btn.dataset.preset;
+  currentPreset=PRESETS[key];
+  stopAll();
+  elapsed=0;
+  prevPhaseIdx=-1;
+  updateStaticUI();
+}
+
+function updateStaticUI(){
+  const p=currentPreset;
+  const total=p.phases.reduce((s,ph)=>s+ph.dur,0);
+  const totalMin=Math.floor(total/60);
+  const totalSec=String(Math.floor(total%60)).padStart(2,'0');
+  document.getElementById('np-category').textContent=p.category;
+  document.getElementById('np-name').textContent=p.name;
+  document.getElementById('np-desc').textContent=p.desc;
+  document.getElementById('timer-total').textContent=`/ ${totalMin}:${totalSec}`;
+  document.getElementById('elapsed').textContent='00:00';
+  document.getElementById('prog').style.width='0%';
+  document.getElementById('ph-name').textContent='대기 중';
+  document.getElementById('ph-desc').textContent='재생 버튼을 눌러 시작하세요';
+  document.getElementById('ph-dot').style.background=p.color;
+  
+  const ph0 = p.phases[0];
+  const v0 = ph0.voices[0];
+  document.getElementById('freq-beat').textContent=v0.freqStart.toFixed(1);
+  document.getElementById('freq-l').textContent=v0.pitchStart.toFixed(0);
+  document.getElementById('freq-r').textContent=(v0.pitchStart+v0.freqStart).toFixed(1);
+  document.getElementById('bw-type').textContent=getBwName(v0.freqStart);
+  buildPhaseBar(p);
+}
+
+function getPhaseAt(t){
+  let acc=0;
+  for(let i=0;i<currentPreset.phases.length;i++){
+    const ph=currentPreset.phases[i];
+    if(t<acc+ph.dur) return {ph,idx:i,local:t-acc};
+    acc+=ph.dur;
+  }
+  const last=currentPreset.phases[currentPreset.phases.length-1];
+  return {ph:last,idx:currentPreset.phases.length-1,local:last.dur};
+}
+
+function initAudio(){
+  ctx=new(window.AudioContext||window.webkitAudioContext)();
+  merger=ctx.createChannelMerger(2);
+  gainNode=ctx.createGain();
+  gainNode.gain.value=parseFloat(document.getElementById('vol').value)/100*0.3;
+  merger.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  
+  createWhiteNoise();
+}
+
+function createWhiteNoise() {
+  const bufferSize = 2 * ctx.sampleRate;
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = Math.random() * 2 - 1;
+  }
+  
+  noiseNode = ctx.createBufferSource();
+  noiseNode.buffer = noiseBuffer;
+  noiseNode.loop = true;
+  
+  noiseGainNode = ctx.createGain();
+  noiseGainNode.gain.value = 0;
+  
+  noiseNode.connect(noiseGainNode);
+  noiseGainNode.connect(merger, 0, 0);
+  noiseGainNode.connect(merger, 0, 1);
+  
+  noiseNode.start();
+}
+
+function startVoices(voicesData) {
+  stopVoices();
+  if (!ctx) initAudio();
+  else if (ctx.state === 'suspended') ctx.resume();
+
+  activeVoices = voicesData.map(v => {
+    const leftOsc = ctx.createOscillator();
+    const rightOsc = ctx.createOscillator();
+    leftOsc.type = 'sine';
+    rightOsc.type = 'sine';
+
+    const lg = ctx.createGain();
+    const rg = ctx.createGain();
+    
+    lg.gain.value = v.volume || 0.6;
+    rg.gain.value = v.volume || 0.6;
+
+    leftOsc.connect(lg);
+    rightOsc.connect(rg);
+
+    lg.connect(merger, 0, 0);
+    rg.connect(merger, 0, 1);
+
+    leftOsc.start();
+    rightOsc.start();
+
+    return {
+      leftOsc,
+      rightOsc,
+      lg,
+      rg,
+      pitchStart: v.pitchStart,
+      pitchEnd: v.pitchEnd,
+      freqStart: v.freqStart,
+      freqEnd: v.freqEnd
+    };
+  });
+}
+
+function stopVoices() {
+  if (activeVoices && activeVoices.length > 0) {
+    activeVoices.forEach(v => {
+      try { v.leftOsc.stop(); } catch(e){}
+      try { v.rightOsc.stop(); } catch(e){}
+    });
+    activeVoices = [];
+  }
+}
+
+function tick(){
+  if(!running) return;
+  elapsed=(Date.now()-startTime)/1000;
+  const total=currentPreset.phases.reduce((s,p)=>s+p.dur,0);
+  if(elapsed>=total){
+    elapsed=total;
+    updateTimerUI(elapsed,total);
+    stopAll();
+    if(alarmOn) playAlarm();
+    document.getElementById('ph-name').textContent='완료!';
+    document.getElementById('ph-desc').textContent=`${currentPreset.name} 세션이 끝났습니다`;
+    document.getElementById('btn-play').textContent='▶';
+    return;
+  }
+  
+  const {ph,idx,local}=getPhaseAt(elapsed);
+  
+  if(idx!==prevPhaseIdx){
+    document.getElementById('ph-name').textContent=ph.name;
+    document.getElementById('ph-desc').textContent=ph.desc;
+    document.getElementById('ph-dot').style.background=ph.color || currentPreset.color;
+    document.querySelectorAll('.phase-seg').forEach((s,i)=>s.style.opacity=i===idx?'1':'0.35');
+    
+    startVoices(ph.voices);
+    prevPhaseIdx=idx;
+  }
+
+  const targetNoiseVol = (ph.noiseVol !== undefined ? ph.noiseVol : 0) * 0.2 * noiseMasterVolScale;
+  if (noiseGainNode && ctx) {
+    noiseGainNode.gain.setTargetAtTime(targetNoiseVol, ctx.currentTime, 0.2);
+  }
+
+  if (activeVoices && activeVoices.length > 0 && ctx) {
+    activeVoices.forEach((v, vIdx) => {
+      const vData = ph.voices[vIdx];
+      if (!vData) return;
+
+      const localProg = local / ph.dur;
+      const beat = vData.freqStart + (vData.freqEnd - vData.freqStart) * localProg;
+      const lf = vData.pitchStart + (vData.pitchEnd - vData.pitchStart) * localProg;
+      const rf = lf + beat;
+
+      v.leftOsc.frequency.setTargetAtTime(lf, ctx.currentTime, 0.15);
+      v.rightOsc.frequency.setTargetAtTime(rf, ctx.currentTime, 0.15);
+
+      if (vIdx === 0) {
+        document.getElementById('freq-l').textContent = lf.toFixed(0);
+        document.getElementById('freq-beat').textContent = beat.toFixed(1);
+        document.getElementById('freq-r').textContent = rf.toFixed(1);
+        document.getElementById('bw-type').textContent = getBwName(beat);
+      }
+    });
+  }
+
+  updateTimerUI(elapsed,total);
+  animId=requestAnimationFrame(tick);
+}
+
+function updateTimerUI(t,total){
+  const m=Math.floor(t/60),s=Math.floor(t%60);
+  document.getElementById('elapsed').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  document.getElementById('prog').style.width=(t/total*100).toFixed(2)+'%';
+}
+
+function togglePlay(){
+  if(!running){
+    if(!ctx) initAudio();
+    else if(ctx.state==='suspended') ctx.resume();
+    const total=currentPreset.phases.reduce((s,p)=>s+p.dur,0);
+    if(elapsed>=total) elapsed=0;
+    startTime=Date.now()-elapsed*1000;
+    running=true;prevPhaseIdx=-1;
+    document.getElementById('btn-play').textContent='⏸';
+    
+    const {ph} = getPhaseAt(elapsed);
+    startVoices(ph.voices);
+    
+    tick();
+  } else {
+    running=false;
+    if(animId) cancelAnimationFrame(animId);
+    document.getElementById('btn-play').textContent='▶';
+    if(ctx && ctx.state === 'running') ctx.suspend();
+  }
+}
+
+function stopAll(){
+  running=false;
+  if(animId) cancelAnimationFrame(animId);
+  elapsed=0;prevPhaseIdx=-1;
+  document.getElementById('btn-play').textContent='▶';
+  document.getElementById('elapsed').textContent='00:00';
+  document.getElementById('prog').style.width='0%';
+  document.getElementById('ph-name').textContent='대기 중';
+  document.getElementById('ph-desc').textContent='재생 버튼을 눌러 시작하세요';
+  document.getElementById('ph-dot').style.background=currentPreset.color;
+  document.querySelectorAll('.phase-seg').forEach((s,i)=>s.style.opacity=i===0?'1':'0.35');
+  
+  const ph0=currentPreset.phases[0];
+  const v0 = ph0.voices[0];
+  document.getElementById('freq-beat').textContent=v0.freqStart.toFixed(1);
+  document.getElementById('freq-l').textContent=v0.pitchStart.toFixed(0);
+  document.getElementById('freq-r').textContent=(v0.pitchStart+v0.freqStart).toFixed(1);
+  document.getElementById('bw-type').textContent=getBwName(v0.freqStart);
+  
+  stopVoices();
+  if (noiseNode) {
+    try { noiseNode.stop(); } catch(e){}
+    noiseNode = null;
+  }
+  if (ctx) {
+    ctx.close();
+    ctx = null;
+  }
+}
+
+function setVol(v){
+  document.getElementById('vol-out').textContent=v;
+  if(gainNode) gainNode.gain.value=parseInt(v)/100*0.3;
+}
+
+function setNoiseVol(v){
+  document.getElementById('vol-noise-out').textContent=v;
+  noiseMasterVolScale=parseInt(v)/100;
+  if (running && noiseGainNode && ctx) {
+    const {ph} = getPhaseAt(elapsed);
+    const targetNoiseVol = (ph.noiseVol !== undefined ? ph.noiseVol : 0) * 0.2 * noiseMasterVolScale;
+    noiseGainNode.gain.setTargetAtTime(targetNoiseVol, ctx.currentTime, 0.1);
+  }
+}
+
+function toggleAlarm(){
+  alarmOn=!alarmOn;
+  const t=document.getElementById('alarm-toggle');
+  t.classList.toggle('on',alarmOn);
+}
+
+function playAlarm(){
+  if(!ctx) return;
+  const a=ctx.createOscillator(),g=ctx.createGain();
+  a.connect(g);g.connect(ctx.destination);
+  a.frequency.value=880;a.type='sine';
+  const now=ctx.currentTime;
+  [[0,.2,.3],[.8,1,.3],[1.8,2,.3]].forEach(([s,p,v])=>{
+    g.gain.setValueAtTime(0,now+s);
+    g.gain.linearRampToValueAtTime(v,now+p);
+    g.gain.linearRampToValueAtTime(0,now+s+.8);
+  });
+  a.start();a.stop(now+3);
+}
+
+// Init
+updateStaticUI();
+</script>
+</body>
+</html>
