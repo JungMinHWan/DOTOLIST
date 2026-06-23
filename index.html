@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css?v=3.1">
+  <link rel="stylesheet" href="./css/vocab.css?v=1.0">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Confetti 라이브러리 추가 -->
@@ -16,7 +17,7 @@
 <body>
   <div class="header">
     <div class="header-top">
-      <h1 id="todoListHeaderTitle" style="user-select: none; -webkit-user-select: none; cursor: pointer;"><img src="./images/logo.png" alt="로고" class="header-logo"> GROW QUEST</h1>
+      <h1 id="todoListHeaderTitle" style="user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer;"><img src="./images/logo.png" alt="로고" class="header-logo"> GROW QUEST</h1>
       <div class="header-actions">
         <button class="icon-btn" id="searchToggleBtn">🔍</button>
         <button class="icon-btn" id="memoToggleBtn" title="메모">
@@ -554,6 +555,11 @@
             <div class="feature-card-title">백칸 수학</div>
             <div class="feature-card-desc">사칙연산 100칸 수학 게임</div>
           </div>
+          <div class="feature-card" id="btnSelectVocab">
+            <div class="feature-card-icon">📚</div>
+            <div class="feature-card-title">GROW VOCAB</div>
+            <div class="feature-card-desc">어휘력을 키우는 국어사전 게임</div>
+          </div>
         </div>
       </div>
     </div>
@@ -859,10 +865,82 @@
     </div>
   </div>
 
+  <!-- 어휘력 향상 게임 (GROW VOCAB) 모달 -->
+  <div class="vocab-modal-overlay" id="vocabModalOverlay">
+    <div class="vocab-modal">
+      <div class="vocab-header">
+        <div class="vocab-title-container">
+          <span class="vocab-title">📚 GROW VOCAB</span>
+        </div>
+        <button class="vocab-close-btn" id="vocabModalClose">×</button>
+      </div>
+      
+      <div class="vocab-tabs">
+        <button class="vocab-tab active" id="vocabTabGame" data-target="vocabSectionGame">어휘 퀴즈</button>
+        <button class="vocab-tab" id="vocabTabList" data-target="vocabSectionList">내 어휘장</button>
+      </div>
+      
+      <div class="vocab-body">
+        <!-- 1. 퀴즈 섹션 -->
+        <div class="vocab-section active" id="vocabSectionGame">
+          <div class="vocab-status-bar">
+            <span class="vocab-level-badge" id="vocabLevelBadge">Lv. 1</span>
+            <span class="vocab-progress-text">맞춘 단어: <span id="vocabSolvedCount">0</span>개</span>
+          </div>
+          
+          <div class="vocab-card">
+            <div class="vocab-card-label" id="vocabWordInfo">
+              <span>품사: - | 난이도: -</span>
+            </div>
+            <div class="vocab-definition-box" id="vocabDefinition">
+              뜻풀이를 불러오는 중...
+            </div>
+            <div class="vocab-card-label green" style="margin-top: 10px;">
+              <span>문장 예시 (정답은 빈칸 처리됨)</span>
+            </div>
+            <div class="vocab-examples-container" id="vocabExamples">
+              <!-- 예문 목록 -->
+            </div>
+          </div>
+          
+          <div class="vocab-feedback" id="vocabFeedback"></div>
+          
+          <div class="vocab-input-row">
+            <input type="text" class="vocab-input" id="vocabAnswerInput" placeholder="정답 단어를 입력하세요..." autocomplete="off">
+            <button class="vocab-submit-btn" id="vocabSubmitBtn">제출</button>
+          </div>
+          
+          <div class="vocab-action-bar">
+            <button class="vocab-hint-btn" id="vocabHintBtn">💡 힌트 (초성)</button>
+            <button class="vocab-next-btn" id="vocabNextBtn" style="display: none;">다음 문제 ➔</button>
+          </div>
+        </div>
+        
+        <!-- 2. 어휘장 목록 섹션 -->
+        <div class="vocab-section" id="vocabSectionList">
+          <div class="vocab-list-summary">
+            <span>내가 정복한 어휘량: <span id="vocabListTotalCount" style="color: var(--vocab-blue); font-weight: 800;">0</span>개</span>
+            <span id="vocabLevelText" style="font-weight: 700;">어휘 꿈나무</span>
+          </div>
+          
+          <div class="vocab-search-row">
+            <input type="text" class="vocab-search-input" id="vocabSearchInput" placeholder="단어 또는 뜻 검색..." autocomplete="off">
+            <button class="vocab-search-clear" id="vocabSearchClear">×</button>
+          </div>
+          
+          <div class="vocab-list-container" id="vocabListContainer">
+            <!-- 맞춘 단어 아코디언 리스트 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/supabase.js"></script>
   <script src="./js/app.js?v=3.4"></script>
   <script src="./js/tetris.js"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
+  <script src="./js/vocab.js?v=1.0"></script>
 </body>
 </html>

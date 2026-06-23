@@ -1,0 +1,601 @@
+/* GROW VOCAB - 어휘력 향상 게임 스타일 */
+
+:root {
+  --vocab-blue: #2563eb;
+  --vocab-blue-glow: rgba(37, 99, 235, 0.15);
+  --vocab-green: #10b981;
+  --vocab-green-glow: rgba(16, 185, 129, 0.15);
+  --vocab-bg-dark: #0f172a;
+  --vocab-card-bg: rgba(30, 41, 59, 0.7);
+  --vocab-border: rgba(255, 255, 255, 0.08);
+  --vocab-text-main: #f8fafc;
+  --vocab-text-sub: #94a3b8;
+}
+
+/* 모달 오버레이 */
+.vocab-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vocab-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 모달 창 */
+.vocab-modal {
+  width: 90%;
+  max-width: 500px;
+  height: 85vh;
+  max-height: 700px;
+  background: var(--vocab-bg-dark);
+  border: 1px solid var(--vocab-border);
+  border-radius: 20px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 
+              0 0 40px var(--vocab-blue-glow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.95) translateY(10px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: var(--vocab-text-main);
+  position: relative;
+}
+
+.vocab-modal-overlay.active .vocab-modal {
+  transform: scale(1) translateY(0);
+}
+
+/* 헤더 영역 */
+.vocab-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--vocab-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(16, 185, 129, 0.05));
+}
+
+.vocab-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vocab-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #60a5fa, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.vocab-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--vocab-text-sub);
+  font-size: 24px;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.vocab-close-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--vocab-text-main);
+}
+
+/* 탭 네비게이션 */
+.vocab-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--vocab-border);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.vocab-tab {
+  flex: 1;
+  padding: 14px;
+  background: transparent;
+  border: none;
+  color: var(--vocab-text-sub);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  position: relative;
+}
+
+.vocab-tab:hover {
+  color: var(--vocab-text-main);
+}
+
+.vocab-tab.active {
+  color: var(--vocab-blue);
+}
+
+.vocab-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--vocab-blue), var(--vocab-green));
+}
+
+/* 바디 영역 */
+.vocab-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.vocab-section {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+}
+
+.vocab-section.active {
+  display: flex;
+}
+
+/* 레벨 미터 */
+.vocab-status-bar {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--vocab-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vocab-level-badge {
+  background: linear-gradient(135deg, var(--vocab-blue), var(--vocab-green));
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px var(--vocab-blue-glow);
+}
+
+.vocab-progress-text {
+  font-size: 0.85rem;
+  color: var(--vocab-text-sub);
+  font-weight: 600;
+}
+
+.vocab-progress-text span {
+  color: var(--vocab-text-main);
+  font-weight: 700;
+}
+
+/* 문제 출제 카드 */
+.vocab-card {
+  background: var(--vocab-card-bg);
+  border: 1px solid var(--vocab-border);
+  border-radius: 16px;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+  min-height: 280px;
+}
+
+.vocab-card-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vocab-blue);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vocab-card-label.green {
+  color: var(--vocab-green);
+}
+
+.vocab-definition-box {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  font-weight: 700;
+  color: var(--vocab-text-main);
+  word-break: keep-all;
+}
+
+.vocab-examples-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.vocab-example-item {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  border-left: 3px solid var(--vocab-blue);
+  word-break: keep-all;
+}
+
+/* 예문 안의 정답 빈칸 스타일 */
+.vocab-blank {
+  display: inline-block;
+  min-width: 60px;
+  border-bottom: 2px dashed var(--vocab-green);
+  text-align: center;
+  color: var(--vocab-green);
+  font-weight: 800;
+  margin: 0 4px;
+  padding: 0 4px;
+}
+
+.vocab-blank.revealed {
+  border-bottom-style: solid;
+  animation: pulseGreen 1s ease;
+}
+
+/* 입력 행 */
+.vocab-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.vocab-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--vocab-border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  color: var(--vocab-text-main);
+  font-size: 1rem;
+  outline: none;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.vocab-input:focus {
+  border-color: var(--vocab-blue);
+  box-shadow: 0 0 0 3px var(--vocab-blue-glow);
+}
+
+.vocab-submit-btn {
+  background: linear-gradient(135deg, var(--vocab-blue), #3b82f6);
+  border: none;
+  color: white;
+  font-weight: 800;
+  padding: 0 24px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--vocab-blue-glow);
+}
+
+.vocab-submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.vocab-submit-btn:active {
+  transform: translateY(1px);
+}
+
+/* 힌트 및 다음버튼 영역 */
+.vocab-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.vocab-hint-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--vocab-border);
+  color: var(--vocab-text-sub);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vocab-hint-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--vocab-text-main);
+}
+
+.vocab-next-btn {
+  background: linear-gradient(135deg, var(--vocab-green), #059669);
+  border: none;
+  color: white;
+  font-weight: 800;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--vocab-green-glow);
+}
+
+.vocab-next-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+}
+
+/* 결과 안내 피드백 */
+.vocab-feedback {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+  text-align: center;
+  display: none;
+}
+
+.vocab-feedback.correct {
+  display: block;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: var(--vocab-green);
+  animation: slideUp 0.3s ease;
+}
+
+.vocab-feedback.incorrect {
+  display: block;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  animation: shake 0.4s ease;
+}
+
+/* --- 어휘장 목록 탭 디자인 --- */
+
+.vocab-list-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: var(--vocab-text-sub);
+}
+
+.vocab-search-row {
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.vocab-search-input {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--vocab-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  padding-right: 36px;
+  color: var(--vocab-text-main);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.vocab-search-input:focus {
+  border-color: var(--vocab-blue);
+}
+
+.vocab-search-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--vocab-text-sub);
+  font-size: 18px;
+  cursor: pointer;
+  outline: none;
+}
+
+.vocab-list-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.vocab-list-empty {
+  text-align: center;
+  color: var(--vocab-text-sub);
+  padding: 40px 20px;
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.vocab-list-empty-icon {
+  font-size: 2.5rem;
+}
+
+/* 아코디언 아이템 */
+.vocab-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--vocab-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.vocab-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.vocab-item-header {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.vocab-item-word-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vocab-item-word {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--vocab-text-main);
+}
+
+.vocab-item-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.vocab-item-badge.blue {
+  background: var(--vocab-blue-glow);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.vocab-item-badge.green {
+  background: var(--vocab-green-glow);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.vocab-item-arrow {
+  color: var(--vocab-text-sub);
+  font-size: 0.75rem;
+  transition: transform 0.25s ease;
+}
+
+.vocab-item.expanded .vocab-item-arrow {
+  transform: rotate(180deg);
+}
+
+.vocab-item-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease-out;
+  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid transparent;
+}
+
+.vocab-item.expanded .vocab-item-body {
+  max-height: 300px; /* 넉넉한 공간 제공 */
+  border-top: 1px solid var(--vocab-border);
+}
+
+.vocab-item-content {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vocab-item-def {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.vocab-item-ex-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--vocab-blue);
+  text-transform: uppercase;
+}
+
+.vocab-item-ex-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vocab-item-ex {
+  font-size: 0.85rem;
+  color: var(--vocab-text-sub);
+  line-height: 1.4;
+}
+
+/* --- 애니메이션들 --- */
+
+@keyframes pulseGreen {
+  0% { text-shadow: 0 0 0 rgba(16, 185, 129, 0.5); }
+  70% { text-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+  100% { text-shadow: 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+/* 모바일 뷰 최적화 */
+@media (max-height: 600px) {
+  .vocab-modal {
+    height: 95vh;
+  }
+  .vocab-card {
+    min-height: 180px;
+    padding: 14px;
+    gap: 10px;
+  }
+  .vocab-definition-box {
+    font-size: 1rem;
+  }
+  .vocab-example-item {
+    font-size: 0.85rem;
+    padding: 8px 10px;
+  }
+}

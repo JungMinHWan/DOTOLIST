@@ -1,2 +1,9 @@
 # Local Netlify folder
 .netlify
+
+# Large dictionary raw JSON files
+/dictionary/*.json
+!/dictionary/quiz_words.json
+
+# Workspace settings
+*.code-workspace

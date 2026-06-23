@@ -129,6 +129,7 @@
       this.btnTetris = document.getElementById('btnSelectTetris');
       this.btnNap = document.getElementById('btnSelectNap');
       this.btnMath = document.getElementById('btnSelectMath');
+      this.btnVocab = document.getElementById('btnSelectVocab');
       
       this.initEvents();
     }
@@ -165,6 +166,15 @@
           this.close();
           if (window.mathGame && typeof window.mathGame.open === 'function') {
             window.mathGame.open();
+          }
+        };
+      }
+
+      if (this.btnVocab) {
+        this.btnVocab.onclick = () => {
+          this.close();
+          if (window.vocabGame && typeof window.vocabGame.open === 'function') {
+            window.vocabGame.open();
           }
         };
       }
