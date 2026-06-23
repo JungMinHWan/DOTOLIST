@@ -101,3 +101,23 @@ CREATE POLICY "Users can manage their own subscriptions"
   TO authenticated
   USING (auth.uid() = user_id) 
   WITH CHECK (auth.uid() = user_id);
+
+-- 업무 매뉴얼 테이블 (추가)
+CREATE TABLE IF NOT EXISTS public.manuals (
+  manual_id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  status TEXT DEFAULT '참고 중' CHECK (status IN ('참고 중', '완료', '보류')),
+  notes TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS 활성화 및 정책 설정
+ALTER TABLE public.manuals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated users to read/write manuals" ON public.manuals;
+CREATE POLICY "Allow authenticated users to read/write manuals" 
+  ON public.manuals 
+  TO authenticated 
+  USING (true) 
+  WITH CHECK (true);

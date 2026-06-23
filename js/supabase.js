@@ -653,6 +653,98 @@ const api = {
     }
   },
 
+  // 📋 업무 매뉴얼 관련 API 추가
+  async getManuals() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('manuals')
+        .select()
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
+  async addManual(title) {
+    try {
+      const { data, error } = await supabaseClient
+        .from('manuals')
+        .insert({ title: title, status: '참고 중', notes: '' })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateManualStatus(manualId, newStatus) {
+    try {
+      const { error } = await supabaseClient
+        .from('manuals')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('manual_id', manualId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateManualNotes(manualId, newNotes) {
+    try {
+      const { error } = await supabaseClient
+        .from('manuals')
+        .update({ notes: newNotes, updated_at: new Date().toISOString() })
+        .eq('manual_id', manualId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateManualTitle(manualId, newTitle) {
+    try {
+      const { error } = await supabaseClient
+        .from('manuals')
+        .update({ title: newTitle, updated_at: new Date().toISOString() })
+        .eq('manual_id', manualId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteManual(manualId) {
+    try {
+      const { error } = await supabaseClient
+        .from('manuals')
+        .delete()
+        .eq('manual_id', manualId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async getVaultValue(key) {
     try {
       const { data, error } = await supabaseClient

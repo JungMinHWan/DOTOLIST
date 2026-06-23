@@ -579,6 +579,71 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 2분할 가로 배치 스타일 */
+.split-section {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+.split-section .goal-section {
+  flex: 1;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* 📋 업무 매뉴얼(Manual Section) 스타일 */
+#manualLabel {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--theme-primary-dark);
+  margin-bottom: 6px;
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+#manualBar {
+  background: white;
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(111, 93, 136, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+#manualBar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--theme-primary);
+}
+#manualBar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(111, 93, 136, 0.1);
+  border-color: var(--theme-primary);
+}
+#manualText {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.book-item-status.참고_중 {
+  background: var(--theme-light-bg);
+  color: var(--theme-primary-dark);
+}
+
 /* 나의 서재 탭 스타일 */
 .book-shelf-tabs {
   display: flex;

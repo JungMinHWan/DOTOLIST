@@ -165,10 +165,19 @@
         <span id="goalText">오늘의 목표를 설정해보세요.</span>
       </div>
     </div>
-    <div class="goal-section" id="bookSection">
-      <div class="goal-label" id="bookLabel">📚 독서 기록</div>
-      <div class="goal-bar" id="bookBar">
-        <span id="bookText">현재 읽고 있는 책이 없습니다. 독서 기록을 시작해보세요!</span>
+    <!-- 독서 기록 및 업무 매뉴얼 분할 영역 -->
+    <div class="split-section">
+      <div class="goal-section" id="bookSection">
+        <div class="goal-label" id="bookLabel">📚 독서 기록</div>
+        <div class="goal-bar" id="bookBar">
+          <span id="bookText">현재 읽고 있는 책이 없습니다. 독서 기록을 시작해보세요!</span>
+        </div>
+      </div>
+      <div class="goal-section" id="manualSection">
+        <div class="goal-label" id="manualLabel">📋 업무 매뉴얼</div>
+        <div class="goal-bar" id="manualBar">
+          <span id="manualText">등록된 업무 매뉴얼이 없습니다. 추가해보세요!</span>
+        </div>
       </div>
     </div>
     <div class="metrics-section" id="metricsSection">
@@ -308,6 +317,63 @@
         <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 12px;">
           <span class="save-status" id="bookNotesSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
           <button class="book-notes-close-btn" id="bookNotesConfirmBtn">완료</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Shelf Modal -->
+  <div class="goal-modal-overlay" id="manualShelfModalOverlay">
+    <div class="goal-modal book-shelf-modal">
+      <div class="goal-modal-header">
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main);">📋 업무 매뉴얼</div>
+        <button class="goal-modal-close" id="manualShelfModalClose">×</button>
+      </div>
+      <div class="book-shelf-tabs">
+        <button class="manual-tab active" data-status="all">전체</button>
+        <button class="manual-tab" data-status="참고 중">참고 중</button>
+        <button class="manual-tab" data-status="완료">완료</button>
+        <button class="manual-tab" data-status="보류">보류</button>
+      </div>
+      <div class="book-list" id="manualList">
+        <!-- Manual items will be rendered here -->
+      </div>
+      <div class="goal-execution-input-row">
+        <input type="text" class="goal-execution-input" id="manualInput" placeholder="새 매뉴얼의 제목을 입력하세요">
+        <button class="goal-execution-add-btn" id="manualAddBtn">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Notes Modal -->
+  <div class="goal-modal-overlay" id="manualNotesModalOverlay">
+    <div class="goal-modal book-notes-modal">
+      <div class="goal-modal-header" style="flex-direction: column; align-items: flex-start; gap: 6px; position: relative;">
+        <div class="book-notes-header-top" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+          <div class="book-notes-title-container" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+            <span class="book-notes-badge" id="manualNotesBadge">참고 중</span>
+            <input type="text" class="book-notes-title-input" id="manualNotesTitleInput" placeholder="매뉴얼 제목을 입력하세요">
+          </div>
+          <button class="goal-modal-close" id="manualNotesModalClose" style="position: absolute; right: 0; top: 0;">×</button>
+        </div>
+      </div>
+      <div class="book-notes-status-row">
+        <span class="status-change-label">상태 변경:</span>
+        <div class="status-chips">
+          <button class="manual-status-chip" data-status="참고 중">참고 중</button>
+          <button class="manual-status-chip" data-status="완료">완료</button>
+          <button class="manual-status-chip" data-status="보류">보류</button>
+        </div>
+      </div>
+      <div class="book-notes-editor-container">
+        <label class="book-notes-label">매뉴얼 내용</label>
+        <textarea class="book-notes-textarea" id="manualNotesTextarea" placeholder="업무 시 참고할 매뉴얼 내용을 상세히 기록하세요..."></textarea>
+      </div>
+      <div class="book-notes-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; width: 100%;">
+        <button class="book-notes-delete-btn" id="manualNotesDeleteBtn">기록 삭제</button>
+        <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 12px;">
+          <span class="save-status" id="manualNotesSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
+          <button class="book-notes-close-btn" id="manualNotesConfirmBtn">완료</button>
         </div>
       </div>
     </div>

@@ -12,6 +12,9 @@ let currentGoal = null;
 let currentBooks = [];
 let selectedBook = null;
 let currentBookFilter = 'all';
+let currentManuals = [];
+let selectedManual = null;
+let currentManualFilter = 'all';
 
 const THEMES = {
   0: { primary: '#9f383a', dark: '#6d2224', light: '#faf0f0', header: 'linear-gradient(135deg, #b55052 0%, #6d2224 100%)' }, // 일: Lava Falls (용암 폭포 레드 - 열정적인 레드)
@@ -149,6 +152,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   loadGamification();
   loadGoal();
   loadBooks();
+  loadManuals();
   
   document.addEventListener('touchstart', e => {
     touchStartX = e.changedTouches[0].screenX;
@@ -400,6 +404,82 @@ document.addEventListener('DOMContentLoaded', async function() {
   };
 
   document.getElementById('bookNotesDeleteBtn').onclick = deleteBook;
+
+  // 📋 업무 매뉴얼 리스너 바인딩
+  document.getElementById('manualBar').onclick = openManualShelfModal;
+  document.getElementById('manualShelfModalClose').onclick = closeManualShelfModal;
+  document.getElementById('manualShelfModalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('manualShelfModalOverlay')) closeManualShelfModal();
+  };
+  document.getElementById('manualAddBtn').onclick = addManual;
+  document.getElementById('manualInput').onkeydown = (e) => {
+    if (e.key === 'Enter') addManual();
+  };
+
+  // 업무 매뉴얼 노트 리스너 바인딩
+  document.getElementById('manualNotesModalClose').onclick = closeManualNotesModal;
+  document.getElementById('manualNotesConfirmBtn').onclick = closeManualNotesModal;
+  document.getElementById('manualNotesModalOverlay').onclick = (e) => {
+    if (e.target === document.getElementById('manualNotesModalOverlay')) closeManualNotesModal();
+  };
+
+  // 매뉴얼 제목 실시간 수정 리스너 추가
+  const manualTitleInput = document.getElementById('manualNotesTitleInput');
+  manualTitleInput.onblur = saveManualTitleRealtime;
+  manualTitleInput.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      manualTitleInput.blur();
+    }
+  };
+
+  // 모바일 터치 스크롤 시 전체 화면 들썩임(Scroll Chaining) 방지 리스너 (매뉴얼용)
+  ['manualNotesTextarea', 'manualList'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('touchmove', preventScrollLeak, { passive: true });
+    }
+  });
+
+  // 매뉴얼 상태 칩 변경 리스너
+  document.querySelectorAll('.manual-status-chip').forEach(chip => {
+    chip.onclick = function() {
+      if (!selectedManual) return;
+      const status = this.dataset.status;
+      changeManualStatus(selectedManual.manual_id, status);
+    };
+  });
+
+  // 업무 매뉴얼 탭 필터 리스너
+  document.querySelectorAll('.manual-tab').forEach(tab => {
+    tab.onclick = function() {
+      document.querySelectorAll('.manual-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      currentManualFilter = this.dataset.status;
+      renderManualList();
+    };
+  });
+
+  // 매뉴얼 내용 저장 리스너 (실시간 포커스 아웃 및 디바운싱 저장)
+  const manualNotesArea = document.getElementById('manualNotesTextarea');
+  let manualNotesSaveTimeout = null;
+  manualNotesArea.oninput = function() {
+    if (!selectedManual) return;
+    const statusEl = document.getElementById('manualNotesSaveStatus');
+    statusEl.innerText = '입력 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+
+    clearTimeout(manualNotesSaveTimeout);
+    manualNotesSaveTimeout = setTimeout(() => {
+      saveManualNotesRealtime();
+    }, 1000);
+  };
+  manualNotesArea.onblur = function() {
+    saveManualNotesRealtime();
+  };
+
+  document.getElementById('manualNotesDeleteBtn').onclick = deleteManual;
 
   // === 회사 비밀번호 금고(비밀 메모장) 기능 바인딩 ===
   setupVaultEvents();
@@ -941,6 +1021,7 @@ async function refreshAllData() {
   
   loadTasks();
   loadBooks();
+  loadManuals();
 }
 
 function updateMemoBadge(content) {
@@ -1595,6 +1676,209 @@ async function deleteBook() {
     const res = await api.deleteBook(selectedBook.book_id);
     if (res.success) {
       closeBookNotesModal();
+    } else {
+      alert('기록 삭제에 실패했습니다.');
+    }
+  }
+}
+
+// 📋 업무 매뉴얼 프론트엔드 연동 구현
+async function loadManuals() {
+  currentManuals = await api.getManuals();
+  
+  // 📋 업무 매뉴얼 바 요약 문구 업데이트
+  const manualTextEl = document.getElementById('manualText');
+  const referringManualsCount = currentManuals.filter(m => m.status === '참고 중').length;
+  
+  if (currentManuals.length === 0) {
+    manualTextEl.innerText = '등록된 업무 매뉴얼이 없습니다. 추가해보세요!';
+  } else {
+    if (referringManualsCount > 0) {
+      const recentReferring = currentManuals.find(m => m.status === '참고 중');
+      manualTextEl.innerHTML = `📋 지금 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentReferring.title)}'</strong> 등 ${referringManualsCount}건의 매뉴얼을 참고하고 있습니다.`;
+    } else {
+      const recentManual = currentManuals[0];
+      const statusText = recentManual.status === '완료' ? '적용 완료했습니다!' : '보류 중입니다.';
+      manualTextEl.innerHTML = `📋 최근 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentManual.title)}'</strong>을(를) ${statusText}`;
+    }
+  }
+  
+  // 만약 매뉴얼 서재 모달이 열려 있다면 목록도 갱신
+  if (document.getElementById('manualShelfModalOverlay').classList.contains('show')) {
+    renderManualList();
+  }
+}
+
+function openManualShelfModal() {
+  document.getElementById('manualShelfModalOverlay').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  document.getElementById('manualInput').value = '';
+  // 디폴트로 '전체' 탭 활성화
+  document.querySelectorAll('.manual-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.manual-tab[data-status="all"]').classList.add('active');
+  currentManualFilter = 'all';
+  renderManualList();
+}
+
+function closeManualShelfModal() {
+  document.getElementById('manualShelfModalOverlay').classList.remove('show');
+  checkAndUnlockBodyScroll();
+}
+
+function renderManualList() {
+  const listEl = document.getElementById('manualList');
+  listEl.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
+  
+  let filteredManuals = currentManuals;
+  if (currentManualFilter !== 'all') {
+    filteredManuals = currentManuals.filter(m => m.status === currentManualFilter);
+  }
+  
+  if (filteredManuals.length === 0) {
+    listEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px; font-weight:600;">매뉴얼 목록이 비어 있습니다.</div>';
+    return;
+  }
+  
+  listEl.innerHTML = filteredManuals.map(m => {
+    const statusClass = m.status === '참고 중' ? '참고_중' : m.status;
+    return `
+      <div class="book-item" onclick="openManualNotesModal('${m.manual_id}')">
+        <div class="book-item-title">${escapeHtml(m.title)}</div>
+        <span class="book-item-status ${statusClass}">${m.status}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+async function addManual() {
+  const input = document.getElementById('manualInput');
+  const title = input.value.trim();
+  if (!title) return;
+  
+  const addBtn = document.getElementById('manualAddBtn');
+  addBtn.disabled = true;
+  
+  const res = await api.addManual(title);
+  addBtn.disabled = false;
+  
+  if (res.success) {
+    input.value = '';
+    await loadManuals();
+  } else {
+    alert('매뉴얼 추가에 실패했습니다.');
+  }
+}
+
+function openManualNotesModal(manualId) {
+  selectedManual = currentManuals.find(m => m.manual_id === manualId);
+  if (!selectedManual) return;
+  
+  const overlay = document.getElementById('manualNotesModalOverlay');
+  overlay.classList.add('show');
+  document.body.style.overflow = 'hidden';
+  
+  document.getElementById('manualNotesTitleInput').value = selectedManual.title;
+  
+  // 배지 설정
+  const badge = document.getElementById('manualNotesBadge');
+  badge.innerText = selectedManual.status;
+  badge.className = 'book-notes-badge';
+  if (selectedManual.status === '참고 중') badge.classList.add('참고_중');
+  if (selectedManual.status === '완료') badge.classList.add('완독');
+  if (selectedManual.status === '보류') badge.classList.add('보류');
+  
+  // 상태 칩 활성화 설정
+  document.querySelectorAll('.manual-status-chip').forEach(chip => {
+    chip.classList.remove('active');
+    if (chip.dataset.status === selectedManual.status) {
+      chip.classList.add('active');
+    }
+  });
+  
+  // 메모 세팅
+  const textarea = document.getElementById('manualNotesTextarea');
+  textarea.value = selectedManual.notes || '';
+  
+  // 저장 마크 비우기
+  document.getElementById('manualNotesSaveStatus').innerText = '';
+}
+
+function closeManualNotesModal() {
+  document.getElementById('manualNotesModalOverlay').classList.remove('show');
+  selectedManual = null;
+  loadManuals(); // 데이터 갱신
+  checkAndUnlockBodyScroll();
+}
+
+async function changeManualStatus(manualId, newStatus) {
+  const res = await api.updateManualStatus(manualId, newStatus);
+  if (res.success) {
+    if (selectedManual && selectedManual.manual_id === manualId) {
+      selectedManual.status = newStatus;
+      
+      const badge = document.getElementById('manualNotesBadge');
+      badge.innerText = newStatus;
+      badge.className = 'book-notes-badge';
+      if (newStatus === '참고 중') badge.classList.add('참고_중');
+      if (newStatus === '완료') badge.classList.add('완독');
+      if (newStatus === '보류') badge.classList.add('보류');
+      
+      document.querySelectorAll('.manual-status-chip').forEach(chip => {
+        chip.classList.remove('active');
+        if (chip.dataset.status === newStatus) {
+          chip.classList.add('active');
+        }
+      });
+    }
+    await loadManuals();
+  } else {
+    alert('상태 변경에 실패했습니다.');
+  }
+}
+
+async function saveManualNotesRealtime() {
+  if (!selectedManual) return;
+  const textarea = document.getElementById('manualNotesTextarea');
+  const notes = textarea.value;
+  
+  const statusEl = document.getElementById('manualNotesSaveStatus');
+  
+  const res = await api.updateManualNotes(selectedManual.manual_id, notes);
+  if (res.success) {
+    selectedManual.notes = notes;
+    statusEl.innerText = '실시간 저장 완료';
+    statusEl.style.color = '#10b981';
+    statusEl.style.fontWeight = '800';
+    setTimeout(() => {
+      if (statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    statusEl.innerText = '저장 실패';
+    statusEl.style.color = '#ef4444';
+    statusEl.style.fontWeight = '800';
+  }
+}
+
+async function saveManualTitleRealtime() {
+  if (!selectedManual) return;
+  const titleInput = document.getElementById('manualNotesTitleInput');
+  const title = titleInput.value.trim();
+  if (!title) return;
+  
+  const res = await api.updateManualTitle(selectedManual.manual_id, title);
+  if (res.success) {
+    selectedManual.title = title;
+  }
+}
+
+async function deleteManual() {
+  if (!selectedManual) return;
+  if (confirm(`'${selectedManual.title}' 매뉴얼의 모든 기록을 삭제하시겠습니까?`)) {
+    const res = await api.deleteManual(selectedManual.manual_id);
+    if (res.success) {
+      closeManualNotesModal();
     } else {
       alert('기록 삭제에 실패했습니다.');
     }
