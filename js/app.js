@@ -1492,23 +1492,6 @@ function escapeHtml(t) {
 async function loadBooks() {
   currentBooks = await api.getBooks();
   
-  // 📚 독서 기록 바 요약 문구 업데이트
-  const bookTextEl = document.getElementById('bookText');
-  const readingBooksCount = currentBooks.filter(b => b.status === '읽는 중').length;
-  
-  if (currentBooks.length === 0) {
-    bookTextEl.innerText = '현재 읽고 있는 책이 없습니다. 독서 기록을 시작해보세요!';
-  } else {
-    if (readingBooksCount > 0) {
-      const recentReading = currentBooks.find(b => b.status === '읽는 중');
-      bookTextEl.innerHTML = `📚 지금 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentReading.title)}'</strong> 등 ${readingBooksCount}권의 책을 읽고 있습니다.`;
-    } else {
-      const recentBook = currentBooks[0];
-      const statusText = recentBook.status === '완독' ? '완독했습니다!' : '보류 중입니다.';
-      bookTextEl.innerHTML = `📚 최근 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentBook.title)}'</strong>을(를) ${statusText}`;
-    }
-  }
-  
   // 만약 서재 모달이 열려 있다면 목록도 갱신
   if (document.getElementById('bookShelfModalOverlay').classList.contains('show')) {
     renderBookList();
@@ -1685,23 +1668,6 @@ async function deleteBook() {
 // 📋 업무 매뉴얼 프론트엔드 연동 구현
 async function loadManuals() {
   currentManuals = await api.getManuals();
-  
-  // 📋 업무 매뉴얼 바 요약 문구 업데이트
-  const manualTextEl = document.getElementById('manualText');
-  const referringManualsCount = currentManuals.filter(m => m.status === '참고 중').length;
-  
-  if (currentManuals.length === 0) {
-    manualTextEl.innerText = '등록된 업무 매뉴얼이 없습니다. 추가해보세요!';
-  } else {
-    if (referringManualsCount > 0) {
-      const recentReferring = currentManuals.find(m => m.status === '참고 중');
-      manualTextEl.innerHTML = `📋 지금 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentReferring.title)}'</strong> 등 ${referringManualsCount}건의 매뉴얼을 참고하고 있습니다.`;
-    } else {
-      const recentManual = currentManuals[0];
-      const statusText = recentManual.status === '완료' ? '적용 완료했습니다!' : '보류 중입니다.';
-      manualTextEl.innerHTML = `📋 최근 <strong style="color:var(--theme-primary-dark); font-weight:800;">'${escapeHtml(recentManual.title)}'</strong>을(를) ${statusText}`;
-    }
-  }
   
   // 만약 매뉴얼 서재 모달이 열려 있다면 목록도 갱신
   if (document.getElementById('manualShelfModalOverlay').classList.contains('show')) {
