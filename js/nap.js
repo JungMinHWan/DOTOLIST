@@ -371,8 +371,11 @@
         const lg = this.ctx.createGain();
         const rg = this.ctx.createGain();
         
-        lg.gain.value = v.volume || 0.6;
-        rg.gain.value = v.volume || 0.6;
+        const targetVol = v.volume || 0.6;
+        
+        // 팝핑 노이즈 방지: 볼륨을 0에서 시작하여 0.1초간 서서히 올림 (Fade-in)
+        lg.gain.setValueAtTime(0, this.ctx.currentTime);
+        rg.gain.setValueAtTime(0, this.ctx.currentTime);
         
         leftOsc.connect(lg);
         rightOsc.connect(rg);
@@ -385,8 +388,12 @@
         leftOsc.frequency.setValueAtTime(v.pitchStart, this.ctx.currentTime);
         rightOsc.frequency.setValueAtTime(v.pitchStart + v.freqStart, this.ctx.currentTime);
 
+        const fadeTime = 0.1;
         leftOsc.start();
         rightOsc.start();
+        
+        lg.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + fadeTime);
+        rg.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + fadeTime);
         
         return {
           leftOsc,
@@ -403,9 +410,25 @@
     
     stopVoices() {
       if (this.activeVoices && this.activeVoices.length > 0) {
+        const fadeTime = 0.1;
+        const stopTime = this.ctx ? this.ctx.currentTime + fadeTime : 0;
+        
         this.activeVoices.forEach(v => {
-          try { v.leftOsc.stop(); } catch(e){}
-          try { v.rightOsc.stop(); } catch(e){}
+          try {
+            if (this.ctx) {
+              // 팝핑 노이즈 방지: 현재 볼륨에서 시작해 0.1초 동안 서서히 줄여 끔 (Fade-out)
+              v.lg.gain.setValueAtTime(v.lg.gain.value, this.ctx.currentTime);
+              v.lg.gain.linearRampToValueAtTime(0, stopTime);
+              v.rg.gain.setValueAtTime(v.rg.gain.value, this.ctx.currentTime);
+              v.rg.gain.linearRampToValueAtTime(0, stopTime);
+              
+              v.leftOsc.stop(stopTime);
+              v.rightOsc.stop(stopTime);
+            } else {
+              v.leftOsc.stop();
+              v.rightOsc.stop();
+            }
+          } catch(e){}
         });
         this.activeVoices = [];
       }
