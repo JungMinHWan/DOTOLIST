@@ -500,6 +500,11 @@ function startVoices(voicesData) {
     lg.connect(merger, 0, 0);
     rg.connect(merger, 0, 1);
 
+    // 새 오실레이터 생성 시 기본 주파수인 440Hz에서 시작하여 음이 미끄러지는 '위우웅' 소리가 나지 않도록, 
+    // 즉시 해당 단계의 시작 주파수로 설정해 줍니다.
+    leftOsc.frequency.setValueAtTime(v.pitchStart, ctx.currentTime);
+    rightOsc.frequency.setValueAtTime(v.pitchStart + v.freqStart, ctx.currentTime);
+
     leftOsc.start();
     rightOsc.start();
 

@@ -149,6 +149,18 @@ function initAudio(){
   leftOsc.type='sine';
   rightOsc.type='sine';
 
+  // 처음 시작 시 오실레이터의 기본 주파수인 440Hz에서 시작하여 '위우웅' 소리가 나는 현상을 방지하기 위해,
+  // 즉시 시작 주파수로 값을 초기 설정해 줍니다.
+  const startBeat = getBeat(elapsed);
+  const startPh = PHASES[getPhaseIdx(elapsed)];
+  const startLf = startPh.baseFreq;
+  const startRf = startLf + startBeat;
+
+  leftOsc.frequency.setValueAtTime(startLf, ctx.currentTime);
+  rightOsc.frequency.setValueAtTime(startRf, ctx.currentTime);
+  lastLf = startLf;
+  lastRf = startRf;
+
   const lGain=ctx.createGain(); lGain.gain.value=1;
   const rGain=ctx.createGain(); rGain.gain.value=1;
   leftOsc.connect(lGain);
