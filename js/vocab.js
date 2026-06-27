@@ -34,6 +34,7 @@
     submitBtn: document.getElementById('vocabSubmitBtn'),
     feedback: document.getElementById('vocabFeedback'),
     hintBtn: document.getElementById('vocabHintBtn'),
+    giveUpBtn: document.getElementById('vocabGiveUpBtn'),
     nextBtn: document.getElementById('vocabNextBtn'),
     
     // 리스트 뷰
@@ -75,8 +76,9 @@
       }
     };
 
-    // 힌트 및 다음 문제
+    // 힌트, 정답 보기 및 다음 문제
     elements.hintBtn.onclick = showHint;
+    elements.giveUpBtn.onclick = showAnswer;
     elements.nextBtn.onclick = nextQuestion;
 
     // 리스트 검색 및 지우기
@@ -251,6 +253,7 @@
     elements.submitBtn.disabled = false;
     elements.nextBtn.style.display = 'none';
     elements.hintBtn.style.display = 'inline-block';
+    elements.giveUpBtn.style.display = 'inline-block';
     
     // 맞추지 않은 단어 필터링
     const solvedWordsSet = new Set(solvedVocabs.map(v => v.w));
@@ -347,6 +350,7 @@
       elements.answerInput.disabled = true;
       elements.submitBtn.disabled = true;
       elements.hintBtn.style.display = 'none';
+      elements.giveUpBtn.style.display = 'none';
       elements.nextBtn.style.display = 'inline-block';
       elements.nextBtn.focus();
       
@@ -437,6 +441,34 @@
     elements.feedback.style.borderColor = 'rgba(37, 99, 235, 0.2)';
     elements.feedback.style.background = 'rgba(37, 99, 235, 0.1)';
     elements.feedback.style.color = 'var(--vocab-blue)';
+  }
+
+  // === 정답 보기 ===
+  function showAnswer() {
+    if (!currentWord || isSolved) return;
+    
+    isSolved = true;
+    elements.answerInput.value = currentWord.w;
+    elements.answerInput.disabled = true;
+    elements.submitBtn.disabled = true;
+    elements.hintBtn.style.display = 'none';
+    elements.giveUpBtn.style.display = 'none';
+    elements.nextBtn.style.display = 'inline-block';
+    elements.nextBtn.focus();
+    
+    showFeedback(`정답은 '${currentWord.w}'입니다. 뜻과 예문을 학습해 보세요!`, false);
+    
+    // 피드백 박스를 정답 공개용 노란색/주황색 톤으로 커스텀 스타일 적용
+    elements.feedback.className = 'vocab-feedback correct';
+    elements.feedback.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+    elements.feedback.style.background = 'rgba(245, 158, 11, 0.1)';
+    elements.feedback.style.color = '#f59e0b';
+    
+    // 예문의 빈칸 정답 공개 및 연출
+    document.querySelectorAll('.vocab-blank').forEach(el => {
+      el.innerText = currentWord.w;
+      el.classList.add('revealed');
+    });
   }
 
   // === 꽃가루 효과 ===

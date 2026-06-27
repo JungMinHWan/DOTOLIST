@@ -203,6 +203,7 @@
   border-radius: 16px;
   padding: 20px;
   flex: 1;
+  flex-shrink: 0; /* 예문이 많아도 카드가 찌그러져서 입력란과 겹치지 않도록 방지 */
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -598,4 +599,16 @@
     font-size: 0.85rem;
     padding: 8px 10px;
   }
+}
+
+/* 정답 보기 버튼 스타일 */
+.vocab-giveup-btn {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.vocab-giveup-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
 }
