@@ -373,7 +373,7 @@
         
         const targetVol = v.volume || 0.6;
         
-        // 팝핑 노이즈 방지: 볼륨을 0에서 시작하여 0.1초간 서서히 올림 (Fade-in)
+        // 팝핑 노이즈 방지: 볼륨을 0에서 시작하여 서서히 페이드 인(Fade-in)
         lg.gain.setValueAtTime(0, this.ctx.currentTime);
         rg.gain.setValueAtTime(0, this.ctx.currentTime);
         
@@ -388,12 +388,13 @@
         leftOsc.frequency.setValueAtTime(v.pitchStart, this.ctx.currentTime);
         rightOsc.frequency.setValueAtTime(v.pitchStart + v.freqStart, this.ctx.currentTime);
 
-        const fadeTime = 0.1;
+        const fadeTime = 0.15;
         leftOsc.start();
         rightOsc.start();
         
-        lg.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + fadeTime);
-        rg.gain.linearRampToValueAtTime(targetVol, this.ctx.currentTime + fadeTime);
+        // linearRamp 대신 setTargetAtTime을 사용하여 팝핑 노이즈를 완벽하게 방지하며 페이드 인
+        lg.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.03);
+        rg.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.03);
         
         return {
           leftOsc,
@@ -410,20 +411,31 @@
     
     stopVoices() {
       if (this.activeVoices && this.activeVoices.length > 0) {
-        const fadeTime = 0.1;
+        const fadeTime = 0.15;
         const stopTime = this.ctx ? this.ctx.currentTime + fadeTime : 0;
+        const voicesToStop = [...this.activeVoices];
         
-        this.activeVoices.forEach(v => {
+        voicesToStop.forEach(v => {
           try {
             if (this.ctx) {
-              // 팝핑 노이즈 방지: 현재 볼륨에서 시작해 0.1초 동안 서서히 줄여 끔 (Fade-out)
+              // linearRamp 대신 setTargetAtTime을 사용하여 이전 보이스를 서서히 페이드 아웃(Fade-out)
               v.lg.gain.setValueAtTime(v.lg.gain.value, this.ctx.currentTime);
-              v.lg.gain.linearRampToValueAtTime(0, stopTime);
+              v.lg.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
               v.rg.gain.setValueAtTime(v.rg.gain.value, this.ctx.currentTime);
-              v.rg.gain.linearRampToValueAtTime(0, stopTime);
+              v.rg.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03);
               
               v.leftOsc.stop(stopTime);
               v.rightOsc.stop(stopTime);
+
+              // 0.2초 후(페이드아웃 및 정지 완료 후) 오디오 노드를 완전히 연결 해제하여 가비지 컬렉션 전 글리치 방지
+              setTimeout(() => {
+                try {
+                  v.leftOsc.disconnect();
+                  v.rightOsc.disconnect();
+                  v.lg.disconnect();
+                  v.rg.disconnect();
+                } catch(e){}
+              }, 200);
             } else {
               v.leftOsc.stop();
               v.rightOsc.stop();
@@ -565,8 +577,10 @@
           const lf = vData.pitchStart + (vData.pitchEnd - vData.pitchStart) * localProg;
           const rf = lf + beat;
           
-          v.leftOsc.frequency.setTargetAtTime(lf, this.ctx.currentTime, 0.15);
-          v.rightOsc.frequency.setTargetAtTime(rf, this.ctx.currentTime, 0.15);
+          // 매 16.6ms(프레임)마다 계산된 정밀한 주파수를 직접 대입합니다.
+          // setTargetAtTime을 매 프레임마다 계속 호출하면 오디오 스레드 내 파라미터 갱신이 충돌하여 팝핑/지직 소리가 납니다.
+          v.leftOsc.frequency.setValueAtTime(lf, this.ctx.currentTime);
+          v.rightOsc.frequency.setValueAtTime(rf, this.ctx.currentTime);
           
           if (vIdx === 0) {
             if (this.freqLEl) this.freqLEl.textContent = lf.toFixed(0);
