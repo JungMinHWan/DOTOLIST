@@ -121,3 +121,7 @@ CREATE POLICY "Allow authenticated users to read/write manuals"
   TO authenticated 
   USING (true) 
   WITH CHECK (true);
+
+-- 일일 지표 인사이트 메모 컬럼 추가
+ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS insight TEXT DEFAULT '';
+

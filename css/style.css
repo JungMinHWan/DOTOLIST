@@ -211,6 +211,11 @@ body {
 .btn-save-metrics { background: var(--theme-primary); color: white; border: none; border-radius: var(--radius-md); padding: 5px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
 .btn-save-metrics:hover { background: var(--theme-primary-dark); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 
+/* 일일 지표 인사이트 메모 */
+.metrics-insight-row { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+.metric-insight-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; font-weight: 500; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; resize: vertical; min-height: 72px; line-height: 1.5; font-family: inherit; }
+.metric-insight-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
+
 /* 유틸리티 */
 .hidden { display: none !important; }
 

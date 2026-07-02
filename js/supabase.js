@@ -165,7 +165,8 @@ const api = {
         saturday_wedding_reservations: '',
         sunday_wedding_reservations: '',
         contract_top: '',
-        contract_bottom: ''
+        contract_bottom: '',
+        insight: ''
       };
     } catch (e) {
       console.error(e);
@@ -183,7 +184,8 @@ const api = {
         saturday_wedding_reservations: '',
         sunday_wedding_reservations: '',
         contract_top: '',
-        contract_bottom: ''
+        contract_bottom: '',
+        insight: ''
       };
     }
   },
@@ -208,6 +210,7 @@ const api = {
           sunday_wedding_reservations: val.sunday_wedding_reservations ? parseInt(val.sunday_wedding_reservations) : null,
           contract_top: val.contract_top || '',
           contract_bottom: val.contract_bottom || '',
+          insight: val.insight || '',
           updated_at: new Date().toISOString()
         });
 

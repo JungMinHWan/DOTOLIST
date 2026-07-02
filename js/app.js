@@ -988,6 +988,7 @@ async function refreshAllData() {
     document.getElementById('sundayWeddingReservations').value = m.sunday_wedding_reservations !== null && m.sunday_wedding_reservations !== undefined ? m.sunday_wedding_reservations : '';
     document.getElementById('contractTop').value = m.contract_top || '';
     document.getElementById('contractBottom').value = m.contract_bottom || '';
+    document.getElementById('metricInsight').value = m.insight || '';
   }
   
   const memo = document.getElementById('memoInput');
@@ -1275,7 +1276,8 @@ async function saveMetrics() {
     saturday_wedding_reservations: document.getElementById('saturdayWeddingReservations').value,
     sunday_wedding_reservations: document.getElementById('sundayWeddingReservations').value,
     contract_top: document.getElementById('contractTop').value,
-    contract_bottom: document.getElementById('contractBottom').value
+    contract_bottom: document.getElementById('contractBottom').value,
+    insight: document.getElementById('metricInsight').value
   };
   
   const res = await api.saveDailyMetrics(currentMetricsDate, val);
