@@ -130,6 +130,7 @@
       this.btnNap = document.getElementById('btnSelectNap');
       this.btnMath = document.getElementById('btnSelectMath');
       this.btnVocab = document.getElementById('btnSelectVocab');
+      this.btnEnglish = document.getElementById('btnSelectEnglish');
       
       this.initEvents();
     }
@@ -178,6 +179,15 @@
           }
         };
       }
+
+      if (this.btnEnglish) {
+        this.btnEnglish.onclick = () => {
+          this.close();
+          if (window.englishGame && typeof window.englishGame.open === 'function') {
+            window.englishGame.open();
+          }
+        };
+      }
     }
     
     open() {
@@ -190,7 +200,7 @@
     close() {
       if (this.modal) {
         this.modal.classList.add('hidden');
-        const isAnyModalOpen = document.querySelectorAll('.tetris-modal-overlay:not(.hidden), .nap-modal-overlay:not(.hidden), .math-modal-overlay:not(.hidden)').length > 0;
+        const isAnyModalOpen = document.querySelectorAll('.tetris-modal-overlay:not(.hidden), .nap-modal-overlay:not(.hidden), .math-modal-overlay:not(.hidden), .english-modal-overlay:not(.hidden)').length > 0;
         if (!isAnyModalOpen) {
           document.body.style.overflow = '';
         }

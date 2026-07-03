@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css?v=3.1">
   <link rel="stylesheet" href="./css/vocab.css?v=1.0">
+  <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Confetti 라이브러리 추가 -->
@@ -566,6 +567,11 @@
             <div class="feature-card-title">GROW VOCAB</div>
             <div class="feature-card-desc">어휘력을 키우는 국어사전 게임</div>
           </div>
+          <div class="feature-card" id="btnSelectEnglish">
+            <div class="feature-card-icon">🌌</div>
+            <div class="feature-card-title">GROW ENGLISH</div>
+            <div class="feature-card-desc">나만의 원서 단어 은하 & 학습</div>
+          </div>
         </div>
       </div>
     </div>
@@ -945,11 +951,246 @@
     </div>
   </div>
 
+  <!-- 영어 공부 게임 (GROW ENGLISH) 모달 -->
+  <div class="english-modal-overlay hidden" id="englishModalOverlay">
+    <div class="english-modal">
+      <div class="english-header">
+        <div class="english-title-container">
+          <span class="english-title">🌌 GROW ENGLISH</span>
+          <span class="english-subtitle">Word Galaxy & Reader</span>
+        </div>
+        <button class="english-close-btn" id="englishModalClose">×</button>
+      </div>
+      
+      <div class="english-tabs">
+        <button class="english-tab active" id="englishTabLibrary" data-target="englishSectionLibrary">📚 내 서재</button>
+        <button class="english-tab" id="englishTabGalaxy" data-target="englishSectionGalaxy" style="display: none;">🌌 단어 은하</button>
+        <button class="english-tab" id="englishTabStudy" data-target="englishSectionStudy" style="display: none;">🧠 인지 훈련</button>
+      </div>
+      
+      <div class="english-body">
+        <!-- 1. 내 서재 섹션 -->
+        <div class="english-section active" id="englishSectionLibrary">
+          <div class="library-top-bar">
+            <span class="library-summary">보관된 탐험 책: <span id="libraryBookCount">0</span>권</span>
+            <button class="english-btn primary" id="btnOpenAddBookModal">+ 새 책 등록</button>
+          </div>
+          
+          <div class="bookshelf-container" id="bookshelfContainer">
+            <!-- 책 목록 카드들이 로드됨 -->
+            <div class="bookshelf-empty">
+              <p>📚 아직 등록된 책이 없습니다.</p>
+              <p class="sub">새 책 등록을 눌러 모험을 시작하세요!</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 2. 단어 은하 섹션 -->
+        <div class="english-section" id="englishSectionGalaxy">
+          <div class="galaxy-info-bar">
+            <div class="active-book-info">
+              <span id="galaxyActiveBookTitle" class="active-book-title">선택된 책</span>
+              <span id="galaxyActiveBookProgress" class="active-book-progress">0% 읽음</span>
+            </div>
+            <div class="galaxy-actions" style="display: flex; gap: 8px;">
+              <button class="english-btn secondary" id="btnOpenAddWordModal">+ 단어 기록</button>
+              <button class="english-btn success" id="btnCompleteBook" style="display: none;">🏆 책 완독 선언</button>
+            </div>
+          </div>
+          
+          <!-- 은하 시각화 영역 -->
+          <div class="galaxy-canvas-container">
+            <canvas id="englishGalaxyCanvas"></canvas>
+            <div class="galaxy-controls-overlay">
+              <span>🖱️ 드래그: 은하 탐색 | 🔍 스크롤: 줌</span>
+              <button class="galaxy-reset-btn" id="btnResetGalaxyView">기본 뷰</button>
+            </div>
+          </div>
+          
+          <!-- 하단 듀얼 리스트 영역 (모바일에서는 접기 기능 지원) -->
+          <div class="galaxy-list-wrapper">
+            <div class="galaxy-list-header">
+              <span>등록한 어휘 (<span id="galaxyWordCount">0</span>)</span>
+              <button class="list-toggle-btn" id="btnToggleWordList">목록 열기</button>
+            </div>
+            <div class="galaxy-word-list hidden" id="galaxyWordList">
+              <!-- 단어 아코디언 리스트 -->
+            </div>
+          </div>
+        </div>
+        
+        <!-- 3. 인지 훈련 섹션 -->
+        <div class="english-section" id="englishSectionStudy">
+          <div class="study-top-bar">
+            <span class="study-summary">오늘 복습할 단어: <span id="studyReviewCount">0</span>개</span>
+            <div class="study-beats-switch">
+              <span>🎧 집중 뇌파 (12Hz)</span>
+              <label class="switch">
+                <input type="checkbox" id="chkStudyBeats">
+                <span class="slider round"></span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="study-card-container">
+            <!-- 퀴즈 시작 대기 카드 -->
+            <div class="study-start-card" id="studyStartCard">
+              <h4>🧠 Active Recall 인지 훈련</h4>
+              <p>에빙하우스 망각곡선 주기에 도달한 복습 단어를 훈련합니다.</p>
+              <button class="english-btn primary" id="btnStartStudy" style="margin-top: 16px;">훈련 시작</button>
+            </div>
+            
+            <!-- 퀴즈 플레이 카드 -->
+            <div class="study-play-card hidden" id="studyPlayCard">
+              <div class="study-card-progress">
+                <div class="study-card-progress-bar" id="studyProgressBar" style="width: 0%;"></div>
+              </div>
+              
+              <!-- 플래시 카드 영역 -->
+              <div class="flash-card" id="flashCard">
+                <div class="flash-card-inner" id="flashCardInner">
+                  <div class="flash-card-front">
+                    <span class="flash-card-word" id="studyWord">Word</span>
+                    <span class="flash-card-page" id="studyPage">p.123</span>
+                    <p class="flash-card-hint-text">카드를 터치하면 뜻과 예문이 보입니당.</p>
+                  </div>
+                  <div class="flash-card-back">
+                    <span class="flash-card-definition" id="studyDefinition">뜻풀이</span>
+                    <p class="flash-card-example" id="studyExample">Example sentence...</p>
+                    <p class="flash-card-hint-text">뜻을 확인했으면 아래 입력을 완료하세요.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 타이핑 채점 영역 -->
+              <div class="study-input-area">
+                <input type="text" class="english-input" id="studyAnswerInput" placeholder="단어의 올바른 스펠링을 입력하세요..." autocomplete="off">
+                <div class="study-feedback" id="studyFeedback"></div>
+                <div class="study-action-row">
+                  <button class="english-btn secondary" id="btnStudyGiveUp">모르겠어요</button>
+                  <button class="english-btn primary" id="btnStudySubmit">정답 확인</button>
+                  <button class="english-btn success hidden" id="btnStudyNext">다음 단어 ➔</button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 훈련 완료 카드 -->
+            <div class="study-result-card hidden" id="studyResultCard">
+              <h3>🎉 훈련 완료!</h3>
+              <p>오늘의 모든 복습 단어 암기 훈련을 완수하셨습니다.</p>
+              <div class="study-result-stats">
+                <div>정답: <span id="studyFinalCorrect">0</span>개</div>
+                <div>힌트/오답: <span id="studyFinalWrong">0</span>개</div>
+              </div>
+              <button class="english-btn primary" id="btnBackToLibrary" style="margin-top: 16px;">서재로 돌아가기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 새 책 등록 모달 -->
+  <div class="english-sub-modal-overlay hidden" id="addBookModalOverlay">
+    <div class="english-sub-modal">
+      <div class="sub-modal-header">
+        <h4>📚 새로운 책 탐험 등록</h4>
+        <button class="sub-modal-close" id="btnAddBookClose">×</button>
+      </div>
+      <div class="sub-modal-body">
+        <div class="form-group">
+          <label for="bookTitleInput">책 제목 *</label>
+          <input type="text" class="english-input" id="bookTitleInput" placeholder="예: The Great Gatsby" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="bookTotalPagesInput">총 페이지 수 *</label>
+          <input type="number" class="english-input" id="bookTotalPagesInput" placeholder="예: 250" min="1">
+        </div>
+        <div class="form-group">
+          <label>표지 테마 색상</label>
+          <div class="theme-color-selector">
+            <div class="theme-color-option active" data-color="#3b82f6" style="background: #3b82f6;"></div>
+            <div class="theme-color-option" data-color="#10b981" style="background: #10b981;"></div>
+            <div class="theme-color-option" data-color="#f59e0b" style="background: #f59e0b;"></div>
+            <div class="theme-color-option" data-color="#ef4444" style="background: #ef4444;"></div>
+            <div class="theme-color-option" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+          </div>
+        </div>
+        <button class="english-btn primary full-width" id="btnSubmitAddBook" style="margin-top: 16px;">탐험 시작</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 새 단어 추가 모달 -->
+  <div class="english-sub-modal-overlay hidden" id="addWordModalOverlay">
+    <div class="english-sub-modal">
+      <div class="sub-modal-header">
+        <h4>🌱 단어 기록</h4>
+        <button class="sub-modal-close" id="btnAddWordClose">×</button>
+      </div>
+      <div class="sub-modal-body">
+        <div class="form-group">
+          <label for="wordInput">영단어 *</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" class="english-input" id="wordInput" placeholder="예: inevitable" autocomplete="off">
+            <button class="english-btn secondary" id="btnAiAssist" style="white-space: nowrap;">🤖 AI 자동완성</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="wordPageInput">발견한 페이지</label>
+          <input type="number" class="english-input" id="wordPageInput" placeholder="예: 45" min="1">
+        </div>
+        <div class="form-group">
+          <label for="wordDefInput">뜻 *</label>
+          <input type="text" class="english-input" id="wordDefInput" placeholder="예: 불가피한, 필연적인" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label for="wordExInput">원서의 문장 (예문)</label>
+          <textarea class="english-input" id="wordExInput" placeholder="예: Death is inevitable." rows="3"></textarea>
+        </div>
+        <button class="english-btn primary full-width" id="btnSubmitAddWord" style="margin-top: 16px;">단어 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 완독 축하 & 리포트 모달 -->
+  <div class="english-sub-modal-overlay hidden" id="bookReportModalOverlay">
+    <div class="english-sub-modal" style="max-width: 480px;">
+      <div class="sub-modal-header">
+        <h4>🏆 MISSION ACCOMPLISHED</h4>
+        <button class="sub-modal-close" id="btnReportClose">×</button>
+      </div>
+      <div class="sub-modal-body" style="text-align: center;">
+        <div class="completion-badge">👑</div>
+        <h3 style="color: #f59e0b; margin-top: 8px;">완독을 축하드립니다!</h3>
+        <p style="margin-bottom: 20px;">책 한 권의 탐험이 모두 끝났습니다.</p>
+        
+        <div class="report-card">
+          <h4 id="reportBookTitle">The Great Gatsby</h4>
+          <hr style="border-color: #27272a; margin: 12px 0;">
+          <div class="report-grid">
+            <div class="report-item">
+              <div class="val" id="reportWordCount">0</div>
+              <div class="lbl">수집한 어휘</div>
+            </div>
+            <div class="report-item">
+              <div class="val" id="reportStudyCount">0회</div>
+              <div class="lbl">기억 훈련 횟수</div>
+            </div>
+          </div>
+        </div>
+        
+        <button class="english-btn primary full-width" id="btnReportConfirm" style="margin-top: 20px;">서재로 책 보관하기</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/supabase.js"></script>
   <script src="./js/app.js?v=3.4"></script>
   <script src="./js/tetris.js"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
   <script src="./js/vocab.js?v=1.0"></script>
+  <script src="./js/english.js?v=1.0"></script>
 </body>
 </html>
