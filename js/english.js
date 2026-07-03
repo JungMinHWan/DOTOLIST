@@ -445,7 +445,7 @@
     renderGalaxyView();
   }
 
-  // AI 자동완성 기능 (외부 사전 API 및 번역 API 실시간 연동으로 고도화)
+  // AI 자동완성 기능 (구글 번역 API & 외부 사전 API 실시간 연동 및 스마트 품사 가중치 판별로 고도화)
   async function handleAiAssist() {
     const wordText = el.wordInput.value.trim();
     if (!wordText) {
@@ -459,61 +459,95 @@
     try {
       const encodedWord = encodeURIComponent(wordText.toLowerCase());
       
-      // Dictionary API (품사, 정의, 예문 추출용) & MyMemory API (한글 뜻 번역용) 병렬 요청
-      const [dictRes, transRes] = await Promise.allSettled([
-        fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodedWord}`),
-        fetch(`https://api.mymemory.translated.net/get?q=${encodedWord}&langpair=en|ko`)
+      // Google Translate API (한글 뜻 번역용) & Dictionary API (품사 및 영영 예문 추출용) 병렬 요청
+      const [transRes, dictRes] = await Promise.allSettled([
+        fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=${encodedWord}`),
+        fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodedWord}`)
       ]);
 
       let finalDef = '';
       let finalEx = '';
       let partOfSpeech = '';
 
-      // 1. 번역 API 결과 처리
+      // 1. 구글 번역 API 결과 처리 (정밀 번역)
       if (transRes.status === 'fulfilled' && transRes.value.ok) {
         const transData = await transRes.value.json();
-        if (transData.responseData && transData.responseData.translatedText) {
-          const transText = transData.responseData.translatedText.trim();
-          // 번역 텍스트가 영어 단어와 똑같이 나온 경우(에러 혹은 미지원)를 제외하고 사용
+        if (transData && transData[0] && transData[0][0] && transData[0][0][0]) {
+          const transText = transData[0][0][0].trim();
           if (transText.toLowerCase() !== wordText.toLowerCase()) {
             finalDef = transText;
           }
         }
       }
 
-      // 2. 사전 API 결과 처리 (영영 예문 및 품사 추출)
+      // 2. 사전 API 결과 처리 (스마트 품사 판별 및 예문 추출)
       if (dictRes.status === 'fulfilled' && dictRes.value.ok) {
         const dictData = await dictRes.value.json();
         if (Array.isArray(dictData) && dictData.length > 0) {
           const entry = dictData[0];
           
-          // 예문(example)이 존재하는 첫 번째 정의 탐색
           if (entry.meanings && entry.meanings.length > 0) {
-            partOfSpeech = entry.meanings[0].partOfSpeech || '';
-            
+            // 스마트 가중치 판별 알고리즘 (가장 보편적인 대표 품사 선택)
+            let bestMeaning = entry.meanings[0];
+            let maxWeight = -1;
+
             for (const meaning of entry.meanings) {
-              if (meaning.definitions) {
-                for (const def of meaning.definitions) {
-                  if (def.example) {
-                    finalEx = def.example;
-                    break;
-                  }
+              let weight = (meaning.definitions || []).length;
+              
+              // 예문이 있으면 확실히 우선순위 가중치 부여
+              const hasExample = meaning.definitions.some(d => d.example);
+              if (hasExample) weight += 5;
+
+              // 흔히 사용되는 주요 5대 품사에 가중치 가산
+              const pos = (meaning.partOfSpeech || '').toLowerCase();
+              const commonPos = ['pronoun', 'noun', 'adjective', 'verb', 'adverb'];
+              if (commonPos.includes(pos)) {
+                weight += 2;
+              }
+
+              if (weight > maxWeight) {
+                maxWeight = weight;
+                bestMeaning = meaning;
+              }
+            }
+
+            partOfSpeech = bestMeaning.partOfSpeech || '';
+
+            // 선택된 대표 품사 내에서 예문 추출 시도
+            if (bestMeaning.definitions) {
+              for (const def of bestMeaning.definitions) {
+                if (def.example) {
+                  finalEx = def.example;
+                  break;
                 }
               }
-              if (finalEx) break;
+            }
+
+            // 만약 대표 품사에 예문이 없다면 전체 품사를 돌며 예문 탐색
+            if (!finalEx) {
+              for (const meaning of entry.meanings) {
+                if (meaning.definitions) {
+                  for (const def of meaning.definitions) {
+                    if (def.example) {
+                      finalEx = def.example;
+                      break;
+                    }
+                  }
+                }
+                if (finalEx) break;
+              }
             }
           }
         }
       }
 
-      // 3. 필드 채워넣기 및 폴백 매핑
+      // 3. 폼 필드 채워넣기 및 품사 한글 맵핑
       if (finalDef) {
-        // 품사 태그 보정
         const posMap = {
           noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사',
           pronoun: '대명사', preposition: '전치사', conjunction: '접속사', interjection: '감탄사'
         };
-        const posKr = posMap[partOfSpeech] || partOfSpeech;
+        const posKr = posMap[partOfSpeech.toLowerCase()] || partOfSpeech;
         el.wordDefInput.value = posKr ? `[${posKr}] ${finalDef}` : finalDef;
       } else {
         el.wordDefInput.value = '[직접 입력] 단어의 뜻을 입력해 주세요.';
