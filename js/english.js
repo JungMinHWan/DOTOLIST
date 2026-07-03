@@ -83,7 +83,6 @@
     flashCard: document.getElementById('flashCard'),
     flashCardInner: document.getElementById('flashCardInner'),
     studyWord: document.getElementById('studyWord'),
-    studyPage: document.getElementById('studyPage'),
     studyDefinition: document.getElementById('studyDefinition'),
     studyExample: document.getElementById('studyExample'),
     studyAnswerInput: document.getElementById('studyAnswerInput'),
@@ -106,7 +105,6 @@
     addWordModal: document.getElementById('addWordModalOverlay'),
     addWordClose: document.getElementById('btnAddWordClose'),
     wordInput: document.getElementById('wordInput'),
-    wordPageInput: document.getElementById('wordPageInput'),
     wordDefInput: document.getElementById('wordDefInput'),
     wordExInput: document.getElementById('wordExInput'),
     btnSubmitAddWord: document.getElementById('btnSubmitAddWord'),
@@ -268,7 +266,6 @@
       el.bookPagesInput.value = '';
     } else if (modalEl === el.addWordModal) {
       el.wordInput.value = '';
-      el.wordPageInput.value = '';
       el.wordDefInput.value = '';
       el.wordExInput.value = '';
     }
@@ -411,17 +408,12 @@
 
   function handleAddWord() {
     const wordText = el.wordInput.value.trim().toLowerCase();
-    const pageNum = parseInt(el.wordPageInput.value) || 0;
+    const pageNum = 0; // 발견 페이지 입력 제거
     const defText = el.wordDefInput.value.trim();
     const exText = el.wordExInput.value.trim();
 
     if (!wordText || !defText) {
       alert('영단어와 뜻은 필수로 입력해야 합니다.');
-      return;
-    }
-
-    if (pageNum > activeBook.totalPages) {
-      alert('입력한 페이지가 책의 총 페이지 수보다 큽니다.');
       return;
     }
 
@@ -453,7 +445,7 @@
     renderGalaxyView();
   }
 
-  // AI 자동완성 기능 (Gemini API 탑재 대비 Mock-up 구현 및 알림)
+  // AI 자동완성 기능 (외부 사전 API 및 번역 API 실시간 연동으로 고도화)
   async function handleAiAssist() {
     const wordText = el.wordInput.value.trim();
     if (!wordText) {
@@ -461,34 +453,82 @@
       return;
     }
 
-    el.btnAiAssist.innerText = '🤖 로딩 중..';
+    el.btnAiAssist.innerText = '🤖 실시간 분석 중..';
     el.btnAiAssist.disabled = true;
 
     try {
-      // 1초 뒤 Mock 데이터 완성 (로컬 사전 데이터 추출 혹은 생성 흉내)
-      await new Promise(res => setTimeout(res, 1200));
+      const encodedWord = encodeURIComponent(wordText.toLowerCase());
       
-      const mockDb = {
-        inevitable: { def: '불가피한, 필연적인', ex: 'Death is inevitable for all living things.' },
-        meticulous: { def: '꼼꼼한, 세심한', ex: 'He is meticulous in his choice of words.' },
-        obscure: { def: '모호한, 잘 알려지지 않은', ex: 'The origins of the custom are obscure.' },
-        sophisticated: { def: '정교한, 세련된', ex: 'Highly sophisticated computer systems were used.' },
-        vibrant: { def: '활기찬, 진동하는', ex: 'The city has a vibrant nightlife.' }
-      };
+      // Dictionary API (품사, 정의, 예문 추출용) & MyMemory API (한글 뜻 번역용) 병렬 요청
+      const [dictRes, transRes] = await Promise.allSettled([
+        fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodedWord}`),
+        fetch(`https://api.mymemory.translated.net/get?q=${encodedWord}&langpair=en|ko`)
+      ]);
 
-      const found = mockDb[wordText.toLowerCase()];
-      if (found) {
-        el.wordDefInput.value = found.def;
-        el.wordExInput.value = found.ex;
+      let finalDef = '';
+      let finalEx = '';
+      let partOfSpeech = '';
+
+      // 1. 번역 API 결과 처리
+      if (transRes.status === 'fulfilled' && transRes.value.ok) {
+        const transData = await transRes.value.json();
+        if (transData.responseData && transData.responseData.translatedText) {
+          const transText = transData.responseData.translatedText.trim();
+          // 번역 텍스트가 영어 단어와 똑같이 나온 경우(에러 혹은 미지원)를 제외하고 사용
+          if (transText.toLowerCase() !== wordText.toLowerCase()) {
+            finalDef = transText;
+          }
+        }
+      }
+
+      // 2. 사전 API 결과 처리 (영영 예문 및 품사 추출)
+      if (dictRes.status === 'fulfilled' && dictRes.value.ok) {
+        const dictData = await dictRes.value.json();
+        if (Array.isArray(dictData) && dictData.length > 0) {
+          const entry = dictData[0];
+          
+          // 예문(example)이 존재하는 첫 번째 정의 탐색
+          if (entry.meanings && entry.meanings.length > 0) {
+            partOfSpeech = entry.meanings[0].partOfSpeech || '';
+            
+            for (const meaning of entry.meanings) {
+              if (meaning.definitions) {
+                for (const def of meaning.definitions) {
+                  if (def.example) {
+                    finalEx = def.example;
+                    break;
+                  }
+                }
+              }
+              if (finalEx) break;
+            }
+          }
+        }
+      }
+
+      // 3. 필드 채워넣기 및 폴백 매핑
+      if (finalDef) {
+        // 품사 태그 보정
+        const posMap = {
+          noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사',
+          pronoun: '대명사', preposition: '전치사', conjunction: '접속사', interjection: '감탄사'
+        };
+        const posKr = posMap[partOfSpeech] || partOfSpeech;
+        el.wordDefInput.value = posKr ? `[${posKr}] ${finalDef}` : finalDef;
       } else {
-        // 보편적인 템플릿 처리
-        el.wordDefInput.value = '[AI 뜻추천] (직접 검토 요망)';
+        el.wordDefInput.value = '[직접 입력] 단어의 뜻을 입력해 주세요.';
+      }
+
+      if (finalEx) {
+        el.wordExInput.value = finalEx;
+      } else {
         el.wordExInput.value = `This is a sentence containing the word: ${wordText}.`;
       }
       
-      if (navigator.vibrate) navigator.vibrate(50); // 모바일 진동 피드백
+      if (navigator.vibrate) navigator.vibrate(60); // 모바일 진동 피드백
     } catch (e) {
-      console.error(e);
+      console.error('AI 자동완성 오류:', e);
+      alert('사전 데이터를 가져오는 중 일시적인 네트워크 오류가 발생했습니다.');
     } finally {
       el.btnAiAssist.innerText = '🤖 AI 자동완성';
       el.btnAiAssist.disabled = false;
@@ -893,7 +933,6 @@
 
     // 카드 데이터 로드
     el.studyWord.innerText = curWord.word;
-    el.studyPage.innerText = `p.${curWord.page}`;
     el.studyDefinition.innerText = curWord.definition;
     
     // 예문에서 정답 단어를 빈칸(___)으로 가려 맥락 인출 훈련(Context Retrieval) 강화
