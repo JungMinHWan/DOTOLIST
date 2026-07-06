@@ -186,7 +186,11 @@ const api = {
         sun_wedding_regular_contract: '',
         contract_top: '',
         contract_bottom: '',
-        insight: ''
+        insight: '',
+        saturday_wedding_text: '',
+        sunday_wedding_text: '',
+        saturday_honsoo_text: '',
+        sunday_honsoo_text: ''
       };
     } catch (e) {
       console.error(e);
@@ -225,7 +229,11 @@ const api = {
         sun_wedding_regular_contract: '',
         contract_top: '',
         contract_bottom: '',
-        insight: ''
+        insight: '',
+        saturday_wedding_text: '',
+        sunday_wedding_text: '',
+        saturday_honsoo_text: '',
+        sunday_honsoo_text: ''
       };
     }
   },
@@ -271,6 +279,10 @@ const api = {
           contract_top: val.contract_top || '',
           contract_bottom: val.contract_bottom || '',
           insight: val.insight || '',
+           saturday_wedding_text: val.saturday_wedding_text || '',
+          sunday_wedding_text: val.sunday_wedding_text || '',
+          saturday_honsoo_text: val.saturday_honsoo_text || '',
+          sunday_honsoo_text: val.sunday_honsoo_text || '',
           updated_at: new Date().toISOString()
         });
 

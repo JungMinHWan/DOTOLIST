@@ -958,7 +958,7 @@ async function refreshAllData() {
   
   // 월요일 여부 판별하여 주말 건수 입력란 표시 제어
   const isMon = getDayOfWeek(currentMetricsDate) === 1;
-  const mondayItems = ['satContractsItem', 'sunContractsItem', 'satDbItem', 'sunDbItem', 'festaDressGroup', 'weddingReservationGroup'];
+  const mondayItems = ['festaDressGroup', 'weddingReservationGroup'];
   const weekdayItems = ['weekdayContractsItem', 'weekdayDbItem'];
   
   mondayItems.forEach(id => {
@@ -994,11 +994,40 @@ async function refreshAllData() {
     document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
     document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
     
-    // 신규 주말 상세 항목 바인딩
-    document.getElementById('saturdayContractsCount').value = m.saturday_contracts_count !== null && m.saturday_contracts_count !== undefined ? m.saturday_contracts_count : '';
-    document.getElementById('sundayContractsCount').value = m.sunday_contracts_count !== null && m.sunday_contracts_count !== undefined ? m.sunday_contracts_count : '';
-    document.getElementById('saturdayDbCount').value = m.saturday_db_count !== null && m.saturday_db_count !== undefined ? m.saturday_db_count : '';
-    document.getElementById('sundayDbCount').value = m.sunday_db_count !== null && m.sunday_db_count !== undefined ? m.sunday_db_count : '';
+    // 신규 주말 상세 항목 바인딩 (텍스트 필드 바인딩 및 과거 데이터 호환성 보장)
+    let satText = m.saturday_wedding_text || '';
+    if (!satText && (m.sat_wedding_actual_visit || m.sat_wedding_regular_contract)) {
+      const v = m.sat_wedding_actual_visit || 0;
+      const c = m.sat_wedding_regular_contract || 0;
+      satText = `${v} / ${c}`;
+    }
+    document.getElementById('saturdayWeddingText').value = satText;
+
+    let sunText = m.sunday_wedding_text || '';
+    if (!sunText && (m.sun_wedding_actual_visit || m.sun_wedding_regular_contract)) {
+      const v = m.sun_wedding_actual_visit || 0;
+      const c = m.sun_wedding_regular_contract || 0;
+      sunText = `${v} / ${c}`;
+    }
+    document.getElementById('sundayWeddingText').value = sunText;
+
+    let satHonsoo = m.saturday_honsoo_text || '';
+    if (!satHonsoo && (m.sat_wedding_consultation || m.sat_wedding_provisional_contract || m.sat_wedding_regular_contract)) {
+      const cs = m.sat_wedding_consultation || 0;
+      const ps = m.sat_wedding_provisional_contract || 0;
+      const rs = m.sat_wedding_regular_contract || 0;
+      satHonsoo = `${cs} / ${ps} / ${rs}`;
+    }
+    document.getElementById('saturdayHonsooText').value = satHonsoo;
+
+    let sunHonsoo = m.sunday_honsoo_text || '';
+    if (!sunHonsoo && (m.sun_wedding_consultation || m.sun_wedding_provisional_contract || m.sun_wedding_regular_contract)) {
+      const cs = m.sun_wedding_consultation || 0;
+      const ps = m.sun_wedding_provisional_contract || 0;
+      const rs = m.sun_wedding_regular_contract || 0;
+      sunHonsoo = `${cs} / ${ps} / ${rs}`;
+    }
+    document.getElementById('sundayHonsooText').value = sunHonsoo;
 
     document.getElementById('festaCompany1Name').value = m.festa_company_1_name || '';
     document.getElementById('saturdayFestaDressOrders1').value = m.festa_company_1_sat_orders !== null && m.festa_company_1_sat_orders !== undefined ? m.festa_company_1_sat_orders : '';
@@ -1007,12 +1036,16 @@ async function refreshAllData() {
     document.getElementById('saturdayFestaDressOrders2').value = m.festa_company_2_sat_orders !== null && m.festa_company_2_sat_orders !== undefined ? m.festa_company_2_sat_orders : '';
     document.getElementById('sundayFestaDressOrders2').value = m.festa_company_2_sun_orders !== null && m.festa_company_2_sun_orders !== undefined ? m.festa_company_2_sun_orders : '';
 
+    // 히든 처리된 기존 엘리먼트 초기화 (에러 방지)
+    document.getElementById('saturdayContractsCount').value = m.saturday_contracts_count !== null && m.saturday_contracts_count !== undefined ? m.saturday_contracts_count : '';
+    document.getElementById('sundayContractsCount').value = m.sunday_contracts_count !== null && m.sunday_contracts_count !== undefined ? m.sunday_contracts_count : '';
+    document.getElementById('saturdayDbCount').value = m.saturday_db_count !== null && m.saturday_db_count !== undefined ? m.saturday_db_count : '';
+    document.getElementById('sundayDbCount').value = m.sunday_db_count !== null && m.sunday_db_count !== undefined ? m.sunday_db_count : '';
     document.getElementById('satWeddingVisitReservation').value = m.sat_wedding_visit_reservation !== null && m.sat_wedding_visit_reservation !== undefined ? m.sat_wedding_visit_reservation : '';
     document.getElementById('satWeddingActualVisit').value = m.sat_wedding_actual_visit !== null && m.sat_wedding_actual_visit !== undefined ? m.sat_wedding_actual_visit : '';
     document.getElementById('satWeddingConsultation').value = m.sat_wedding_consultation !== null && m.sat_wedding_consultation !== undefined ? m.sat_wedding_consultation : '';
     document.getElementById('satWeddingProvisionalContract').value = m.sat_wedding_provisional_contract !== null && m.sat_wedding_provisional_contract !== undefined ? m.sat_wedding_provisional_contract : '';
     document.getElementById('satWeddingRegularContract').value = m.sat_wedding_regular_contract !== null && m.sat_wedding_regular_contract !== undefined ? m.sat_wedding_regular_contract : '';
-
     document.getElementById('sunWeddingVisitReservation').value = m.sun_wedding_visit_reservation !== null && m.sun_wedding_visit_reservation !== undefined ? m.sun_wedding_visit_reservation : '';
     document.getElementById('sunWeddingActualVisit').value = m.sun_wedding_actual_visit !== null && m.sun_wedding_actual_visit !== undefined ? m.sun_wedding_actual_visit : '';
     document.getElementById('sunWeddingConsultation').value = m.sun_wedding_consultation !== null && m.sun_wedding_consultation !== undefined ? m.sun_wedding_consultation : '';
@@ -1304,26 +1337,38 @@ async function saveMetrics() {
     cumulative_db_count: document.getElementById('cumulativeDbCount').value,
     saturday_visitors: document.getElementById('saturdayVisitors').value,
     sunday_visitors: document.getElementById('sundayVisitors').value,
+    
+    // 신규 텍스트 필드 데이터 저장 (파싱 없이 순수 텍스트)
+    saturday_wedding_text: document.getElementById('saturdayWeddingText').value,
+    sunday_wedding_text: document.getElementById('sundayWeddingText').value,
+    saturday_honsoo_text: document.getElementById('saturdayHonsooText').value,
+    sunday_honsoo_text: document.getElementById('sundayHonsooText').value,
+    
+    // 이전 컬럼들은 히든 값(기본 0 또는 빈 값)을 그대로 넘겨 영향 없도록 함
     saturday_contracts_count: document.getElementById('saturdayContractsCount').value,
     sunday_contracts_count: document.getElementById('sundayContractsCount').value,
     saturday_db_count: document.getElementById('saturdayDbCount').value,
     sunday_db_count: document.getElementById('sundayDbCount').value,
+    
     festa_company_1_name: document.getElementById('festaCompany1Name').value,
     festa_company_1_sat_orders: document.getElementById('saturdayFestaDressOrders1').value,
     festa_company_1_sun_orders: document.getElementById('sundayFestaDressOrders1').value,
     festa_company_2_name: document.getElementById('festaCompany2Name').value,
     festa_company_2_sat_orders: document.getElementById('saturdayFestaDressOrders2').value,
     festa_company_2_sun_orders: document.getElementById('sundayFestaDressOrders2').value,
+    
     sat_wedding_visit_reservation: document.getElementById('satWeddingVisitReservation').value,
     sat_wedding_actual_visit: document.getElementById('satWeddingActualVisit').value,
     sat_wedding_consultation: document.getElementById('satWeddingConsultation').value,
     sat_wedding_provisional_contract: document.getElementById('satWeddingProvisionalContract').value,
     sat_wedding_regular_contract: document.getElementById('satWeddingRegularContract').value,
+    
     sun_wedding_visit_reservation: document.getElementById('sunWeddingVisitReservation').value,
     sun_wedding_actual_visit: document.getElementById('sunWeddingActualVisit').value,
     sun_wedding_consultation: document.getElementById('sunWeddingConsultation').value,
     sun_wedding_provisional_contract: document.getElementById('sunWeddingProvisionalContract').value,
     sun_wedding_regular_contract: document.getElementById('sunWeddingRegularContract').value,
+    
     contract_top: document.getElementById('contractTop').value,
     contract_bottom: document.getElementById('contractBottom').value,
     insight: document.getElementById('metricInsight').value

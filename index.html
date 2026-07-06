@@ -189,17 +189,17 @@
         <div class="metrics-grid">
           <div class="metric-item weekday-only" id="weekdayContractsItem"><label class="metric-label">전일 계약건수</label><input type="number" class="metric-input" id="contractsCount" placeholder="0"></div>
           
-          <!-- 월요일 전용 주말 계약건수 -->
-          <div class="metric-item monday-only hidden" id="satContractsItem"><label class="metric-label">토요일 계약건수</label><input type="number" class="metric-input" id="saturdayContractsCount" placeholder="0"></div>
-          <div class="metric-item monday-only hidden" id="sunContractsItem"><label class="metric-label">일요일 계약건수</label><input type="number" class="metric-input" id="sundayContractsCount" placeholder="0"></div>
+          <!-- 월요일 전용 주말 계약건수 (텍스트 필드 통합으로 숨김 처리) -->
+          <div class="metric-item monday-only hidden" id="satContractsItem" style="display: none !important;"><input type="number" id="saturdayContractsCount" value="0"></div>
+          <div class="metric-item monday-only hidden" id="sunContractsItem" style="display: none !important;"><input type="number" id="sundayContractsCount" value="0"></div>
           
           <div class="metric-item"><label class="metric-label">누적 계약건수</label><input type="number" class="metric-input" id="cumulativeContractsCount" placeholder="0"></div>
           
           <div class="metric-item weekday-only" id="weekdayDbItem"><label class="metric-label">전일 DB건수</label><input type="number" class="metric-input" id="dbCount" placeholder="0"></div>
           
-          <!-- 월요일 전용 주말 DB건수 -->
-          <div class="metric-item monday-only hidden" id="satDbItem"><label class="metric-label">토요일 DB건수</label><input type="number" class="metric-input" id="saturdayDbCount" placeholder="0"></div>
-          <div class="metric-item monday-only hidden" id="sunDbItem"><label class="metric-label">일요일 DB건수</label><input type="number" class="metric-input" id="sundayDbCount" placeholder="0"></div>
+          <!-- 월요일 전용 주말 DB건수 (텍스트 필드 통합으로 숨김 처리) -->
+          <div class="metric-item monday-only hidden" id="satDbItem" style="display: none !important;"><input type="number" id="saturdayDbCount" value="0"></div>
+          <div class="metric-item monday-only hidden" id="sunDbItem" style="display: none !important;"><input type="number" id="sundayDbCount" value="0"></div>
           
           <div class="metric-item"><label class="metric-label">누적 DB건수</label><input type="number" class="metric-input" id="cumulativeDbCount" placeholder="0"></div>
 
@@ -228,23 +228,39 @@
 
         <!-- 주말 혼수예약 상세 그룹 (월요일 전용) -->
         <div class="metrics-group monday-only hidden" id="weddingReservationGroup">
-          <div class="group-title">💍 주말 혼수예약 상세</div>
-          <div class="group-row">
-            <div class="group-col">
-              <div class="col-title">토요일</div>
-              <div class="metric-item"><label class="metric-label">방문예약수</label><input type="number" class="metric-input" id="satWeddingVisitReservation" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">실방문수</label><input type="number" class="metric-input" id="satWeddingActualVisit" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">상담건수</label><input type="number" class="metric-input" id="satWeddingConsultation" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">가계약건수</label><input type="number" class="metric-input" id="satWeddingProvisionalContract" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">정계약건수</label><input type="number" class="metric-input" id="satWeddingRegularContract" placeholder="0"></div>
+          <div class="group-title">💍 주말 스드메 및 혼수 성과</div>
+          <div class="group-row" style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
+            <!-- 스드메 성과 -->
+            <div class="metric-item" style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              <label class="metric-label" style="width: 250px; flex-shrink: 0; font-weight: 600;">토요일 스드메 방문/계약</label>
+              <input type="text" class="metric-input" id="saturdayWeddingText" placeholder="예: 10 / 8" style="flex-grow: 1;">
             </div>
-            <div class="group-col">
-              <div class="col-title">일요일</div>
-              <div class="metric-item"><label class="metric-label">방문예약수</label><input type="number" class="metric-input" id="sunWeddingVisitReservation" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">실방문수</label><input type="number" class="metric-input" id="sunWeddingActualVisit" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">상담건수</label><input type="number" class="metric-input" id="sunWeddingConsultation" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">가계약건수</label><input type="number" class="metric-input" id="sunWeddingProvisionalContract" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">정계약건수</label><input type="number" class="metric-input" id="sunWeddingRegularContract" placeholder="0"></div>
+            <div class="metric-item" style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              <label class="metric-label" style="width: 250px; flex-shrink: 0; font-weight: 600;">일요일 스드메 방문/계약</label>
+              <input type="text" class="metric-input" id="sundayWeddingText" placeholder="예: 8 / 6" style="flex-grow: 1;">
+            </div>
+            <!-- 혼수 성과 -->
+            <div class="metric-item" style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              <label class="metric-label" style="width: 250px; flex-shrink: 0; font-weight: 600;">토요일 혼수 상담/가계약/정계약</label>
+              <input type="text" class="metric-input" id="saturdayHonsooText" placeholder="예: 5 / 3 / 2" style="flex-grow: 1;">
+            </div>
+            <div class="metric-item" style="display: flex; align-items: center; gap: 12px; width: 100%;">
+              <label class="metric-label" style="width: 250px; flex-shrink: 0; font-weight: 600;">일요일 혼수 상담/가계약/정계약</label>
+              <input type="text" class="metric-input" id="sundayHonsooText" placeholder="예: 4 / 2 / 1" style="flex-grow: 1;">
+            </div>
+            
+            <!-- 기존의 개별 숫자 인풋들 제거 시 에러 방지를 위한 히든 필드 -->
+            <div style="display: none;">
+              <input type="number" id="satWeddingVisitReservation" value="0">
+              <input type="number" id="satWeddingActualVisit" value="0">
+              <input type="number" id="satWeddingConsultation" value="0">
+              <input type="number" id="satWeddingProvisionalContract" value="0">
+              <input type="number" id="satWeddingRegularContract" value="0">
+              <input type="number" id="sunWeddingVisitReservation" value="0">
+              <input type="number" id="sunWeddingActualVisit" value="0">
+              <input type="number" id="sunWeddingConsultation" value="0">
+              <input type="number" id="sunWeddingProvisionalContract" value="0">
+              <input type="number" id="sunWeddingRegularContract" value="0">
             </div>
           </div>
         </div>

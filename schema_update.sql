@@ -151,3 +151,12 @@ ADD COLUMN IF NOT EXISTS sun_wedding_consultation INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS sun_wedding_provisional_contract INTEGER DEFAULT 0,
 ADD COLUMN IF NOT EXISTS sun_wedding_regular_contract INTEGER DEFAULT 0;
 
+-- 일일 지표 주말 혼수예약 텍스트 컬럼 추가
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS saturday_wedding_text TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS sunday_wedding_text TEXT DEFAULT '';
+
+-- 일일 지표 주말 혼수 성과 텍스트 컬럼 추가
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS saturday_honsoo_text TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS sunday_honsoo_text TEXT DEFAULT '';
