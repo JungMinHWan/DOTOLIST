@@ -125,3 +125,29 @@ CREATE POLICY "Allow authenticated users to read/write manuals"
 -- 일일 지표 인사이트 메모 컬럼 추가
 ALTER TABLE daily_metrics ADD COLUMN IF NOT EXISTS insight TEXT DEFAULT '';
 
+-- 일일 지표 주말 상세 컬럼 추가 (계약건수, DB건수, 페스타 2개 업체, 혼수 5대 지표 세분화)
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS saturday_contracts_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sunday_contracts_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS saturday_db_count INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sunday_db_count INTEGER DEFAULT 0,
+
+ADD COLUMN IF NOT EXISTS festa_company_1_name TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS festa_company_1_sat_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS festa_company_1_sun_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS festa_company_2_name TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS festa_company_2_sat_orders INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS festa_company_2_sun_orders INTEGER DEFAULT 0,
+
+ADD COLUMN IF NOT EXISTS sat_wedding_visit_reservation INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sat_wedding_actual_visit INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sat_wedding_consultation INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sat_wedding_provisional_contract INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sat_wedding_regular_contract INTEGER DEFAULT 0,
+
+ADD COLUMN IF NOT EXISTS sun_wedding_visit_reservation INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sun_wedding_actual_visit INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sun_wedding_consultation INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sun_wedding_provisional_contract INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS sun_wedding_regular_contract INTEGER DEFAULT 0;
+

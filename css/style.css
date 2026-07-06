@@ -219,6 +219,55 @@ body {
 /* 유틸리티 */
 .hidden { display: none !important; }
 
+/* 월요일 전용 주말 그룹 박스 스타일 */
+.metrics-group {
+  margin-top: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--theme-light-bg);
+  padding: 12px;
+}
+.group-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--theme-primary-dark);
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+.group-row {
+  display: flex;
+  gap: 12px;
+}
+.group-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: white;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+.col-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+  text-align: center;
+  background: var(--theme-light-bg);
+  padding: 3px 0;
+  border-radius: 4px;
+}
+
+/* 모바일 대응 미디어 쿼리 */
+@media (max-width: 480px) {
+  .group-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 /* Goal Section */
 .goal-section { margin-bottom: 12px; }
 .goal-label { font-size: 12px; font-weight: 800; color: var(--theme-primary-dark); margin-bottom: 6px; margin-left: 4px; }
