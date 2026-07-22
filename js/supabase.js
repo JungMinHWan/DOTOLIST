@@ -488,6 +488,28 @@ const api = {
     }
   },
 
+  async getTasksByDateRange(startDateStr, endDateStr) {
+    try {
+      const start = new Date(startDateStr);
+      const end = new Date(endDateStr);
+      
+      const s = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      const e = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+
+      const { data, error } = await supabaseClient
+        .from('tasks')
+        .select()
+        .gte('created_at', s.toISOString())
+        .lt('created_at', e.toISOString());
+
+      if (error) throw error;
+      return this._sortTasks(data || []);
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  },
+
   async searchTasks(keyword) {
     try {
       if (!keyword) return [];

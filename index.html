@@ -46,10 +46,43 @@
       <button class="period-tab" data-period="yesterday">어</button>
       <button class="period-tab active" data-period="today">오</button>
       <button class="period-tab" data-period="tomorrow">내</button>
-      <button class="period-tab" data-period="week">주</button>
+      <button class="period-tab" data-period="week" title="클릭: 이번 주 | 길게 누르기: 기간 범위 지정">주</button>
       <button class="period-tab" data-period="month">달</button>
       <button class="calendar-btn" id="calendarBtn">📅 달력</button>
       <span class="selected-date-label" id="selectedDateLabel"></span>
+    </div>
+    
+    <!-- 기간 범위 지정 피커 모달 -->
+    <div class="custom-calendar-wrapper" id="dateRangeModalWrapper" style="display: none;">
+      <div class="custom-calendar" style="max-width: 340px; padding: 16px; border-radius: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+            <span>🗓️</span> 기간 범위 지정
+          </h4>
+          <button id="btnCloseRangeModal" style="background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-sub); padding: 4px;">✕</button>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-sub); display: block; margin-bottom: 4px;">시작일</label>
+            <input type="date" id="rangeStartDate" class="picker-input" style="width: 100%; box-sizing: border-box; font-size: 13px;">
+          </div>
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-sub); display: block; margin-bottom: 4px;">종료일</label>
+            <input type="date" id="rangeEndDate" class="picker-input" style="width: 100%; box-sizing: border-box; font-size: 13px;">
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+          <button class="range-quick-btn" data-days="7" style="flex: 1; padding: 6px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: all 0.2s;">7일간</button>
+          <button class="range-quick-btn" data-days="14" style="flex: 1; padding: 6px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: all 0.2s;">14일간</button>
+          <button class="range-quick-btn" data-days="30" style="flex: 1; padding: 6px; font-size: 12px; font-weight: 600; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-main); cursor: pointer; transition: all 0.2s;">30일간</button>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="btnApplyRange" class="action-btn" style="flex: 1; height: 38px; font-size: 14px; font-weight: 700;">조회하기</button>
+        </div>
+      </div>
     </div>
     
     <div class="custom-calendar-wrapper" id="customCalendarWrapper">

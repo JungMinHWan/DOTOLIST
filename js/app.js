@@ -1,4 +1,5 @@
 let currentPeriod = 'today', selectedDate = null, currentMetricsDate = null;
+let customRangeStart = null, customRangeEnd = null;
 let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
 let loadedTasks = [];
 
@@ -248,8 +249,50 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('saveDiaryBtn').onclick = saveDiary;
   document.getElementById('saveNewsBtn').onclick = saveNews;
   
+  // 기간 탭 및 롱프레스 이벤트 바인딩
   document.querySelectorAll('.period-tab').forEach(tab => {
-    tab.onclick = function() {
+    let longPressTimer = null;
+    let isLongPress = false;
+    
+    const startPress = (e) => {
+      if (tab.dataset.period === 'week') {
+        isLongPress = false;
+        tab.classList.add('pressing');
+        longPressTimer = setTimeout(() => {
+          isLongPress = true;
+          tab.classList.remove('pressing');
+          if (navigator.vibrate) navigator.vibrate(50);
+          openDateRangeModal();
+        }, 500);
+      }
+    };
+    
+    const cancelPress = (e) => {
+      tab.classList.remove('pressing');
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+    
+    if (tab.dataset.period === 'week') {
+      tab.addEventListener('mousedown', startPress);
+      tab.addEventListener('mouseup', cancelPress);
+      tab.addEventListener('mouseleave', cancelPress);
+      
+      tab.addEventListener('touchstart', startPress, { passive: true });
+      tab.addEventListener('touchend', cancelPress);
+      tab.addEventListener('touchmove', cancelPress);
+    }
+    
+    tab.onclick = function(e) {
+      if (this.dataset.period === 'week' && isLongPress) {
+        e.preventDefault();
+        e.stopPropagation();
+        isLongPress = false;
+        return false;
+      }
+      
       closeAllHeaders();
       document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('calendarBtn').classList.remove('active');
@@ -257,6 +300,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       this.classList.add('active');
       
       currentPeriod = this.dataset.period;
+      customRangeStart = null;
+      customRangeEnd = null;
       
       const d = new Date();
       if(currentPeriod === 'yesterday') d.setDate(d.getDate()-1);
@@ -275,6 +320,80 @@ document.addEventListener('DOMContentLoaded', async function() {
       loadGamification();
     };
   });
+
+  // 기간 범위 지정 모달 관련 이벤트 바인딩
+  const dateRangeModalWrapper = document.getElementById('dateRangeModalWrapper');
+  const btnCloseRangeModal = document.getElementById('btnCloseRangeModal');
+  const btnApplyRange = document.getElementById('btnApplyRange');
+  const rangeStartDateInput = document.getElementById('rangeStartDate');
+  const rangeEndDateInput = document.getElementById('rangeEndDate');
+  
+  function openDateRangeModal() {
+    closeAllHeaders();
+    const today = new Date();
+    const weekAgo = new Date(today.getTime() - 7 * 86400000);
+    
+    if (rangeStartDateInput && !rangeStartDateInput.value) rangeStartDateInput.value = formatDateString(weekAgo);
+    if (rangeEndDateInput && !rangeEndDateInput.value) rangeEndDateInput.value = formatDateString(today);
+    
+    if (dateRangeModalWrapper) {
+      dateRangeModalWrapper.style.display = 'block';
+      dateRangeModalWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  if (btnCloseRangeModal) {
+    btnCloseRangeModal.onclick = () => {
+      if (dateRangeModalWrapper) dateRangeModalWrapper.style.display = 'none';
+    };
+  }
+
+  document.querySelectorAll('.range-quick-btn').forEach(btn => {
+    btn.onclick = function() {
+      const days = parseInt(this.dataset.days, 10);
+      const today = new Date();
+      const startDate = new Date(today.getTime() - (days - 1) * 86400000);
+      if (rangeStartDateInput) rangeStartDateInput.value = formatDateString(startDate);
+      if (rangeEndDateInput) rangeEndDateInput.value = formatDateString(today);
+    };
+  });
+
+  if (btnApplyRange) {
+    btnApplyRange.onclick = function() {
+      const startVal = rangeStartDateInput ? rangeStartDateInput.value : '';
+      const endVal = rangeEndDateInput ? rangeEndDateInput.value : '';
+      
+      if (!startVal || !endVal) {
+        alert('시작일과 종료일을 모두 선택해주세요.');
+        return;
+      }
+      
+      if (startVal > endVal) {
+        alert('시작일은 종료일보다 이전이어야 합니다.');
+        return;
+      }
+      
+      customRangeStart = startVal;
+      customRangeEnd = endVal;
+      currentPeriod = 'range';
+      selectedDate = null;
+      
+      document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+      const weekTab = document.querySelector('.period-tab[data-period="week"]');
+      if (weekTab) weekTab.classList.add('active');
+      
+      const label = document.getElementById('selectedDateLabel');
+      if (label) {
+        label.innerText = `${startVal} ~ ${endVal}`;
+        label.style.display = 'inline-block';
+      }
+      
+      if (dateRangeModalWrapper) dateRangeModalWrapper.style.display = 'none';
+      
+      refreshAllData();
+      loadGamification();
+    };
+  }
   
   document.getElementById('btnSaveMetrics').onclick = saveMetrics;
   
@@ -899,8 +1018,16 @@ function toggleHeader(type) {
 }
 
 function closeAllHeaders() {
-  ['searchWrapper','memoWrapper','diaryWrapper','newsWrapper','customCalendarWrapper'].forEach(id => document.getElementById(id).classList.remove('show'));
-  ['searchToggleBtn','memoToggleBtn','diaryToggleBtn','newsToggleBtn'].forEach(id => document.getElementById(id).classList.remove('active'));
+  ['searchWrapper','memoWrapper','diaryWrapper','newsWrapper','customCalendarWrapper'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  });
+  const rangeModal = document.getElementById('dateRangeModalWrapper');
+  if (rangeModal) rangeModal.style.display = 'none';
+  ['searchToggleBtn','memoToggleBtn','diaryToggleBtn','newsToggleBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
 
   updateAddFormVisibility();
 }
@@ -1123,7 +1250,11 @@ async function loadTasks() {
   }, 8000);
   
   let tasks;
-  if(selectedDate) {
+  if (customRangeStart && customRangeEnd) {
+    console.log('calling api.getTasksByDateRange', customRangeStart, customRangeEnd);
+    tasks = await api.getTasksByDateRange(customRangeStart, customRangeEnd);
+    console.log('api.getTasksByDateRange resolved', tasks);
+  } else if(selectedDate) {
     console.log('calling api.getTasksByDate');
     tasks = await api.getTasksByDate(selectedDate);
     console.log('api.getTasksByDate resolved', tasks);
