@@ -51,10 +51,11 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (gemini-2.5-flash)
+   * Gemini API 호출 (gemini-1.5-flash, gemini-2.0-flash 지원)
    */
   async _callGeminiAPI(keyword, apiKey) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+    let lastError = null;
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -81,39 +82,39 @@ const AILexicon = {
       }
     };
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
+    for (const modelName of models) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error?.message || `Gemini API 오류 (${res.status})`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `Gemini API 오류 (${res.status})`);
+        }
+
+        const data = await res.json();
+        const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
+
+        const parsed = JSON.parse(textResp);
+        return {
+          keyword: parsed.keyword || keyword,
+          category: parsed.category || '어휘',
+          short_summary: parsed.short_summary || '',
+          full_description: parsed.full_description || '',
+          related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
+        };
+      } catch (err) {
+        console.warn(`Gemini 모델 ${modelName} 시도 실패:`, err.message);
+        lastError = err;
+      }
     }
 
-    const data = await res.json();
-    const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
-
-    try {
-      const parsed = JSON.parse(textResp);
-      return {
-        keyword: parsed.keyword || keyword,
-        category: parsed.category || '어휘',
-        short_summary: parsed.short_summary || '',
-        full_description: parsed.full_description || '',
-        related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
-      };
-    } catch (e) {
-      return {
-        keyword: keyword,
-        category: '어휘',
-        short_summary: textResp.substring(0, 60),
-        full_description: textResp,
-        related_tags: ['독서', '지식']
-      };
-    }
+    throw lastError || new Error("Gemini API 호출에 실패했습니다.");
   },
 
   /**
