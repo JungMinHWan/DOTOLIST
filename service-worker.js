@@ -1,4 +1,4 @@
-const CACHE_NAME = 'todo-list-cache-v4';
+const CACHE_NAME = 'todo-list-cache-v5';
 
 // 설치 단계: 대기 없이 즉시 활성화
 self.addEventListener('install', (event) => {
