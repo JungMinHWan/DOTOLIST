@@ -33,6 +33,14 @@ const AILexicon = {
     const apiKey = this.getApiKey();
     const provider = this.getApiProvider();
 
+    // 1순위: 서버 프록시 (Netlify Function). 키가 브라우저에 노출되지 않는다.
+    try {
+      return await this._callProxy(cleanKeyword);
+    } catch (proxyErr) {
+      console.warn("[AI Lexicon] 서버 프록시 사용 불가:", proxyErr.message);
+    }
+
+    // 2순위: 사용자가 설정에 직접 입력한 개인 키 (로컬 개발 / 프록시 미배포 환경)
     if (!apiKey) {
       return this._generateSmartKnowledgeCard(cleanKeyword);
     }
@@ -48,6 +56,54 @@ const AILexicon = {
       return this._generateSmartKnowledgeCard(cleanKeyword, err.message);
     }
   },
+
+  PROXY_URL: '/.netlify/functions/gemini',
+
+  // 프록시가 없는 환경(로컬 file://, 미배포)에서 매 검색마다 재시도하지 않도록 기억
+  _proxyUnavailable: false,
+
+  /**
+   * 서버 프록시 호출 — API 키는 서버 환경변수에만 존재한다.
+   */
+  async _callProxy(keyword) {
+    if (this._proxyUnavailable) {
+      throw new Error("서버 프록시를 사용할 수 없는 환경입니다.");
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+
+    let res;
+    try {
+      res = await fetch(this.PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword }),
+        signal: controller.signal
+      });
+    } catch (err) {
+      // 네트워크 자체가 안 되는 환경(file:// 등)이면 이후 검색에서는 건너뛴다
+      this._proxyUnavailable = true;
+      throw new Error(err.name === 'AbortError' ? "서버 응답 시간이 초과되었습니다." : err.message);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      // 404/405 = 함수가 배포되지 않음 → 이후 검색에서는 건너뛴다
+      if (res.status === 404 || res.status === 405) this._proxyUnavailable = true;
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `서버 프록시 오류 (${res.status})`);
+    }
+
+    return await res.json();
+  },
+
+  // 현재 서비스 중인 Gemini 모델 (gemini-1.5-*/2.5-flash 는 신규 키에서 404, 2.0-flash 는 무료 쿼터 0)
+  GEMINI_MODELS: [
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest"
+  ],
 
   /**
    * Gemini API 호출 (Google 공식 SDK 최우선 활용 및 최신 AQ. 키 100% 지원)
@@ -73,7 +129,7 @@ const AILexicon = {
       try {
         const genAI = new genAIClass(cleanKey);
         const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
+          model: AILexicon.GEMINI_MODELS[0],
           generationConfig: { temperature: 0.2 }
         });
 
@@ -97,11 +153,9 @@ const AILexicon = {
     }
 
     // 2단계: REST API 백업 시도
-    const requestCombinations = [
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` }
-    ];
+    const requestCombinations = AILexicon.GEMINI_MODELS.map(m => ({
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`
+    }));
 
     const body = {
       contents: [
@@ -110,7 +164,7 @@ const AILexicon = {
           parts: [{ text: `${systemPrompt}\n\n분석할 키워드: ${keyword}` }]
         }
       ],
-      generationConfig: { temperature: 0.2 }
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" }
     };
 
     let lastErrorMsg = null;
@@ -119,7 +173,11 @@ const AILexicon = {
       try {
         const res = await fetch(combo.url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            // AQ. 계열(Express mode) 키는 헤더 인증이 표준
+            "x-goog-api-key": cleanKey
+          },
           body: JSON.stringify(body)
         });
 
@@ -131,7 +189,11 @@ const AILexicon = {
         }
 
         const data = await res.json();
-        let textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        // Gemini 3.x 는 thought part 가 앞에 올 수 있으므로 text 가 있는 첫 part 를 찾는다
+        let textResp = (data.candidates?.[0]?.content?.parts || [])
+          .filter(p => !p.thought && typeof p.text === 'string')
+          .map(p => p.text)
+          .join('');
         if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
 
         textResp = textResp.replace(/```json/gi, '').replace(/```/g, '').trim();
