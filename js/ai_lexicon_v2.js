@@ -51,38 +51,14 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (ListModels 기반 동적 모델 감지 및 100% 자동 호환)
+   * Gemini API 호출 (공식 검증 프로덕션 모델 gemini-1.5-flash & gemini-1.5-pro 정밀 타게팅)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
     
-    // 1단계: 무료 티어 분당 한도(RPM)가 가장 넉넉한 gemini-1.5-flash 모델 강제 지정
-    let targetModel = 'gemini-1.5-flash';
-    try {
-      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`, {
-        headers: { "x-goog-api-key": cleanKey }
-      });
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const modelsList = listData.models || [];
-        
-        // gemini-2.0 모델은 무료 계정 요청 한도가 0(429)이므로 완전 배제
-        // gemini-1.5-flash 및 1.5-flash-latest, 1.5-pro 계열 우선 선택
-        const flash15 = modelsList.find(m => m.name.includes("1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
-                     || modelsList.find(m => m.name.includes("1.5") && m.supportedGenerationMethods?.includes("generateContent"));
-
-        if (flash15 && flash15.name) {
-          targetModel = flash15.name.replace(/^models\//, '');
-        }
-      }
-    } catch (e) {
-      console.warn("[AI Lexicon] ListModels 탐색 스킵, 기본 gemini-1.5-flash 사용:", e);
-    }
-    
-    console.log(`[AI Lexicon] 최종 적용 모델: ${targetModel}`);
-
-    // 2단계: 동적 감지된 모델로 지식 분석 요청
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+    // 구글 정식 검증 프로덕션 모델 2가지 (실험용/로보틱스/폐기 모델 완전 차단)
+    const officialModels = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+    let lastError = null;
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -109,37 +85,46 @@ const AILexicon = {
       }
     };
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    });
+    for (const modelName of officialModels) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
 
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      let detailedMessage = errData.error?.message || `Gemini API 오류 (상태 코드: ${res.status})`;
-      
-      if (res.status === 429 || detailedMessage.includes('Quota exceeded') || detailedMessage.includes('rate-limit')) {
-        detailedMessage = "⏳ Google Gemini 무료 API 속도 제한(Quota Exceeded)에 도달했습니다. 약 10초~15초 후에 다시 시도해 주시면 정상 처리됩니다.";
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          let detailedMessage = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          if (res.status === 429 || detailedMessage.includes('Quota exceeded') || detailedMessage.includes('rate-limit')) {
+            detailedMessage = "⏳ Google Gemini 무료 API 속도 제한(Quota Exceeded)에 도달했습니다. 약 10초~15초 후에 다시 시도해 주시면 정상 처리됩니다.";
+          }
+          lastError = new Error(detailedMessage);
+          console.warn(`[AI Lexicon] 모델 ${modelName} 시도 실패:`, detailedMessage);
+          continue; // 다음 공식 모델로 시도
+        }
+
+        const data = await res.json();
+        const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
+
+        const parsed = JSON.parse(textResp);
+        return {
+          keyword: parsed.keyword || keyword,
+          category: parsed.category || '어휘',
+          short_summary: parsed.short_summary || '',
+          full_description: parsed.full_description || '',
+          related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
+        };
+      } catch (err) {
+        lastError = err;
       }
-      
-      throw new Error(detailedMessage);
     }
 
-    const data = await res.json();
-    const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
-
-    const parsed = JSON.parse(textResp);
-    return {
-      keyword: parsed.keyword || keyword,
-      category: parsed.category || '어휘',
-      short_summary: parsed.short_summary || '',
-      full_description: parsed.full_description || '',
-      related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
-    };
+    throw lastError || new Error("Gemini API 호출에 실패했습니다. API 키를 확인해 주세요.");
   },
 
   /**
@@ -419,7 +404,6 @@ const LexiconUI = {
         alert(`저장 실패: ${res.error}`);
       }
     } else {
-      // Supabase 미연동 시 로컬스토리지 임시 저장
       let localDeck = JSON.parse(localStorage.getItem('local_user_book_vocab') || '[]');
       localDeck.unshift({
         id: Date.now().toString(),
@@ -518,7 +502,6 @@ const LexiconUI = {
       await window.SupabaseAPI.deleteBookVocab(id);
     }
     
-    // 로컬스토리지도 동기화
     let localDeck = JSON.parse(localStorage.getItem('local_user_book_vocab') || '[]');
     localDeck = localDeck.filter(x => x.id !== id);
     localStorage.setItem('local_user_book_vocab', JSON.stringify(localDeck));
