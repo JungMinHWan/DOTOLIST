@@ -51,12 +51,18 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (gemini-1.5-flash, gemini-1.5-flash-latest, gemini-2.0-flash-exp 지원)
+   * Gemini API 호출 (AI Studio API Key 및 OAuth/Vertex Access Token 자동 지원)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-    const models = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-exp'];
-    let firstError = null;
+    const isApiKeyFormat = cleanKey.startsWith('AIzaSy');
+    
+    // 호환 엔드포인트 URL 조합
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent`
+    ];
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -83,25 +89,32 @@ const AILexicon = {
       }
     };
 
-    for (const modelName of models) {
+    let firstErrorMsg = null;
+
+    for (const baseUrl of endpoints) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
-        const res = await fetch(url, {
+        let fetchUrl = baseUrl;
+        const headers = { "Content-Type": "application/json" };
+
+        if (isApiKeyFormat) {
+          fetchUrl += `?key=${cleanKey}`;
+        } else {
+          // AQ. 나 ya29. 형태의 Access Token인 경우 Bearer 헤더 및 URL key 파라미터 둘 다 시도
+          headers["Authorization"] = `Bearer ${cleanKey}`;
+          fetchUrl += `?key=${cleanKey}`;
+        }
+
+        const res = await fetch(fetchUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: headers,
           body: JSON.stringify(body)
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           const errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
-          if (!firstError) firstError = new Error(errMsg);
-          
-          // 키 자체의 오류이거나 400/403/401 에러인 경우 폴백하지 않고 즉시 원인 출력
-          if (res.status === 400 || res.status === 401 || res.status === 403 || errMsg.includes('API key')) {
-            throw new Error(errMsg);
-          }
-          throw new Error(errMsg);
+          if (!firstErrorMsg) firstErrorMsg = errMsg;
+          continue;
         }
 
         const data = await res.json();
@@ -117,15 +130,11 @@ const AILexicon = {
           related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
         };
       } catch (err) {
-        console.warn(`Gemini 모델 ${modelName} 시도 중 실패:`, err.message);
-        if (!firstError) firstError = err;
-        if (err.message.includes('API key') || err.message.includes('API_KEY_INVALID') || err.message.includes('403') || err.message.includes('401')) {
-          throw err;
-        }
+        if (!firstErrorMsg) firstErrorMsg = err.message;
       }
     }
 
-    throw firstError || new Error("Gemini API 호출에 실패했습니다.");
+    throw new Error(firstErrorMsg || "Gemini API 호출에 실패했습니다. API 키를 확인해 주세요.");
   },
 
   /**
