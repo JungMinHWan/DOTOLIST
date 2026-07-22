@@ -67,7 +67,8 @@ const AILexicon = {
         const validModel = (listData.models || []).find(m => 
           m.supportedGenerationMethods && 
           m.supportedGenerationMethods.includes("generateContent") &&
-          (m.name.includes("flash") || m.name.includes("pro"))
+          !m.name.includes("2.5") &&
+          (m.name.includes("1.5") || m.name.includes("2.0") || m.name.includes("pro"))
         );
         if (validModel && validModel.name) {
           targetModel = validModel.name.replace(/^models\//, '');
