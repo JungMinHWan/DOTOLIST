@@ -112,7 +112,12 @@ const AILexicon = {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          let errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          
+          if (errMsg.includes('OAuth2 access token') || errMsg.includes('API keys are not supported')) {
+            errMsg = "입력하신 키는 GCP Access Token 형식(AQ...)입니다. Google AI Studio(aistudio.google.com)에서 AIzaSy...로 시작하는 무료 Gemini API Key를 발급 받아 등록해 주세요.";
+          }
+          
           if (!firstErrorMsg) firstErrorMsg = errMsg;
           continue;
         }
