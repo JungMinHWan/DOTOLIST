@@ -51,17 +51,11 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (최신 AQ.Ab8... 키 및 AIzaSy... 키 100% 호환 처리)
+   * Gemini API 호출 (gemini-1.5-flash 단일 표준 호출 및 원문 에러 상세 출력)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-    
-    // 호환 엔드포인트 URL 조합
-    const endpoints = [
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`,
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent`
-    ];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -88,45 +82,33 @@ const AILexicon = {
       }
     };
 
-    let lastError = null;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": cleanKey
+      },
+      body: JSON.stringify(body)
+    });
 
-    for (const baseUrl of endpoints) {
-      try {
-        const fetchUrl = `${baseUrl}?key=${encodeURIComponent(cleanKey)}`;
-        const res = await fetch(fetchUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": cleanKey
-          },
-          body: JSON.stringify(body)
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          const errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
-          lastError = new Error(errMsg);
-          continue;
-        }
-
-        const data = await res.json();
-        const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
-
-        const parsed = JSON.parse(textResp);
-        return {
-          keyword: parsed.keyword || keyword,
-          category: parsed.category || '어휘',
-          short_summary: parsed.short_summary || '',
-          full_description: parsed.full_description || '',
-          related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
-        };
-      } catch (err) {
-        lastError = err;
-      }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const detailedMessage = errData.error?.message || `Gemini API 오류 (상태 코드: ${res.status})`;
+      throw new Error(detailedMessage);
     }
 
-    throw lastError || new Error("Gemini API 호출에 실패했습니다. API 키를 확인해 주세요.");
+    const data = await res.json();
+    const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
+
+    const parsed = JSON.parse(textResp);
+    return {
+      keyword: parsed.keyword || keyword,
+      category: parsed.category || '어휘',
+      short_summary: parsed.short_summary || '',
+      full_description: parsed.full_description || '',
+      related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
+    };
   },
 
   /**
