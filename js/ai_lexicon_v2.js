@@ -1,6 +1,6 @@
 /**
  * 📚 AI Lexicon & Knowledge Search Module v2
- * 스마트 어휘/지식 파서 및 AI 연동 모듈 (API 오류 시에도 100% 즉시 지식 카드 제공)
+ * 스마트 어휘/지식 파서 및 AI 연동 모듈
  */
 
 const AILexicon = {
@@ -33,7 +33,6 @@ const AILexicon = {
     const apiKey = this.getApiKey();
     const provider = this.getApiProvider();
 
-    // API 키가 없거나 호출 시 에러가 나더라도 사용자를 절대 기다리게 하거나 실패시키지 않는 Smart Engine
     if (!apiKey) {
       return this._generateSmartKnowledgeCard(cleanKeyword);
     }
@@ -55,13 +54,19 @@ const AILexicon = {
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-    const officialModels = ['gemini-1.5-flash', 'gemini-1.5-pro'];
-    let lastError = null;
+
+    // 구글 API 호환 조합 (v1beta & v1, gemini-1.5-flash, gemini-1.5-flash-latest, gemini-pro)
+    const requestCombinations = [
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(cleanKey)}` }
+    ];
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
 
-응답은 반드시 마크다운 코드블록 없이 순수 JSON 형태로만 출력해야 합니다:
+반드시 마크다운 코드블록 없이 다음 순수 JSON 포맷으로만 답변해야 합니다:
 {
   "keyword": "입력된 키워드",
   "category": "인물" | "지명" | "어휘" | "사건" | "기타",
@@ -78,15 +83,15 @@ const AILexicon = {
         }
       ],
       generationConfig: {
-        responseMimeType: "application/json",
         temperature: 0.2
       }
     };
 
-    for (const modelName of officialModels) {
+    let lastErrorMsg = null;
+
+    for (const combo of requestCombinations) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(cleanKey)}`;
-        const res = await fetch(url, {
+        const res = await fetch(combo.url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body)
@@ -94,14 +99,16 @@ const AILexicon = {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          const detailedMessage = errData.error?.message || `Gemini API 오류 (${res.status})`;
-          lastError = new Error(detailedMessage);
+          lastErrorMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          console.warn(`[AI Lexicon] 엔드포인트 시도 실패:`, lastErrorMsg);
           continue;
         }
 
         const data = await res.json();
-        const textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        let textResp = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!textResp) throw new Error("AI 응답을 수신하지 못했습니다.");
+
+        textResp = textResp.replace(/```json/gi, '').replace(/```/g, '').trim();
 
         const parsed = JSON.parse(textResp);
         return {
@@ -112,15 +119,15 @@ const AILexicon = {
           related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
         };
       } catch (err) {
-        lastError = err;
+        lastErrorMsg = err.message;
       }
     }
 
-    throw lastError || new Error("Gemini API 호출 실패");
+    throw new Error(lastErrorMsg || "Gemini API 호출에 실패했습니다.");
   },
 
   /**
-   * OpenAI API 호출
+   * OpenAI API 호출 (gpt-4o-mini)
    */
   async _callOpenAIAPI(keyword, apiKey) {
     const url = "https://api.openai.com/v1/chat/completions";
@@ -165,7 +172,7 @@ const AILexicon = {
   },
 
   /**
-   * 🧠 Smart Knowledge Engine (API 키 문제/오류 시에도 사용자에게 즉시 정밀 요약을 제공하는 파서)
+   * 🧠 Smart Knowledge Engine
    */
   _generateSmartKnowledgeCard(keyword, errorMsg = '') {
     const kw = keyword.trim();
@@ -177,8 +184,7 @@ const AILexicon = {
     // 1. 인물 우선 탐색 (마쓰이에 마사시, 아우렐리우스 등)
     const isKnownPerson = ['마쓰이에 마사시', '아우렐리우스', '카이사르', '소크라테스', '니체', '스티브 잡스', '이순신', '세종대왕', '마사시', '무라카미 하루키'].some(person => kw.includes(person));
     
-    if (isKnownPerson || (kw.length <= 8 && /[가-힣]{2,8}/.test(kw) && !kw.endsWith('광역시') && !kw.endsWith('특별시') && !kw.endsWith('특별시') && !kw.endsWith('산') && !kw.endsWith('강') && !kw.endsWith('적') && !kw.endsWith('성') && !kw.endsWith('론') && !kw.endsWith('학'))) {
-      // 대구, 대전 등 명확한 지명이 아닌 인물
+    if (isKnownPerson || (kw.length <= 8 && /[가-힣]{2,8}/.test(kw) && !kw.endsWith('광역시') && !kw.endsWith('특별시') && !kw.endsWith('산') && !kw.endsWith('강') && !kw.endsWith('적') && !kw.endsWith('성') && !kw.endsWith('론') && !kw.endsWith('학'))) {
       if (!['대구', '대전', '서울', '부산', '인천', '광주', '울산', '세종', '제주'].includes(kw)) {
         category = '인물';
         if (kw.includes('마쓰이에 마사시') || kw.includes('마사시')) {
