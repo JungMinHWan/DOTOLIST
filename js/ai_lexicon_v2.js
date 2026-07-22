@@ -56,7 +56,7 @@ const AILexicon = {
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
     
-    // 1단계: 해당 API Key로 이용 가능한 최적의 Gemini 모델 동적 탐색
+    // 1단계: 해당 API Key로 이용 가능한 최적의 Gemini 모델 동적 탐색 (무료 티어가 넉넉한 gemini-1.5-flash 1순위)
     let targetModel = 'gemini-1.5-flash';
     try {
       const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`, {
@@ -64,15 +64,19 @@ const AILexicon = {
       });
       if (listRes.ok) {
         const listData = await listRes.json();
-        const validModel = (listData.models || []).find(m => 
-          m.supportedGenerationMethods && 
-          m.supportedGenerationMethods.includes("generateContent") &&
-          !m.name.includes("2.5") &&
-          (m.name.includes("1.5") || m.name.includes("2.0") || m.name.includes("pro"))
-        );
-        if (validModel && validModel.name) {
-          targetModel = validModel.name.replace(/^models\//, '');
-          console.log(`[AI Lexicon] 동적 감지된 사용 가능 모델: ${targetModel}`);
+        const modelsList = listData.models || [];
+        
+        // 1순위: gemini-1.5-flash (가장 넉넉한 무료 티어 RPM/RPD 한도 제공)
+        // 2순위: gemini-1.5-pro
+        // 3순위: gemini-2.0-flash
+        const preferred = modelsList.find(m => m.name.endsWith("gemini-1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
+                       || modelsList.find(m => m.name.includes("gemini-1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
+                       || modelsList.find(m => m.name.includes("gemini-1.5-pro") && m.supportedGenerationMethods?.includes("generateContent"))
+                       || modelsList.find(m => m.name.includes("gemini-2.0-flash") && m.supportedGenerationMethods?.includes("generateContent"));
+
+        if (preferred && preferred.name) {
+          targetModel = preferred.name.replace(/^models\//, '');
+          console.log(`[AI Lexicon] 최적의 무료 지원 모델 선택됨: ${targetModel}`);
         }
       }
     } catch (e) {
@@ -117,7 +121,12 @@ const AILexicon = {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      const detailedMessage = errData.error?.message || `Gemini API 오류 (상태 코드: ${res.status})`;
+      let detailedMessage = errData.error?.message || `Gemini API 오류 (상태 코드: ${res.status})`;
+      
+      if (res.status === 429 || detailedMessage.includes('Quota exceeded') || detailedMessage.includes('rate-limit')) {
+        detailedMessage = "⏳ Google Gemini 무료 API 속도 제한(Quota Exceeded)에 도달했습니다. 약 10초~15초 후에 다시 시도해 주시면 정상 처리됩니다.";
+      }
+      
       throw new Error(detailedMessage);
     }
 
