@@ -466,9 +466,9 @@ const LexiconUI = {
     }
 
     resultContainer.innerHTML = `
-      <div style="text-align: center; padding: 40px 10px; color: #a78bfa;">
-        <div style="font-size: 1.8rem; margin-bottom: 8px;">🤖 지식 분석 중...</div>
-        <span style="font-size: 0.85rem; color: #9ca3af;">키워드 '${keyword}'의 개념과 맥락을 정제하고 있습니다.</span>
+      <div class="lexicon-loading">
+        <div class="lexicon-loading-title">🤖 지식 분석 중...</div>
+        <span class="lexicon-loading-sub">키워드 '${keyword}'의 개념과 맥락을 정제하고 있습니다.</span>
       </div>
     `;
 
@@ -587,7 +587,7 @@ const LexiconUI = {
 
     if (filtered.length === 0) {
       container.innerHTML = `
-        <div style="text-align: center; color: #9ca3af; padding: 30px;">
+        <div class="lexicon-hint">
           수집된 지식 카드가 없습니다. 상단 'Zero-Prompt 탐색'에서 모르는 단어를 검색해 저장해보세요!
         </div>
       `;
@@ -610,7 +610,7 @@ const LexiconUI = {
           </div>
           <div class="lexicon-deck-summary">${item.short_summary || item.full_description || ''}</div>
         </div>
-        <button class="lexicon-icon-btn btn-delete-deck" data-id="${item.id}" style="color: #ef4444;" title="삭제">✕</button>
+        <button class="lexicon-icon-btn lexicon-delete-btn btn-delete-deck" data-id="${item.id}" title="삭제">✕</button>
       `;
 
       div.querySelector('.btn-delete-deck').onclick = (e) => {
