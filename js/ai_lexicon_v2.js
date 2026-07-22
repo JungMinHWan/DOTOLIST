@@ -56,7 +56,7 @@ const AILexicon = {
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
     
-    // 1단계: 해당 API Key로 이용 가능한 최적의 Gemini 모델 동적 탐색 (무료 티어가 넉넉한 gemini-1.5-flash 1순위)
+    // 1단계: 무료 티어 분당 한도(RPM)가 가장 넉넉한 gemini-1.5-flash 모델 강제 지정
     let targetModel = 'gemini-1.5-flash';
     try {
       const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`, {
@@ -66,22 +66,20 @@ const AILexicon = {
         const listData = await listRes.json();
         const modelsList = listData.models || [];
         
-        // 1순위: gemini-1.5-flash (가장 넉넉한 무료 티어 RPM/RPD 한도 제공)
-        // 2순위: gemini-1.5-pro
-        // 3순위: gemini-2.0-flash
-        const preferred = modelsList.find(m => m.name.endsWith("gemini-1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
-                       || modelsList.find(m => m.name.includes("gemini-1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
-                       || modelsList.find(m => m.name.includes("gemini-1.5-pro") && m.supportedGenerationMethods?.includes("generateContent"))
-                       || modelsList.find(m => m.name.includes("gemini-2.0-flash") && m.supportedGenerationMethods?.includes("generateContent"));
+        // gemini-2.0 모델은 무료 계정 요청 한도가 0(429)이므로 완전 배제
+        // gemini-1.5-flash 및 1.5-flash-latest, 1.5-pro 계열 우선 선택
+        const flash15 = modelsList.find(m => m.name.includes("1.5-flash") && m.supportedGenerationMethods?.includes("generateContent"))
+                     || modelsList.find(m => m.name.includes("1.5") && m.supportedGenerationMethods?.includes("generateContent"));
 
-        if (preferred && preferred.name) {
-          targetModel = preferred.name.replace(/^models\//, '');
-          console.log(`[AI Lexicon] 최적의 무료 지원 모델 선택됨: ${targetModel}`);
+        if (flash15 && flash15.name) {
+          targetModel = flash15.name.replace(/^models\//, '');
         }
       }
     } catch (e) {
-      console.warn("[AI Lexicon] ListModels 동적 탐색 실패, 기본 모델로 시도:", e);
+      console.warn("[AI Lexicon] ListModels 탐색 스킵, 기본 gemini-1.5-flash 사용:", e);
     }
+    
+    console.log(`[AI Lexicon] 최종 적용 모델: ${targetModel}`);
 
     // 2단계: 동적 감지된 모델로 지식 분석 요청
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${encodeURIComponent(cleanKey)}`;
