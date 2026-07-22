@@ -55,12 +55,12 @@ const AILexicon = {
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
 
-    // 구글 API 호환 조합 (v1beta & v1, gemini-1.5-flash, gemini-1.5-flash-latest, gemini-pro)
+    // 구글 Generative Language API 및 Vertex AI API 호환 엔드포인트 목록
     const requestCombinations = [
       { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
       { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${encodeURIComponent(cleanKey)}` }
+      { url: `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-1.5-flash:predict?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` }
     ];
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
