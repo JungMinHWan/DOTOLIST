@@ -51,11 +51,12 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (gemini-1.5-flash, gemini-2.0-flash 지원)
+   * Gemini API 호출 (gemini-1.5-flash, gemini-1.5-flash-latest, gemini-2.0-flash-exp 지원)
    */
   async _callGeminiAPI(keyword, apiKey) {
-    const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
-    let lastError = null;
+    const cleanKey = apiKey.trim();
+    const models = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-exp'];
+    let firstError = null;
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -84,7 +85,7 @@ const AILexicon = {
 
     for (const modelName of models) {
       try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -93,7 +94,14 @@ const AILexicon = {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error?.message || `Gemini API 오류 (${res.status})`);
+          const errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          if (!firstError) firstError = new Error(errMsg);
+          
+          // 키 자체의 오류이거나 400/403/401 에러인 경우 폴백하지 않고 즉시 원인 출력
+          if (res.status === 400 || res.status === 401 || res.status === 403 || errMsg.includes('API key')) {
+            throw new Error(errMsg);
+          }
+          throw new Error(errMsg);
         }
 
         const data = await res.json();
@@ -109,12 +117,15 @@ const AILexicon = {
           related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
         };
       } catch (err) {
-        console.warn(`Gemini 모델 ${modelName} 시도 실패:`, err.message);
-        lastError = err;
+        console.warn(`Gemini 모델 ${modelName} 시도 중 실패:`, err.message);
+        if (!firstError) firstError = err;
+        if (err.message.includes('API key') || err.message.includes('API_KEY_INVALID') || err.message.includes('403') || err.message.includes('401')) {
+          throw err;
+        }
       }
     }
 
-    throw lastError || new Error("Gemini API 호출에 실패했습니다.");
+    throw firstError || new Error("Gemini API 호출에 실패했습니다.");
   },
 
   /**
