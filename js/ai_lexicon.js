@@ -51,11 +51,10 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (AI Studio API Key 및 OAuth/Vertex Access Token 자동 지원)
+   * Gemini API 호출 (최신 AQ.Ab8... 키 및 AIzaSy... 키 100% 호환 처리)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-    const isApiKeyFormat = cleanKey.startsWith('AIzaSy');
     
     // 호환 엔드포인트 URL 조합
     const endpoints = [
@@ -89,36 +88,24 @@ const AILexicon = {
       }
     };
 
-    let firstErrorMsg = null;
+    let lastError = null;
 
     for (const baseUrl of endpoints) {
       try {
-        let fetchUrl = baseUrl;
-        const headers = { "Content-Type": "application/json" };
-
-        if (isApiKeyFormat) {
-          fetchUrl += `?key=${cleanKey}`;
-        } else {
-          // AQ. 나 ya29. 형태의 Access Token인 경우 Bearer 헤더 및 URL key 파라미터 둘 다 시도
-          headers["Authorization"] = `Bearer ${cleanKey}`;
-          fetchUrl += `?key=${cleanKey}`;
-        }
-
+        const fetchUrl = `${baseUrl}?key=${encodeURIComponent(cleanKey)}`;
         const res = await fetch(fetchUrl, {
           method: "POST",
-          headers: headers,
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": cleanKey
+          },
           body: JSON.stringify(body)
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          let errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
-          
-          if (errMsg.includes('OAuth2 access token') || errMsg.includes('API keys are not supported')) {
-            errMsg = "입력하신 키는 GCP Access Token 형식(AQ...)입니다. Google AI Studio(aistudio.google.com)에서 AIzaSy...로 시작하는 무료 Gemini API Key를 발급 받아 등록해 주세요.";
-          }
-          
-          if (!firstErrorMsg) firstErrorMsg = errMsg;
+          const errMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
+          lastError = new Error(errMsg);
           continue;
         }
 
@@ -135,11 +122,11 @@ const AILexicon = {
           related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
         };
       } catch (err) {
-        if (!firstErrorMsg) firstErrorMsg = err.message;
+        lastError = err;
       }
     }
 
-    throw new Error(firstErrorMsg || "Gemini API 호출에 실패했습니다. API 키를 확인해 주세요.");
+    throw lastError || new Error("Gemini API 호출에 실패했습니다. API 키를 확인해 주세요.");
   },
 
   /**
