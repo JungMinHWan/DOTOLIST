@@ -1,0 +1,328 @@
+/* ==========================================
+   📚 AI Lexicon & Knowledge Modal Styles
+   ========================================== */
+
+/* 모달 오버레이 */
+.lexicon-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.lexicon-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 모달 컨테이너 */
+.lexicon-modal-container {
+  width: 90%;
+  max-width: 650px;
+  max-height: 88vh;
+  background: #141414;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(139, 92, 246, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #f3f4f6;
+  font-family: inherit;
+}
+
+/* 헤더 */
+.lexicon-modal-header {
+  padding: 18px 24px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lexicon-modal-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #a78bfa, #f472b6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lexicon-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lexicon-icon-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #d1d5db;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.lexicon-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* 탭 바 */
+.lexicon-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 16px;
+  gap: 8px;
+}
+
+.lexicon-tab-btn {
+  flex: 1;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  color: #9ca3af;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.lexicon-tab-btn.active {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.4);
+}
+
+/* 바디 패널 */
+.lexicon-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.lexicon-tab-content {
+  display: none;
+}
+
+.lexicon-tab-content.active {
+  display: block;
+}
+
+/* 검색 섹션 */
+.lexicon-search-box {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.lexicon-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.lexicon-input:focus {
+  border-color: #a78bfa;
+}
+
+.lexicon-search-btn {
+  padding: 0 20px;
+  background: linear-gradient(135deg, #8b5cf6, #ec4899);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lexicon-search-btn:active {
+  transform: scale(0.97);
+}
+
+/* 검색 결과 카드 */
+.lexicon-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.lexicon-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.lexicon-card-keyword {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.lexicon-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.lexicon-badge.인물 { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+.lexicon-badge.지명 { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4); }
+.lexicon-badge.어휘 { background: rgba(168, 85, 247, 0.2); color: #e9d5ff; border: 1px solid rgba(168, 85, 247, 0.4); }
+.lexicon-badge.사건 { background: rgba(245, 158, 11, 0.2); color: #fde68a; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+.lexicon-short-summary {
+  font-size: 0.95rem;
+  color: #fbbf24;
+  font-weight: 600;
+  margin-bottom: 10px;
+  padding-left: 10px;
+  border-left: 3px solid #fbbf24;
+}
+
+.lexicon-full-desc {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #d1d5db;
+  margin-bottom: 15px;
+}
+
+.lexicon-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.lexicon-tag {
+  background: rgba(255, 255, 255, 0.08);
+  color: #9ca3af;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+}
+
+.lexicon-card-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.lexicon-book-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #e5e7eb;
+  font-size: 0.85rem;
+  outline: none;
+}
+
+.lexicon-save-btn {
+  padding: 10px 18px;
+  background: #10b981;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.lexicon-save-btn:hover {
+  background: #059669;
+}
+
+/* 지식 카드 리스트 */
+.lexicon-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lexicon-deck-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.lexicon-deck-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lexicon-deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lexicon-deck-keyword {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lexicon-deck-summary {
+  font-size: 0.82rem;
+  color: #9ca3af;
+}
+
+.lexicon-mastery-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.lexicon-mastery-badge.level-0 { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+.lexicon-mastery-badge.level-1 { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+.lexicon-mastery-badge.level-2 { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }

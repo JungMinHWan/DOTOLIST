@@ -1266,5 +1266,124 @@ const api = {
       console.error('getTopMathScores error:', e);
       return [];
     }
+  },
+
+  // === 📚 독서 지식·어휘 (user_book_vocab) API ===
+  async getUserBookVocab() {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) return [];
+
+      const { data, error } = await supabaseClient
+        .from('user_book_vocab')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('getUserBookVocab error:', e);
+      return [];
+    }
+  },
+
+  async saveBookVocab(vocabObj) {
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) throw new Error("로그인이 필요합니다.");
+
+      const payload = {
+        user_id: user.id,
+        book_id: vocabObj.book_id || null,
+        book_title: vocabObj.book_title || '',
+        keyword: vocabObj.keyword,
+        category: vocabObj.category || '어휘',
+        short_summary: vocabObj.short_summary || '',
+        full_description: vocabObj.full_description || '',
+        related_tags: vocabObj.related_tags || [],
+        mastery_level: vocabObj.mastery_level || 0,
+        updated_at: new Date().toISOString()
+      };
+
+      if (vocabObj.id) {
+        // Update
+        const { data, error } = await supabaseClient
+          .from('user_book_vocab')
+          .update(payload)
+          .eq('id', vocabObj.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return { success: true, data };
+      } else {
+        // Insert
+        const { data, error } = await supabaseClient
+          .from('user_book_vocab')
+          .insert(payload)
+          .select()
+          .single();
+        if (error) throw error;
+        return { success: true, data };
+      }
+    } catch (e) {
+      console.error('saveBookVocab error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateVocabMastery(id, isCorrect) {
+    try {
+      const { data: current, error: fetchErr } = await supabaseClient
+        .from('user_book_vocab')
+        .select('mastery_level, correct_count, wrong_count')
+        .eq('id', id)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      let correctCount = (current.correct_count || 0) + (isCorrect ? 1 : 0);
+      let wrongCount = (current.wrong_count || 0) + (isCorrect ? 0 : 1);
+      let masteryLevel = current.mastery_level || 0;
+
+      if (isCorrect) {
+        if (correctCount >= 3) masteryLevel = 2; // 완전 습득
+        else if (correctCount >= 1) masteryLevel = 1; // 복습 중
+      } else {
+        if (masteryLevel > 0 && wrongCount >= 2) masteryLevel = 1; // 강등
+      }
+
+      const { data, error } = await supabaseClient
+        .from('user_book_vocab')
+        .update({
+          correct_count: correctCount,
+          wrong_count: wrongCount,
+          mastery_level: masteryLevel,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error('updateVocabMastery error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteBookVocab(id) {
+    try {
+      const { error } = await supabaseClient
+        .from('user_book_vocab')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('deleteBookVocab error:', e);
+      return { success: false, error: e.message };
+    }
   }
 };
+

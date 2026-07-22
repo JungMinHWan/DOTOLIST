@@ -130,6 +130,7 @@
       this.btnNap = document.getElementById('btnSelectNap');
       this.btnMath = document.getElementById('btnSelectMath');
       this.btnVocab = document.getElementById('btnSelectVocab');
+      this.btnLexicon = document.getElementById('btnSelectLexicon');
       this.btnEnglish = document.getElementById('btnSelectEnglish');
       
       this.initEvents();
@@ -176,6 +177,15 @@
           this.close();
           if (window.vocabGame && typeof window.vocabGame.open === 'function') {
             window.vocabGame.open();
+          }
+        };
+      }
+
+      if (this.btnLexicon) {
+        this.btnLexicon.onclick = () => {
+          this.close();
+          if (window.lexiconUI && typeof window.lexiconUI.open === 'function') {
+            window.lexiconUI.open();
           }
         };
       }

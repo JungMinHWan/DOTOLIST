@@ -200,7 +200,7 @@ body {
 .metric-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; font-weight: 700; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; -webkit-appearance: none; appearance: none; }
 .metric-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
 
-/* 계약 TOP & 꼴찌 스타일 */
+/* 계약 TOP & 관심 필요 스타일 */
 .metrics-text-row { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .metric-text-item { display: flex; flex-direction: column; gap: 2px; }
 .metric-text-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 13px; font-weight: 500; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; }

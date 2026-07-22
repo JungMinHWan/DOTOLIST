@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./css/style.css?v=3.1">
   <link rel="stylesheet" href="./css/vocab.css?v=1.0">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
+  <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.0">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Confetti 라이브러리 추가 -->
@@ -265,15 +266,15 @@
           </div>
         </div>
         
-        <!-- 계약 top, 계약 꼴지 텍스트 입력 -->
+        <!-- 계약 top, 관심 필요 텍스트 입력 -->
         <div class="metrics-text-row">
           <div class="metric-text-item">
             <label class="metric-label">🏆 계약 TOP</label>
             <input type="text" class="metric-text-input" id="contractTop" placeholder="계약 TOP 입력...">
           </div>
           <div class="metric-text-item">
-            <label class="metric-label">📉 계약 꼴찌</label>
-            <input type="text" class="metric-text-input" id="contractBottom" placeholder="계약 꼴찌 입력...">
+            <label class="metric-label">📉 관심 필요</label>
+            <input type="text" class="metric-text-input" id="contractBottom" placeholder="관심 필요 입력...">
           </div>
         </div>
 
@@ -381,8 +382,9 @@
       </div>
       <div class="book-notes-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; width: 100%;">
         <button class="book-notes-delete-btn" id="bookNotesDeleteBtn">기록 삭제</button>
-        <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 12px;">
+        <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 8px;">
           <span class="save-status" id="bookNotesSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
+          <button class="book-notes-close-btn" id="btnOpenLexiconInNotes" style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); color: #c4b5fd;">💡 지식 탐색</button>
           <button class="book-notes-close-btn" id="bookNotesConfirmBtn">완료</button>
         </div>
       </div>
@@ -627,6 +629,11 @@
             <div class="feature-card-icon">📚</div>
             <div class="feature-card-title">GROW VOCAB</div>
             <div class="feature-card-desc">어휘력을 키우는 국어사전 게임</div>
+          </div>
+          <div class="feature-card" id="btnSelectLexicon">
+            <div class="feature-card-icon">💡</div>
+            <div class="feature-card-title">AI 독서 지식 노트</div>
+            <div class="feature-card-desc">질문 없이 단어만으로 지식 탐색 & 퀴즈</div>
           </div>
           <div class="feature-card" id="btnSelectEnglish">
             <div class="feature-card-icon">🌌</div>
@@ -1241,7 +1248,85 @@
     </div>
   </div>
 
+  <!-- 💡 AI 독서 지식·어휘 탐색기 모달 -->
+  <div class="lexicon-modal-overlay" id="lexiconModalOverlay">
+    <div class="lexicon-modal-container">
+      <div class="lexicon-modal-header">
+        <div class="lexicon-modal-title">
+          <span>📚 AI 독서 지식 노트</span>
+        </div>
+        <div class="lexicon-header-actions">
+          <button class="lexicon-icon-btn" id="lexiconSettingsBtn" title="AI API 키 설정">⚙️</button>
+          <button class="lexicon-icon-btn" id="lexiconModalClose">✕</button>
+        </div>
+      </div>
+
+      <div class="lexicon-tabs">
+        <button class="lexicon-tab-btn active" id="lexiconTabSearch">💡 Zero-Prompt 탐색</button>
+        <button class="lexicon-tab-btn" id="lexiconTabDeck">🗂️ 내 지식 카드장 (<span id="lexiconDeckCount">0</span>)</button>
+      </div>
+
+      <div class="lexicon-modal-body">
+        <!-- 탭 1: AI 지식 탐색 -->
+        <div class="lexicon-tab-content active" id="lexiconSectionSearch">
+          <div class="lexicon-search-box">
+            <input type="text" class="lexicon-input" id="lexiconKeywordInput" placeholder="단어, 인물, 지명만 입력하세요 (예: 아우렐리우스, 갈리아)" autocomplete="off">
+            <button class="lexicon-search-btn" id="lexiconSearchBtn"><span>🔍 분석</span></button>
+          </div>
+          <div id="lexiconResultContainer">
+            <div style="text-align: center; color: #9ca3af; padding: 30px 10px;">
+              <span style="font-size: 2.5rem; display: block; margin-bottom: 10px;">📖</span>
+              궁금한 단어나 인물, 지명을 입력하면 부가 질문 없이 AI가 명확한 요약을 제공합니다.
+            </div>
+          </div>
+        </div>
+
+        <!-- 탭 2: 지식 카드장 -->
+        <div class="lexicon-tab-content" id="lexiconSectionDeck">
+          <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+            <input type="text" class="lexicon-input" id="lexiconDeckSearch" placeholder="카드 검색..." style="padding: 8px 12px; font-size: 0.85rem;">
+            <select class="lexicon-book-select" id="lexiconCategoryFilter" style="max-width: 130px;">
+              <option value="ALL">전체 보기</option>
+              <option value="인물">👤 인물</option>
+              <option value="지명">🗺️ 지명</option>
+              <option value="어휘">📚 어휘</option>
+              <option value="사건">🏛️ 사건</option>
+            </select>
+          </div>
+          <div class="lexicon-deck-list" id="lexiconDeckList">
+            <!-- 자바스크립트로 수집된 지식 카드 목록 렌더링 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key 설정 모달 -->
+  <div class="lexicon-modal-overlay" id="lexiconKeyModalOverlay" style="z-index: 10000;">
+    <div class="lexicon-modal-container" style="max-width: 420px; padding: 20px;">
+      <h3 style="margin-top:0; color:#c4b5fd;">⚙️ AI API 키 설정</h3>
+      <p style="font-size: 0.85rem; color:#9ca3af; line-height: 1.5; margin-bottom: 15px;">Gemini API 키(무료)를 등록하시면 단어 및 개념 분석이 활성화됩니다.</p>
+      
+      <div style="margin: 15px 0;">
+        <label style="font-size: 0.8rem; color:#d1d5db; display:block; margin-bottom:6px;">API Provider</label>
+        <select class="lexicon-book-select" id="lexiconProviderSelect" style="width: 100%; margin-bottom: 12px;">
+          <option value="gemini">Google Gemini API (권장)</option>
+          <option value="openai">OpenAI (ChatGPT) API</option>
+        </select>
+
+        <label style="font-size: 0.8rem; color:#d1d5db; display:block; margin-bottom:6px;">API Key</label>
+        <input type="password" class="lexicon-input" id="lexiconKeyInput" placeholder="API Key 입력" style="width: 100%;">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+        <button class="lexicon-icon-btn" id="lexiconKeyCancel" style="width: auto; padding: 0 14px;">취소</button>
+        <button class="lexicon-save-btn" id="lexiconKeySave">저장하기</button>
+      </div>
+    </div>
+  </div>
+
   <script src="./js/supabase.js"></script>
+  <script src="./js/ai_lexicon.js?v=1.0"></script>
   <script src="./js/app.js?v=3.4"></script>
   <script src="./js/tetris.js"></script>
   <script src="./js/nap.js"></script>
