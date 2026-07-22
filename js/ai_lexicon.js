@@ -51,11 +51,35 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출 (gemini-1.5-flash 단일 표준 호출 및 원문 에러 상세 출력)
+   * Gemini API 호출 (ListModels 기반 동적 모델 감지 및 100% 자동 호환)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}`;
+    
+    // 1단계: 해당 API Key로 이용 가능한 최적의 Gemini 모델 동적 탐색
+    let targetModel = 'gemini-1.5-flash';
+    try {
+      const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(cleanKey)}`, {
+        headers: { "x-goog-api-key": cleanKey }
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const validModel = (listData.models || []).find(m => 
+          m.supportedGenerationMethods && 
+          m.supportedGenerationMethods.includes("generateContent") &&
+          (m.name.includes("flash") || m.name.includes("pro"))
+        );
+        if (validModel && validModel.name) {
+          targetModel = validModel.name.replace(/^models\//, '');
+          console.log(`[AI Lexicon] 동적 감지된 사용 가능 모델: ${targetModel}`);
+        }
+      }
+    } catch (e) {
+      console.warn("[AI Lexicon] ListModels 동적 탐색 실패, 기본 모델로 시도:", e);
+    }
+
+    // 2단계: 동적 감지된 모델로 지식 분석 요청
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${encodeURIComponent(cleanKey)}`;
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
