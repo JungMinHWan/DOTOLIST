@@ -1,20 +1,18 @@
-const CACHE_NAME = 'todo-list-cache-v5';
+const CACHE_NAME = 'todo-list-cache-v6';
 
 // 설치 단계: 대기 없이 즉시 활성화
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 활성화 단계: 제어권 즉시 획득 및 이전 캐시 제거
+// 활성화 단계: 제어권 즉시 획득 및 모든 이전 캐시 제거
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Deleting old cache:', cache);
-            return caches.delete(cache);
-          }
+          console.log('Purging old cache:', cache);
+          return caches.delete(cache);
         })
       );
     }).then(() => self.clients.claim())
