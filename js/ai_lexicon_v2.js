@@ -50,18 +50,10 @@ const AILexicon = {
   },
 
   /**
-   * Gemini API 호출
+   * Gemini API 호출 (Google 공식 SDK 최우선 활용 및 최신 AQ. 키 100% 지원)
    */
   async _callGeminiAPI(keyword, apiKey) {
     const cleanKey = apiKey.trim();
-
-    // 구글 Generative Language API 및 Vertex AI API 호환 엔드포인트 목록
-    const requestCombinations = [
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-1.5-flash:predict?key=${encodeURIComponent(cleanKey)}` },
-      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` }
-    ];
 
     const systemPrompt = `당신은 독서 지식 및 어휘 사전 AI입니다.
 사용자가 제공하는 키워드(단어, 인물명, 지명, 학술용어, 역사적 사건 등)를 분석하여 정형화된 JSON 데이터로 답변하세요.
@@ -75,6 +67,42 @@ const AILexicon = {
   "related_tags": ["연관태그1", "연관태그2", "연관태그3"]
 }`;
 
+    // 1단계: Google Generative AI 공식 SDK 시도 (AQ. 및 AIzaSy. 키 모두 지원)
+    const genAIClass = window.GoogleGenerativeAI?.GoogleGenerativeAI || window.GoogleGenerativeAI;
+    if (genAIClass) {
+      try {
+        const genAI = new genAIClass(cleanKey);
+        const model = genAI.getGenerativeModel({
+          model: "gemini-1.5-flash",
+          generationConfig: { temperature: 0.2 }
+        });
+
+        const result = await model.generateContent(`${systemPrompt}\n\n분석할 키워드: ${keyword}`);
+        const response = await result.response;
+        let textResp = response.text();
+
+        textResp = textResp.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(textResp);
+
+        return {
+          keyword: parsed.keyword || keyword,
+          category: parsed.category || '어휘',
+          short_summary: parsed.short_summary || '',
+          full_description: parsed.full_description || '',
+          related_tags: Array.isArray(parsed.related_tags) ? parsed.related_tags : []
+        };
+      } catch (sdkErr) {
+        console.warn("[AI Lexicon] 공식 SDK 시도 실패, REST 백업 시도:", sdkErr);
+      }
+    }
+
+    // 2단계: REST API 백업 시도
+    const requestCombinations = [
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(cleanKey)}` },
+      { url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(cleanKey)}` }
+    ];
+
     const body = {
       contents: [
         {
@@ -82,9 +110,7 @@ const AILexicon = {
           parts: [{ text: `${systemPrompt}\n\n분석할 키워드: ${keyword}` }]
         }
       ],
-      generationConfig: {
-        temperature: 0.2
-      }
+      generationConfig: { temperature: 0.2 }
     };
 
     let lastErrorMsg = null;
