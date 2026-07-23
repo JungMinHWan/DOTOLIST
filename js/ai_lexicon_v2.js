@@ -531,8 +531,7 @@ const LexiconUI = {
         alert(`'${this.currentAnalysis.keyword}' 지식이 내 카드장에 저장되었습니다!`);
         this.loadUserDeck();
       } else {
-        alert(`저장 완료: '${this.currentAnalysis.keyword}' 지식 카드가 보관되었습니다.`);
-        this.loadUserDeck();
+        alert(`저장 실패: ${res.error || '알 수 없는 오류가 발생했습니다.'}`);
       }
     } else {
       let localDeck = JSON.parse(localStorage.getItem('local_user_book_vocab') || '[]');

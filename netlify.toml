@@ -6,3 +6,24 @@
   for = "/*"
   [headers.values]
     X-Frame-Options = "ALLOWALL"
+
+# 진입점 HTML 및 PWA 설정 파일 캐싱 방지 설정
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/service-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"

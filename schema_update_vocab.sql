@@ -5,7 +5,7 @@
 CREATE TABLE IF NOT EXISTS user_book_vocab (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-    book_id UUID REFERENCES books(id) ON DELETE SET NULL, -- 선택사항 (특정 책과 연결)
+    book_id UUID REFERENCES books(book_id) ON DELETE SET NULL, -- 선택사항 (특정 책과 연결)
     book_title TEXT, -- 책 제목 (책 정보가 없을 수 있으므로 직접 저장도 허용)
     keyword TEXT NOT NULL, -- 단어, 인물, 지명, 개념 등
     category TEXT DEFAULT '어휘', -- '인물', '지명', '어휘', '사건', '기타'

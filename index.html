@@ -490,9 +490,15 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('Unregistered stale service worker:', registration);
+        if (registrations.length > 0) {
+          const promises = registrations.map(registration => {
+            console.log('Unregistering stale service worker:', registration);
+            return registration.unregister();
+          });
+          Promise.all(promises).then(() => {
+            console.log('All stale service workers unregistered. Reloading to apply updates.');
+            window.location.reload();
+          });
         }
       });
     }

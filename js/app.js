@@ -253,11 +253,24 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.querySelectorAll('.period-tab').forEach(tab => {
     let longPressTimer = null;
     let isLongPress = false;
+    let startX = 0;
+    let startY = 0;
     
     const startPress = (e) => {
       if (tab.dataset.period === 'week') {
         isLongPress = false;
         tab.classList.add('pressing');
+        
+        if (e.touches && e.touches[0]) {
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+        } else if (e.clientX !== undefined) {
+          startX = e.clientX;
+          startY = e.clientY;
+        }
+        
+        if (longPressTimer) clearTimeout(longPressTimer);
+        
         longPressTimer = setTimeout(() => {
           isLongPress = true;
           tab.classList.remove('pressing');
@@ -268,6 +281,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
     
     const cancelPress = (e) => {
+      // touchmove / mousemove 시 미세한 이동(10px 미만)은 취소하지 않음
+      if (e.type === 'touchmove' && e.touches && e.touches[0]) {
+        const diffX = Math.abs(e.touches[0].clientX - startX);
+        const diffY = Math.abs(e.touches[0].clientY - startY);
+        if (diffX < 10 && diffY < 10) return;
+      } else if (e.type === 'mousemove' && e.clientX !== undefined && longPressTimer) {
+        const diffX = Math.abs(e.clientX - startX);
+        const diffY = Math.abs(e.clientY - startY);
+        if (diffX < 10 && diffY < 10) return;
+      }
+
       tab.classList.remove('pressing');
       if (longPressTimer) {
         clearTimeout(longPressTimer);
@@ -276,20 +300,27 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
     
     if (tab.dataset.period === 'week') {
+      tab.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
       tab.addEventListener('mousedown', startPress);
       tab.addEventListener('mouseup', cancelPress);
       tab.addEventListener('mouseleave', cancelPress);
+      tab.addEventListener('mousemove', cancelPress);
       
       tab.addEventListener('touchstart', startPress, { passive: true });
       tab.addEventListener('touchend', cancelPress);
-      tab.addEventListener('touchmove', cancelPress);
+      tab.addEventListener('touchcancel', cancelPress);
+      tab.addEventListener('touchmove', cancelPress, { passive: true });
     }
     
     tab.onclick = function(e) {
       if (this.dataset.period === 'week' && isLongPress) {
         e.preventDefault();
         e.stopPropagation();
-        isLongPress = false;
+        setTimeout(() => { isLongPress = false; }, 300);
         return false;
       }
       
@@ -338,6 +369,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     if (dateRangeModalWrapper) {
       dateRangeModalWrapper.style.display = 'block';
+      dateRangeModalWrapper.classList.add('show');
       dateRangeModalWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
@@ -1023,7 +1055,10 @@ function closeAllHeaders() {
     if (el) el.classList.remove('show');
   });
   const rangeModal = document.getElementById('dateRangeModalWrapper');
-  if (rangeModal) rangeModal.style.display = 'none';
+  if (rangeModal) {
+    rangeModal.style.display = 'none';
+    rangeModal.classList.remove('show');
+  }
   ['searchToggleBtn','memoToggleBtn','diaryToggleBtn','newsToggleBtn'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.remove('active');
