@@ -1409,3 +1409,9 @@ const api = {
   }
 };
 
+// Global exports for other modules
+window.supabaseClient = supabaseClient;
+window.api = api;
+window.SupabaseAPI = api;
+
+

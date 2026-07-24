@@ -551,15 +551,49 @@ const LexiconUI = {
   },
 
   async loadUserDeck() {
-    if (window.SupabaseAPI && typeof window.SupabaseAPI.getUserBookVocab === 'function') {
-      this.userDeck = await window.SupabaseAPI.getUserBookVocab();
+    let localDeck = [];
+    const localData = localStorage.getItem('local_user_book_vocab');
+    if (localData) {
+      try { localDeck = JSON.parse(localData); } catch (_) {}
     }
-    
-    if (!this.userDeck || this.userDeck.length === 0) {
-      const localData = localStorage.getItem('local_user_book_vocab');
-      if (localData) {
-        try { this.userDeck = JSON.parse(localData); } catch (_) {}
+
+    const hasSupabase = window.SupabaseAPI && typeof window.SupabaseAPI.getUserBookVocab === 'function';
+
+    if (hasSupabase) {
+      // 로컬 스토리지에 임시 저장된 카드가 있다면 Supabase로 마이그레이션(동기화) 진행
+      if (localDeck && localDeck.length > 0) {
+        console.log(`[AI Lexicon] 로컬 스토리지의 카드 ${localDeck.length}개를 Supabase로 마이그레이션합니다.`);
+        const remainingLocal = [];
+        for (const item of localDeck) {
+          try {
+            const res = await window.SupabaseAPI.saveBookVocab({
+              keyword: item.keyword,
+              category: item.category,
+              short_summary: item.short_summary,
+              full_description: item.full_description,
+              related_tags: item.related_tags,
+              mastery_level: item.mastery_level || 0
+            });
+            if (!res.success) {
+              console.warn(`[AI Lexicon] 카드 마이그레이션 실패 (${item.keyword}):`, res.error);
+              remainingLocal.push(item);
+            }
+          } catch (migrateErr) {
+            console.error(`[AI Lexicon] 카드 마이그레이션 예외 발생 (${item.keyword}):`, migrateErr);
+            remainingLocal.push(item);
+          }
+        }
+        
+        if (remainingLocal.length > 0) {
+          localStorage.setItem('local_user_book_vocab', JSON.stringify(remainingLocal));
+        } else {
+          localStorage.removeItem('local_user_book_vocab');
+        }
       }
+
+      this.userDeck = await window.SupabaseAPI.getUserBookVocab();
+    } else {
+      this.userDeck = localDeck;
     }
 
     const countEl = document.getElementById('lexiconDeckCount');

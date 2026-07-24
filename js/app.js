@@ -155,6 +155,11 @@ document.addEventListener('DOMContentLoaded', async function() {
   loadBooks();
   loadManuals();
   
+  // AI 독서 지식 노트 로컬 카드 마이그레이션 및 사전 로드
+  if (window.lexiconUI && typeof window.lexiconUI.loadUserDeck === 'function') {
+    window.lexiconUI.loadUserDeck();
+  }
+  
   document.addEventListener('touchstart', e => {
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
