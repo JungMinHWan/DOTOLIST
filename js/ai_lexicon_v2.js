@@ -467,7 +467,7 @@ const LexiconUI = {
 
     resultContainer.innerHTML = `
       <div class="lexicon-loading">
-        <div class="lexicon-loading-title">🤖 지식 분석 중...</div>
+        <div class="lexicon-loading-title">지식 분석 중...</div>
         <span class="lexicon-loading-sub">키워드 '${keyword}'의 개념과 맥락을 정제하고 있습니다.</span>
       </div>
     `;
@@ -503,7 +503,7 @@ const LexiconUI = {
         
         <div class="lexicon-card-actions">
           <button class="lexicon-save-btn" id="btnSaveToDeck" style="width:100%;">
-            📚 내 지식 카드장에 저장
+            📚 단어 목록에 저장
           </button>
         </div>
       </div>
@@ -528,7 +528,7 @@ const LexiconUI = {
       });
 
       if (res.success) {
-        alert(`'${this.currentAnalysis.keyword}' 지식이 내 카드장에 저장되었습니다!`);
+        alert(`'${this.currentAnalysis.keyword}' 지식이 단어 목록에 저장되었습니다!`);
         this.loadUserDeck();
       } else {
         alert(`저장 실패: ${res.error || '알 수 없는 오류가 발생했습니다.'}`);
@@ -545,7 +545,7 @@ const LexiconUI = {
         mastery_level: 0
       });
       localStorage.setItem('local_user_book_vocab', JSON.stringify(localDeck));
-      alert(`'${this.currentAnalysis.keyword}' 지식이 내 카드장에 저장되었습니다!`);
+      alert(`'${this.currentAnalysis.keyword}' 지식이 단어 목록에 저장되었습니다!`);
       this.loadUserDeck();
     }
   },
@@ -621,7 +621,7 @@ const LexiconUI = {
     if (filtered.length === 0) {
       container.innerHTML = `
         <div class="lexicon-hint">
-          수집된 지식 카드가 없습니다. 상단 'Zero-Prompt 탐색'에서 모르는 단어를 검색해 저장해보세요!
+          수집된 지식 카드가 없습니다. 상단 '단어 찾기'에서 모르는 단어를 검색해 저장해보세요!
         </div>
       `;
       return;
