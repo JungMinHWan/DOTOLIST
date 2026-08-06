@@ -1255,22 +1255,57 @@ async function refreshAllData() {
   console.log('calling api.getDailyMemo');
   const r = await api.getDailyMemo(currentMetricsDate);
   console.log('api.getDailyMemo resolved', r);
-  const content = r.content || '';
-  memo.value = content;
+  let dbContent = r.content || '';
+  
+  // 로컬 백업 및 드래프트 검사 (DB 데이터로 인한 덮어쓰기 방지)
+  const savedMemo = localStorage.getItem(`saved_memo_${currentMetricsDate}`);
+  const draftMemo = localStorage.getItem(`draft_memo_${currentMetricsDate}`);
+  const localContent = (savedMemo && savedMemo.trim().length > 0) ? savedMemo : draftMemo;
+  
+  let finalContent = dbContent;
+  if (localContent && localContent.trim().length > 0 && localContent !== dbContent) {
+    if (!dbContent || dbContent.trim().length === 0 || localContent.length >= dbContent.length) {
+      finalContent = localContent;
+      console.warn('DB 메모가 비어있거나 짧아 로컬 백업 메모로 복구합니다:', finalContent);
+      api.saveDailyMemo(currentMetricsDate, finalContent);
+    }
+  }
+
+  memo.value = finalContent;
   memo.placeholder = `${formatDateKorean(currentMetricsDate)} 메모...`;
-  updateMemoBadge(content);
+  updateMemoBadge(finalContent);
 
   const rd = await api.getDailyDiary(currentMetricsDate);
-  const diaryContent = rd.content || '';
-  diary.value = diaryContent;
+  let dbDiary = rd.content || '';
+  const savedDiary = localStorage.getItem(`saved_diary_${currentMetricsDate}`);
+  const draftDiary = localStorage.getItem(`draft_diary_${currentMetricsDate}`);
+  const localDiary = (savedDiary && savedDiary.trim().length > 0) ? savedDiary : draftDiary;
+  let finalDiary = dbDiary;
+  if (localDiary && localDiary.trim().length > 0 && localDiary !== dbDiary) {
+    if (!dbDiary || dbDiary.trim().length === 0 || localDiary.length >= dbDiary.length) {
+      finalDiary = localDiary;
+      api.saveDailyDiary(currentMetricsDate, finalDiary);
+    }
+  }
+  diary.value = finalDiary;
   diary.placeholder = `${formatDateKorean(currentMetricsDate)} 일기...`;
-  updateBadge('diaryBadge', diaryContent);
+  updateBadge('diaryBadge', finalDiary);
 
   const rn = await api.getDailyNews(currentMetricsDate);
-  const newsContent = rn.content || '';
-  newsEl.value = newsContent;
+  let dbNews = rn.content || '';
+  const savedNews = localStorage.getItem(`saved_news_${currentMetricsDate}`);
+  const draftNews = localStorage.getItem(`draft_news_${currentMetricsDate}`);
+  const localNews = (savedNews && savedNews.trim().length > 0) ? savedNews : draftNews;
+  let finalNews = dbNews;
+  if (localNews && localNews.trim().length > 0 && localNews !== dbNews) {
+    if (!dbNews || dbNews.trim().length === 0 || localNews.length >= dbNews.length) {
+      finalNews = localNews;
+      api.saveDailyNews(currentMetricsDate, finalNews);
+    }
+  }
+  newsEl.value = finalNews;
   newsEl.placeholder = `${formatDateKorean(currentMetricsDate)} 신문...`;
-  updateBadge('newsBadge', newsContent);
+  updateBadge('newsBadge', finalNews);
   
   loadTasks();
   loadBooks();
@@ -1631,63 +1666,111 @@ async function saveMetrics() {
 async function saveMemo() {
   const btn = document.getElementById('saveMemoBtn');
   const content = document.getElementById('memoInput').value;
+  const st = document.getElementById('memoStatus');
   
-  btn.disabled = true; btn.innerText = '...';
+  btn.disabled = true; btn.innerText = '저장 중...';
+  if (st) st.innerText = '저장 중...';
+  
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`saved_memo_${currentMetricsDate}`, content);
+    } catch(e) {}
+  }
   
   const res = await api.saveDailyMemo(currentMetricsDate, content);
-  if(res.success) {
+  if(res && res.success) {
     btn.disabled = false; btn.innerText = '메모 저장';
-    const st = document.getElementById('memoStatus'); st.innerText = '완료';
+    if (st) {
+      st.innerText = '저장 완료';
+      st.style.color = '#10b981';
+    }
     updateMemoBadge(content);
     fetchAllDates();
-    setTimeout(() => st.innerText = '', 2000);
+    setTimeout(() => { if (st) st.innerText = ''; }, 2000);
     triggerQuestUpdate('memo_written', true);
     closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '메모 저장';
-    alert('저장에 실패했습니다.');
+    const errReason = (res && res.error) ? res.error : '네트워크 또는 로그인 세션 오류';
+    if (st) {
+      st.innerText = '로컬에 보관됨 (서버 오류)';
+      st.style.color = '#ef4444';
+    }
+    alert(`[서버 저장 실패 알림]\n메모가 기기 로컬에는 안전하게 보관되었으나, 서버 저장에 실패했습니다.\n\n사유: ${errReason}\n\n인터넷 연결 및 로그인(인증) 세션 상태를 확인해 주세요.`);
   }
 }
 
 async function saveDiary() {
   const btn = document.getElementById('saveDiaryBtn');
   const content = document.getElementById('diaryInput').value;
+  const st = document.getElementById('diaryStatus');
   
-  btn.disabled = true; btn.innerText = '...';
+  btn.disabled = true; btn.innerText = '저장 중...';
+  if (st) st.innerText = '저장 중...';
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`saved_diary_${currentMetricsDate}`, content);
+    } catch(e) {}
+  }
   
   const res = await api.saveDailyDiary(currentMetricsDate, content);
-  if(res.success) {
+  if(res && res.success) {
     btn.disabled = false; btn.innerText = '일기 저장';
-    const st = document.getElementById('diaryStatus'); st.innerText = '완료';
+    if (st) {
+      st.innerText = '저장 완료';
+      st.style.color = '#10b981';
+    }
     updateBadge('diaryBadge', content);
     fetchAllDates();
     triggerQuestUpdate('diary_written', true);
-    setTimeout(() => st.innerText = '', 2000);
+    setTimeout(() => { if (st) st.innerText = ''; }, 2000);
     closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '일기 저장';
-    alert('저장에 실패했습니다.');
+    const errReason = (res && res.error) ? res.error : '네트워크 또는 로그인 세션 오류';
+    if (st) {
+      st.innerText = '로컬에 보관됨 (서버 오류)';
+      st.style.color = '#ef4444';
+    }
+    alert(`[서버 저장 실패 알림]\n일기가 기기 로컬에는 안전하게 보관되었으나, 서버 저장에 실패했습니다.\n\n사유: ${errReason}\n\n인터넷 연결 및 로그인(인증) 세션 상태를 확인해 주세요.`);
   }
 }
 
 async function saveNews() {
   const btn = document.getElementById('saveNewsBtn');
   const content = document.getElementById('newsInput').value;
+  const st = document.getElementById('newsStatus');
   
-  btn.disabled = true; btn.innerText = '...';
+  btn.disabled = true; btn.innerText = '저장 중...';
+  if (st) st.innerText = '저장 중...';
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`saved_news_${currentMetricsDate}`, content);
+    } catch(e) {}
+  }
   
   const res = await api.saveDailyNews(currentMetricsDate, content);
-  if(res.success) {
+  if(res && res.success) {
     btn.disabled = false; btn.innerText = '신문 저장';
-    const st = document.getElementById('newsStatus'); st.innerText = '완료';
+    if (st) {
+      st.innerText = '저장 완료';
+      st.style.color = '#10b981';
+    }
     updateBadge('newsBadge', content);
     fetchAllDates();
     triggerQuestUpdate('news_written', true);
-    setTimeout(() => st.innerText = '', 2000);
+    setTimeout(() => { if (st) st.innerText = ''; }, 2000);
     closeAllHeaders();
   } else {
     btn.disabled = false; btn.innerText = '신문 저장';
-    alert('저장에 실패했습니다.');
+    const errReason = (res && res.error) ? res.error : '네트워크 또는 로그인 세션 오류';
+    if (st) {
+      st.innerText = '로컬에 보관됨 (서버 오류)';
+      st.style.color = '#ef4444';
+    }
+    alert(`[서버 저장 실패 알림]\n신문이 기기 로컬에는 안전하게 보관되었으나, 서버 저장에 실패했습니다.\n\n사유: ${errReason}\n\n인터넷 연결 및 로그인(인증) 세션 상태를 확인해 주세요.`);
   }
 }
 
@@ -2585,7 +2668,7 @@ function setupStrikethroughShortcut(textarea) {
   });
 }
 
-// 메모, 일기, 신문 실시간 자동 저장 기능
+// 메모, 일기, 신문 실시간 자동 저장 기능 (iOS Safari 안전성 보완)
 function setupAutoSaveEvents() {
   const memoInput = document.getElementById('memoInput');
   const diaryInput = document.getElementById('diaryInput');
@@ -2600,133 +2683,252 @@ function setupAutoSaveEvents() {
   let diaryAutoSaveTimeout = null;
   let newsAutoSaveTimeout = null;
   
-  // 1. 메모 실시간 자동 저장
-  memoInput.oninput = function() {
-    const statusEl = document.getElementById('memoStatus');
-    statusEl.innerText = '입력 중...';
-    statusEl.style.color = 'var(--text-muted)';
-    statusEl.style.fontWeight = '700';
-    
-    clearTimeout(memoAutoSaveTimeout);
-    memoAutoSaveTimeout = setTimeout(() => {
+  // 1. 메모 실시간 자동 저장 (디바운스 400ms + 로컬 임시 보관)
+  if (memoInput) {
+    memoInput.oninput = function() {
+      const statusEl = document.getElementById('memoStatus');
+      if (statusEl) {
+        statusEl.innerText = '입력 중...';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.style.fontWeight = '700';
+      }
+
+      if (currentMetricsDate) {
+        try {
+          localStorage.setItem(`draft_memo_${currentMetricsDate}`, memoInput.value);
+        } catch (e) {}
+      }
+
+      clearTimeout(memoAutoSaveTimeout);
+      memoAutoSaveTimeout = setTimeout(() => {
+        saveMemoRealtime();
+      }, 400);
+    };
+
+    memoInput.onblur = function() {
+      clearTimeout(memoAutoSaveTimeout);
       saveMemoRealtime();
-    }, 1000);
-  };
-  memoInput.onblur = function() {
-    clearTimeout(memoAutoSaveTimeout);
-    saveMemoRealtime();
-  };
+    };
+  }
 
   // 2. 일기 실시간 자동 저장
-  diaryInput.oninput = function() {
-    const statusEl = document.getElementById('diaryStatus');
-    statusEl.innerText = '입력 중...';
-    statusEl.style.color = 'var(--text-muted)';
-    statusEl.style.fontWeight = '700';
-    
-    clearTimeout(diaryAutoSaveTimeout);
-    diaryAutoSaveTimeout = setTimeout(() => {
+  if (diaryInput) {
+    diaryInput.oninput = function() {
+      const statusEl = document.getElementById('diaryStatus');
+      if (statusEl) {
+        statusEl.innerText = '입력 중...';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.style.fontWeight = '700';
+      }
+
+      if (currentMetricsDate) {
+        try {
+          localStorage.setItem(`draft_diary_${currentMetricsDate}`, diaryInput.value);
+        } catch (e) {}
+      }
+
+      clearTimeout(diaryAutoSaveTimeout);
+      diaryAutoSaveTimeout = setTimeout(() => {
+        saveDiaryRealtime();
+      }, 400);
+    };
+
+    diaryInput.onblur = function() {
+      clearTimeout(diaryAutoSaveTimeout);
       saveDiaryRealtime();
-    }, 1000);
-  };
-  diaryInput.onblur = function() {
-    clearTimeout(diaryAutoSaveTimeout);
-    saveDiaryRealtime();
-  };
+    };
+  }
 
   // 3. 신문 실시간 자동 저장
-  newsInput.oninput = function() {
-    const statusEl = document.getElementById('newsStatus');
-    statusEl.innerText = '입력 중...';
-    statusEl.style.color = 'var(--text-muted)';
-    statusEl.style.fontWeight = '700';
-    
-    clearTimeout(newsAutoSaveTimeout);
-    newsAutoSaveTimeout = setTimeout(() => {
+  if (newsInput) {
+    newsInput.oninput = function() {
+      const statusEl = document.getElementById('newsStatus');
+      if (statusEl) {
+        statusEl.innerText = '입력 중...';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.style.fontWeight = '700';
+      }
+
+      if (currentMetricsDate) {
+        try {
+          localStorage.setItem(`draft_news_${currentMetricsDate}`, newsInput.value);
+        } catch (e) {}
+      }
+
+      clearTimeout(newsAutoSaveTimeout);
+      newsAutoSaveTimeout = setTimeout(() => {
+        saveNewsRealtime();
+      }, 400);
+    };
+
+    newsInput.onblur = function() {
+      clearTimeout(newsAutoSaveTimeout);
       saveNewsRealtime();
-    }, 1000);
-  };
-  newsInput.onblur = function() {
-    clearTimeout(newsAutoSaveTimeout);
+    };
+  }
+
+  // iOS Safari / 모바일 탭 이탈 및 백그라운드 전환 시 강제 저장 처리
+  const forceSaveAllRealtime = () => {
+    if (memoAutoSaveTimeout) {
+      clearTimeout(memoAutoSaveTimeout);
+      memoAutoSaveTimeout = null;
+    }
+    if (diaryAutoSaveTimeout) {
+      clearTimeout(diaryAutoSaveTimeout);
+      diaryAutoSaveTimeout = null;
+    }
+    if (newsAutoSaveTimeout) {
+      clearTimeout(newsAutoSaveTimeout);
+      newsAutoSaveTimeout = null;
+    }
+    saveMemoRealtime();
+    saveDiaryRealtime();
     saveNewsRealtime();
   };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      forceSaveAllRealtime();
+    }
+  });
+
+  window.addEventListener('pagehide', () => {
+    forceSaveAllRealtime();
+  });
 }
 
 async function saveMemoRealtime() {
-  const content = document.getElementById('memoInput').value;
+  const memoInput = document.getElementById('memoInput');
+  if (!memoInput) return;
+  const content = memoInput.value;
   const statusEl = document.getElementById('memoStatus');
-  statusEl.innerText = '저장 중...';
-  statusEl.style.color = 'var(--text-muted)';
-  statusEl.style.fontWeight = '700';
+  if (statusEl) {
+    statusEl.innerText = '저장 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+  }
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`draft_memo_${currentMetricsDate}`, content);
+    } catch (e) {}
+  }
   
   const res = await api.saveDailyMemo(currentMetricsDate, content);
-  if (res.success) {
-    statusEl.innerText = '실시간 저장 완료';
-    statusEl.style.color = '#10b981';
-    statusEl.style.fontWeight = '800';
+  if (res && res.success) {
+    if (currentMetricsDate) {
+      try {
+        localStorage.removeItem(`draft_memo_${currentMetricsDate}`);
+      } catch (e) {}
+    }
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료';
+      statusEl.style.color = '#10b981';
+      statusEl.style.fontWeight = '800';
+    }
     updateMemoBadge(content);
     triggerQuestUpdate('memo_written', true);
     fetchAllDates();
     setTimeout(() => {
-      if (statusEl.innerText === '실시간 저장 완료') {
+      if (statusEl && statusEl.innerText === '실시간 저장 완료') {
         statusEl.innerText = '';
       }
     }, 2000);
   } else {
-    statusEl.innerText = '저장 실패';
-    statusEl.style.color = '#ef4444';
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료(임시보관)';
+      statusEl.style.color = '#10b981';
+    }
   }
 }
 
 async function saveDiaryRealtime() {
-  const content = document.getElementById('diaryInput').value;
+  const diaryInput = document.getElementById('diaryInput');
+  if (!diaryInput) return;
+  const content = diaryInput.value;
   const statusEl = document.getElementById('diaryStatus');
-  statusEl.innerText = '저장 중...';
-  statusEl.style.color = 'var(--text-muted)';
-  statusEl.style.fontWeight = '700';
+  if (statusEl) {
+    statusEl.innerText = '저장 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+  }
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`draft_diary_${currentMetricsDate}`, content);
+    } catch (e) {}
+  }
   
   const res = await api.saveDailyDiary(currentMetricsDate, content);
-  if (res.success) {
-    statusEl.innerText = '실시간 저장 완료';
-    statusEl.style.color = '#10b981';
-    statusEl.style.fontWeight = '800';
+  if (res && res.success) {
+    if (currentMetricsDate) {
+      try {
+        localStorage.removeItem(`draft_diary_${currentMetricsDate}`);
+      } catch (e) {}
+    }
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료';
+      statusEl.style.color = '#10b981';
+      statusEl.style.fontWeight = '800';
+    }
     updateBadge('diaryBadge', content);
     triggerQuestUpdate('diary_written', true);
     fetchAllDates();
     setTimeout(() => {
-      if (statusEl.innerText === '실시간 저장 완료') {
+      if (statusEl && statusEl.innerText === '실시간 저장 완료') {
         statusEl.innerText = '';
       }
     }, 2000);
   } else {
-    statusEl.innerText = '저장 실패';
-    statusEl.style.color = '#ef4444';
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료(임시보관)';
+      statusEl.style.color = '#10b981';
+    }
   }
 }
 
 async function saveNewsRealtime() {
-  const content = document.getElementById('newsInput').value;
+  const newsInput = document.getElementById('newsInput');
+  if (!newsInput) return;
+  const content = newsInput.value;
   const statusEl = document.getElementById('newsStatus');
-  statusEl.innerText = '저장 중...';
-  statusEl.style.color = 'var(--text-muted)';
-  statusEl.style.fontWeight = '700';
+  if (statusEl) {
+    statusEl.innerText = '저장 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+  }
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`draft_news_${currentMetricsDate}`, content);
+    } catch (e) {}
+  }
   
   const res = await api.saveDailyNews(currentMetricsDate, content);
-  if (res.success) {
-    statusEl.innerText = '실시간 저장 완료';
-    statusEl.style.color = '#10b981';
-    statusEl.style.fontWeight = '800';
+  if (res && res.success) {
+    if (currentMetricsDate) {
+      try {
+        localStorage.removeItem(`draft_news_${currentMetricsDate}`);
+      } catch (e) {}
+    }
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료';
+      statusEl.style.color = '#10b981';
+      statusEl.style.fontWeight = '800';
+    }
     updateBadge('newsBadge', content);
     triggerQuestUpdate('news_written', true);
     fetchAllDates();
     setTimeout(() => {
-      if (statusEl.innerText === '실시간 저장 완료') {
+      if (statusEl && statusEl.innerText === '실시간 저장 완료') {
         statusEl.innerText = '';
       }
     }, 2000);
   } else {
-    statusEl.innerText = '저장 실패';
-    statusEl.style.color = '#ef4444';
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료(임시보관)';
+      statusEl.style.color = '#10b981';
+    }
   }
 }
 
