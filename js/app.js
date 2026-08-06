@@ -2,6 +2,7 @@ let currentPeriod = 'today', selectedDate = null, currentMetricsDate = null;
 let customRangeStart = null, customRangeEnd = null;
 let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
 let loadedTasks = [];
+let dateSortDirection = 'asc';
 
 let calDisplayDate = new Date();
 let memoDatesSet = new Set();
@@ -158,6 +159,16 @@ document.addEventListener('DOMContentLoaded', async function() {
   // AI 독서 지식 노트 로컬 카드 마이그레이션 및 사전 로드
   if (window.lexiconUI && typeof window.lexiconUI.loadUserDeck === 'function') {
     window.lexiconUI.loadUserDeck();
+  }
+  
+  // 빠른 정렬 버튼 이벤트 바인딩
+  const btnSortDate = document.getElementById('btnSortDate');
+  if (btnSortDate) {
+    btnSortDate.addEventListener('click', sortTasksByDate);
+  }
+  const btnSortUncompleted = document.getElementById('btnSortUncompleted');
+  if (btnSortUncompleted) {
+    btnSortUncompleted.addEventListener('click', sortTasksByUncompleted);
   }
   
   document.addEventListener('touchstart', e => {
@@ -1368,6 +1379,59 @@ async function saveTasksOrder() {
     alert('순서 저장에 실패했습니다. 다시 시도해 주세요.');
     loadTasks();
   }
+}
+
+async function sortTasksByDate() {
+  if (!loadedTasks || loadedTasks.length <= 1) {
+    showToast('정렬할 할일 항목이 2개 이상 있어야 합니다.');
+    return;
+  }
+  
+  const dateBtn = document.getElementById('btnSortDate');
+  const dateLabel = document.getElementById('sortDateLabel');
+  const uncompletedBtn = document.getElementById('btnSortUncompleted');
+  
+  if (uncompletedBtn) uncompletedBtn.classList.remove('active');
+  if (dateBtn) dateBtn.classList.add('active');
+  
+  if (dateSortDirection === 'asc') {
+    loadedTasks.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (dateLabel) dateLabel.textContent = '날짜순 ↑';
+    dateSortDirection = 'desc';
+    showToast('📅 오래된 등록 순으로 정렬되었습니다.');
+  } else {
+    loadedTasks.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (dateLabel) dateLabel.textContent = '날짜순 ↓';
+    dateSortDirection = 'asc';
+    showToast('📅 최신 등록 순으로 정렬되었습니다.');
+  }
+  
+  renderTasks(loadedTasks);
+  await saveTasksOrder();
+}
+
+async function sortTasksByUncompleted() {
+  if (!loadedTasks || loadedTasks.length <= 1) {
+    showToast('정렬할 할일 항목이 2개 이상 있어야 합니다.');
+    return;
+  }
+  
+  const dateBtn = document.getElementById('btnSortDate');
+  const uncompletedBtn = document.getElementById('btnSortUncompleted');
+  
+  if (dateBtn) dateBtn.classList.remove('active');
+  if (uncompletedBtn) uncompletedBtn.classList.add('active');
+  
+  loadedTasks.sort((a, b) => {
+    const aComp = a.status === '완료' ? 1 : 0;
+    const bComp = b.status === '완료' ? 1 : 0;
+    if (aComp !== bComp) return aComp - bComp;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
+  
+  showToast('⏳ 미완료 항목이 상단으로 정렬되었습니다.');
+  renderTasks(loadedTasks);
+  await saveTasksOrder();
 }
 
 function bindDragAndTouchEvents() {

@@ -378,6 +378,62 @@ body {
   padding: 0 18px; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 
+/* Task Sort Bar */
+.task-sort-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  padding: 2px 4px;
+}
+.task-sort-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.task-sort-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main, #334155);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.btn-sort:hover {
+  background: var(--theme-light-bg, #f1f5f9);
+  border-color: var(--theme-primary, #6366f1);
+  color: var(--theme-primary, #6366f1);
+  transform: translateY(-1px);
+}
+.btn-sort:active {
+  transform: scale(0.96);
+}
+.btn-sort.active {
+  background: var(--theme-primary, #6366f1);
+  color: #ffffff;
+  border-color: var(--theme-primary, #6366f1);
+}
+.btn-sort.active:hover {
+  background: var(--theme-primary-dark, #4f46e5);
+  color: #ffffff;
+}
+
 /* Task List */
 .task-list { margin-top: 8px; display: flex; flex-direction: column; gap: 10px; }
 .task-item { 
