@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.6';
+    link.href = 'real_estate/re_styles.css?v=1.7';
     document.head.appendChild(link);
   }
 
@@ -435,6 +435,13 @@
     /* ============================================================
      * 관심 단지 라벨 (Supabase re_watchlist, 기기 간 동기화)
      * ============================================================ */
+    /** 라벨 기능 설치 여부를 UI 에 반영 */
+    applyLabelAvailability() {
+      if (!this.modalEl) return;
+      const tab = this.modalEl.querySelector('#re-tab-labeled');
+      if (tab) tab.style.display = this.labelsEnabled === false ? 'none' : '';
+    }
+
     labelKey(s) { return `${s.complex_key}|${s.area_bucket}`; }
     labelsOf(s) { return this.labelMap[this.labelKey(s)] || []; }
 
@@ -468,9 +475,11 @@
         });
         this.labelCounts = (await this.rpc('re_list_labels', {})) || [];
         this.labelsEnabled = true;
+        this.applyLabelAvailability();
       } catch (e) {
         if (e.status === 404 || (e.body || '').includes('PGRST202')) {
           this.labelsEnabled = false;
+          this.applyLabelAvailability();
           console.warn('[실거래 신호 탐지] 라벨 기능 미설치 → real_estate/re_labels.sql 을 실행하세요.');
         } else {
           console.error('[실거래 신호 탐지] 라벨 조회 실패:', e);
@@ -497,9 +506,18 @@
         else this.renderLabelBar();
       } catch (e) {
         this.labelMap[key] = prev;            // 실패 시 되돌리기
-        this.renderList();
         console.error('[실거래 신호 탐지] 라벨 저장 실패:', e);
-        alert('라벨 저장에 실패했습니다.\n' + (e.message || ''));
+
+        if (e.status === 404 || (e.body || '').includes('PGRST202')) {
+          // 기능 자체가 아직 설치되지 않은 경우 — 기능을 끄고 안내만 남깁니다.
+          this.labelsEnabled = false;
+          this.closeLabelSheet();
+          this.renderList();
+          this.showLabelSetupNotice();
+        } else {
+          this.renderList();
+          alert('라벨 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        }
       }
     }
 
@@ -567,6 +585,31 @@
           </button>
         `).join('')}
       `;
+    }
+
+    /** 라벨 기능 미설치 안내 */
+    showLabelSetupNotice() {
+      this.closeLabelSheet();
+      const sheet = document.createElement('div');
+      sheet.className = 're-label-sheet';
+      sheet.innerHTML = `
+        <div class="re-label-card" role="dialog">
+          <div class="re-label-title">라벨 기능이 아직 설치되지 않았어요</div>
+          <div class="re-label-sub">
+            Supabase SQL Editor 에서 아래 파일을 한 번 실행하면 바로 쓸 수 있습니다.
+          </div>
+          <div class="re-setup-path">real_estate/re_labels.sql</div>
+          <div class="re-label-sub" style="margin-top:12px;">
+            실행 후 이 화면을 새로고침해 주세요.
+          </div>
+          <button type="button" class="re-label-close">확인</button>
+        </div>
+      `;
+      sheet.addEventListener('click', (e) => {
+        if (e.target === sheet || e.target.closest('.re-label-close')) this.closeLabelSheet();
+      });
+      document.body.appendChild(sheet);
+      this.labelSheetEl = sheet;
     }
 
     /** 라벨 붙이기 시트 */
@@ -753,7 +796,7 @@
 
           <div class="re-tabs">
             <button type="button" class="re-tab on" data-view="signals">📉 신호 목록</button>
-            <button type="button" class="re-tab" data-view="labeled">🏷 내 라벨</button>
+            <button type="button" class="re-tab" data-view="labeled" id="re-tab-labeled">🏷 내 라벨</button>
           </div>
 
           <div class="re-label-bar" id="re-label-bar" style="display:none;"></div>
@@ -1291,11 +1334,12 @@
         </div>
 
         <div class="re-card-actions">
+          ${this.labelsEnabled === false ? '' : `
           <button type="button" class="re-label-btn ${myLabels.length ? 'on' : ''}"
                   data-ck="${escapeHtml(s.complex_key)}" data-ab="${escapeHtml(String(s.area_bucket))}"
                   title="라벨 붙이기">
             ${myLabels.length ? `🏷 ${myLabels.length}` : '🏷 라벨'}
-          </button>
+          </button>`}
           ${variants.length > 1 ? `
             <button type="button" class="re-naver-link re-naver-btn"
                     data-gu="${escapeHtml(s.gu)}" data-dong="${escapeHtml(s.dong)}"

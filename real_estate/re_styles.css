@@ -1288,3 +1288,15 @@
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+.re-setup-path {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #0f172a;
+  color: #a5f3fc;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  word-break: break-all;
+  text-align: center;
+}
