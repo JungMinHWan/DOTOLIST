@@ -93,7 +93,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.0';
+    link.href = 'real_estate/re_styles.css?v=1.1';
     document.head.appendChild(link);
   }
 
@@ -601,7 +601,7 @@
             <div class="re-apt-title">
               <span class="re-apt-name">${highlight(s.apt_name, this.searchTerm)}</span>
               <span class="re-pyeong-tag">${s.pyeong}평</span>
-              <span style="font-size:11px; color:#3b82f6; font-weight:normal;">[국토부 원본 보기 🔍]</span>
+              <span class="re-detail-hint">[국토부 원본 보기 🔍]</span>
             </div>
             <div class="re-loc-text">
               ${highlight(s.gu, this.searchTerm)} ${highlight(s.dong, this.searchTerm)} · ${s.latest_floor}층 · ${s.latest_date}
