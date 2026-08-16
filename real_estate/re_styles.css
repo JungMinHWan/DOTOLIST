@@ -839,3 +839,26 @@
   .re-filter-bar { grid-template-columns: 1fr; }
   .re-header-subtitle { display: none; }
 }
+
+/* 상세 모달의 네이버 링크 묶음 (부동산 + 통합검색 폴백) */
+.re-detail-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.re-naver-fallback {
+  font-size: 11px;
+  color: #64748b;
+  text-decoration: none;
+  border-bottom: 1px dashed #cbd5e1;
+  white-space: nowrap;
+}
+
+.re-naver-fallback:hover { color: #3b82f6; border-bottom-color: #3b82f6; }
+
+@media (max-width: 640px) {
+  .re-detail-links { align-items: stretch; }
+  .re-naver-fallback { text-align: center; white-space: normal; border-bottom: none; }
+}

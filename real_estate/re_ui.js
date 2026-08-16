@@ -34,6 +34,32 @@
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   }
 
+  /**
+   * 네이버 부동산 검색 URL.
+   *
+   * 기존에는 '서울시 + 구 + 동 + 단지명' 4토큰으로 검색해 매칭 실패가 잦았습니다.
+   * (예: "서울시 양천구 신월동 목동센트럴아이파크위브1단지" → 검색결과 없음)
+   * 네이버 단지 검색은 토큰이 많을수록 실패하므로 '동 + 단지명' 2토큰으로 줄이고,
+   * 국토부에만 있는 괄호 별칭(예: "창동주공3단지(해등마을)")은 제거합니다.
+   */
+  function naverComplexName(aptName) {
+    return String(aptName || '')
+      .replace(/\([^)]*\)/g, ' ')   // 괄호 별칭 제거
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function naverLandUrl(s) {
+    const q = `${s.dong || ''} ${naverComplexName(s.apt_name)}`.trim();
+    return `https://m.land.naver.com/search/result/${encodeURIComponent(q)}`;
+  }
+
+  /** 네이버 부동산에서 못 찾을 때를 위한 통합검색 폴백 (거의 항상 결과가 있음) */
+  function naverSearchUrl(s) {
+    const q = `${s.gu || ''} ${naverComplexName(s.apt_name)} 아파트`.trim();
+    return `https://m.search.naver.com/search.naver?query=${encodeURIComponent(q)}`;
+  }
+
   function escapeHtml(str) {
     return String(str == null ? '' : str)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -93,7 +119,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.1';
+    link.href = 'real_estate/re_styles.css?v=1.2';
     document.head.appendChild(link);
   }
 
@@ -122,6 +148,9 @@
       this.searchTerm = '';
       this.searchTimer = null;
       this.fetchSeq = 0;
+      this.historyDepth = 0;
+      this.suppressPop = false;
+      this.historyBound = false;
       this.activePyeong = '전체';
       this.activeFlagFilter = '전체';
       this.activeDateDays = '전체';
@@ -194,18 +223,75 @@
       return true;
     }
 
+    /* ============================================================
+     * 뒤로가기(브라우저/안드로이드 백버튼, iOS 스와이프) 대응
+     *
+     * 모달을 열 때 history 항목을 하나 쌓아두고, popstate 가 오면 모달을 닫습니다.
+     * 이렇게 하지 않으면 모달이 열린 상태에서 뒤로가기를 눌렀을 때
+     * 앱 밖으로 나가버리고, 네이버 부동산에 다녀온 뒤에도 원래 화면으로
+     * 돌아오지 못했습니다.
+     *
+     * depth = 우리가 쌓아둔 history 항목 수. 닫을 때 history.back() 으로 되감아
+     * 히스토리가 한쪽으로 계속 쌓이지 않게 합니다.
+     * ============================================================ */
+    pushHistory(kind) {
+      try {
+        history.pushState({ reModal: kind, reDepth: ++this.historyDepth }, '');
+      } catch (e) { /* history 사용 불가 환경은 그냥 무시 */ }
+    }
+
+    popHistory() {
+      if (this.historyDepth > 0) {
+        this.historyDepth--;
+        this.suppressPop = true;   // 우리가 유발한 popstate 는 핸들러에서 무시
+        try { history.back(); } catch (e) { this.suppressPop = false; }
+      }
+    }
+
+    bindHistory() {
+      if (this.historyBound) return;
+      this.historyBound = true;
+
+      window.addEventListener('popstate', () => {
+        if (this.suppressPop) { this.suppressPop = false; return; }
+
+        // 뒤로가기 → 위에 떠 있는 것부터 하나씩 닫기
+        if (this.isDetailOpen()) {
+          this.historyDepth = Math.max(0, this.historyDepth - 1);
+          this.hideDetail();
+        } else if (this.isListOpen()) {
+          this.historyDepth = Math.max(0, this.historyDepth - 1);
+          this.hideList();
+        }
+      });
+    }
+
+    isListOpen() { return !!this.modalEl && this.modalEl.style.display === 'flex'; }
+    isDetailOpen() { return !!this.detailModalEl && this.detailModalEl.style.display === 'flex'; }
+
+    hideList() { if (this.modalEl) this.modalEl.style.display = 'none'; }
+    hideDetail() { if (this.detailModalEl) this.detailModalEl.style.display = 'none'; }
+
     openModal() {
       if (!this.modalEl) {
         this.createModalDOM();
       }
+      this.bindHistory();
       this.modalEl.style.display = 'flex';
+      this.pushHistory('list');
       this.fetchSignals();
     }
 
     closeModal() {
-      if (this.modalEl) {
-        this.modalEl.style.display = 'none';
-      }
+      if (!this.isListOpen()) return;
+      this.hideList();
+      this.popHistory();
+    }
+
+    closeDetailModal() {
+      if (!this.isDetailOpen()) return;
+      this.hideDetail();
+      this.popHistory();
     }
 
     createModalDOM() {
@@ -587,8 +673,7 @@
         return `<span class="re-tag ${item.class}">${item.text}</span>`;
       }).join('');
 
-      const naverQuery = `서울시 ${s.gu} ${s.dong} ${s.apt_name}`;
-      const naverUrl = `https://m.land.naver.com/search/result/${encodeURIComponent(naverQuery)}`;
+      const naverUrl = naverLandUrl(s);
 
       return `
         <div class="re-card-main">
@@ -647,7 +732,7 @@
         // 기존 버그: 상세 모달을 열 때마다 같은 엘리먼트에 click 리스너를 새로 붙여
         // 열고 닫기를 반복할수록 핸들러가 누적되었습니다. 최초 1회만 바인딩합니다.
         overlay.addEventListener('click', (e) => {
-          if (e.target === overlay) overlay.style.display = 'none';
+          if (e.target === overlay) this.closeDetailModal();
         });
       }
 
@@ -674,9 +759,14 @@
                   총 표본 ${s.sample_size}건 / 최근 90일 ${s.density_90d}건 거래
                 </div>
               </div>
-              <a href="https://m.land.naver.com/search/result/${encodeURIComponent('서울시 ' + s.gu + ' ' + s.dong + ' ' + s.apt_name)}" target="_blank" class="re-naver-link">
-                <span>네이버 부동산 매물 보기 ↗</span>
-              </a>
+              <div class="re-detail-links">
+                <a href="${naverLandUrl(s)}" target="_blank" rel="noopener noreferrer" class="re-naver-link">
+                  <span>네이버 부동산 매물 보기 ↗</span>
+                </a>
+                <a href="${naverSearchUrl(s)}" target="_blank" rel="noopener noreferrer" class="re-naver-fallback">
+                  네이버 부동산에서 안 나오면 → 통합검색 ↗
+                </a>
+              </div>
             </div>
 
             <div id="re-detail-table-loading" class="re-empty-state">
@@ -712,9 +802,10 @@
       `;
 
       this.detailModalEl.style.display = 'flex';
+      this.pushHistory('detail');
 
       this.detailModalEl.querySelector('#re-detail-close-btn').addEventListener('click', () => {
-        this.detailModalEl.style.display = 'none';
+        this.closeDetailModal();
       });
 
       try {
