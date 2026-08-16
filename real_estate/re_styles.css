@@ -862,3 +862,130 @@
   .re-detail-links { align-items: stretch; }
   .re-naver-fallback { text-align: center; white-space: normal; border-bottom: none; }
 }
+
+/* ============================================================
+   네이버 단지명 선택 시트
+   국토부와 네이버의 단지명 표기가 다른 경우(전체의 3.5%)에만 뜹니다.
+   ============================================================ */
+.re-naver-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 100010;              /* 상세 모달(100000)보다 위 */
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: reFadeIn 0.18s ease-out;
+  box-sizing: border-box;
+}
+
+.re-naver-sheet * { box-sizing: border-box; }
+
+.re-naver-sheet-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 380px;
+  padding: 20px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.re-naver-sheet-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.re-naver-sheet-desc {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.re-naver-sheet-item {
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  background: #f8fafc;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.re-naver-sheet-item:hover {
+  border-color: #03c75a;
+  background: #f0fdf4;
+}
+
+.re-naver-sheet-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: keep-all;
+}
+
+.re-naver-sheet-note {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+.re-naver-sheet-alt { background: #ffffff; }
+
+.re-naver-sheet-close {
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.re-naver-sheet-close:hover { background: #cbd5e1; }
+
+/* 버튼형 네이버 링크 (선택지가 있는 경우) */
+.re-naver-btn {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* 상세 모달의 2순위 단지명 링크 */
+.re-naver-alt {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.re-naver-alt:hover { background: #dcfce7; }
+
+@media (max-width: 640px) {
+  .re-naver-sheet { align-items: flex-end; padding: 0; }
+  .re-naver-sheet-card {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+  .re-naver-alt { white-space: normal; }
+}

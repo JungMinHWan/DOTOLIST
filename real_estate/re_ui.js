@@ -68,9 +68,34 @@
     return stripped.length >= 2 ? stripped : full;
   }
 
-  function naverLandUrl(s) {
-    const q = `${s.dong || ''} ${naverBroadName(s.apt_name)}`.trim();
+  function naverLandUrlFor(dong, name) {
+    const q = `${dong || ''} ${name}`.trim();
     return `https://m.land.naver.com/search/result/${encodeURIComponent(q)}`;
+  }
+
+  function naverLandUrl(s) {
+    return naverLandUrlFor(s.dong, naverComplexName(s.apt_name));
+  }
+
+  /**
+   * 네이버 부동산은 "정확한 단지명"만 받습니다. 부분 일치·접두 검색이 안 돼요.
+   *   '창동 창동주공3단지'            → ✅   '창동 창동주공'                → ❌
+   *   '신월동 목동센트럴아이파크위브'  → ✅   '신월동 ...아이파크위브1단지' → ❌
+   * 그런데 국토부 이름의 'N단지' 가 실제 단지명의 일부인지, 국토부가 블록을
+   * 구분하려고 붙인 건지는 데이터만으로 알 수 없습니다.
+   * (전체 5,915개 단지명 중 207개(3.5%)가 여기 해당)
+   *
+   * 그래서 추측하지 않고, 애매한 경우에만 두 가지를 모두 제시합니다.
+   * 나머지 96.5% 는 지금처럼 바로 링크로 엽니다.
+   */
+  function naverVariants(s) {
+    const full = naverComplexName(s.apt_name);
+    const broad = naverBroadName(s.apt_name);
+    const list = [{ name: full, label: full, note: '국토부 표기 그대로' }];
+    if (broad && broad !== full) {
+      list.push({ name: broad, label: broad, note: '단지번호 제외' });
+    }
+    return list.map(v => ({ ...v, url: naverLandUrlFor(s.dong, v.name) }));
   }
 
   /** 통합검색 폴백 — 여기서는 국토부 원래 이름을 그대로 써서 정확도를 살립니다. */
@@ -138,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.3';
+    link.href = 'real_estate/re_styles.css?v=1.4';
     document.head.appendChild(link);
   }
 
@@ -343,6 +368,12 @@
         if (this.suppressPop) { this.suppressPop = false; return; }
 
         // 뒤로가기 → 위에 떠 있는 것부터 하나씩 닫기
+        if (this.isSheetOpen()) {
+          this.closeNaverChooser();
+          this.suppressPop = true;
+          try { history.forward(); } catch (e) { this.suppressPop = false; }
+          return;
+        }
         if (this.isDetailOpen()) {
           this.historyDepth = Math.max(0, this.historyDepth - 1);
           this.hideDetail();
@@ -353,6 +384,57 @@
         }
       });
     }
+
+    /* 네이버 단지명 선택 시트 (애매한 3.5% 단지에서만 사용) */
+    openNaverChooser(info) {
+      this.closeNaverChooser();
+
+      const variants = naverVariants(info);
+      const sheet = document.createElement('div');
+      sheet.className = 're-naver-sheet';
+      sheet.innerHTML = `
+        <div class="re-naver-sheet-card" role="dialog" aria-label="네이버 부동산 검색어 선택">
+          <div class="re-naver-sheet-title">어떤 이름으로 검색할까요?</div>
+          <div class="re-naver-sheet-desc">
+            국토부와 네이버의 단지명 표기가 달라 둘 다 준비했습니다.
+            하나가 안 나오면 다른 쪽을 눌러보세요.
+          </div>
+          ${variants.map(v => `
+            <a class="re-naver-sheet-item" href="${v.url}" target="_blank" rel="noopener noreferrer">
+              <span class="re-naver-sheet-name">${escapeHtml(info.dong)} ${escapeHtml(v.label)}</span>
+              <span class="re-naver-sheet-note">${escapeHtml(v.note)}</span>
+            </a>
+          `).join('')}
+          <a class="re-naver-sheet-item re-naver-sheet-alt" href="${naverSearchUrl(info)}" target="_blank" rel="noopener noreferrer">
+            <span class="re-naver-sheet-name">네이버 통합검색</span>
+            <span class="re-naver-sheet-note">위 두 개가 모두 안 나올 때</span>
+          </a>
+          <button type="button" class="re-naver-sheet-close">닫기</button>
+        </div>
+      `;
+
+      sheet.addEventListener('click', (e) => {
+        if (e.target === sheet || e.target.closest('.re-naver-sheet-close')) {
+          this.closeNaverChooser();
+        }
+        // 링크를 누르면 새 탭이 열리므로 시트를 정리합니다.
+        if (e.target.closest('.re-naver-sheet-item')) {
+          setTimeout(() => this.closeNaverChooser(), 80);
+        }
+      });
+
+      document.body.appendChild(sheet);
+      this.naverSheetEl = sheet;
+    }
+
+    closeNaverChooser() {
+      if (this.naverSheetEl) {
+        this.naverSheetEl.remove();
+        this.naverSheetEl = null;
+      }
+    }
+
+    isSheetOpen() { return !!this.naverSheetEl; }
 
     isListOpen() { return !!this.modalEl && this.modalEl.style.display === 'flex'; }
     isDetailOpen() { return !!this.detailModalEl && this.detailModalEl.style.display === 'flex'; }
@@ -733,6 +815,20 @@
 
       this.saveState();
 
+      // 네이버 선택 시트 버튼 위임 (한 번만 바인딩)
+      if (!container._reNaverBound) {
+        container._reNaverBound = true;
+        container.addEventListener('click', (e) => {
+          const btn = e.target.closest('.re-naver-btn');
+          if (!btn) return;
+          e.preventDefault();
+          e.stopPropagation();
+          this.openNaverChooser({
+            gu: btn.dataset.gu, dong: btn.dataset.dong, apt_name: btn.dataset.apt
+          });
+        });
+      }
+
       container.innerHTML = '';
       filtered.forEach(s => {
         const cardEl = document.createElement('div');
@@ -740,7 +836,7 @@
         cardEl.innerHTML = this.renderCardHTML(s);
 
         cardEl.addEventListener('click', (e) => {
-          if (e.target.closest('.re-naver-link')) return;
+          if (e.target.closest('.re-naver-link, .re-naver-btn, .re-naver-sheet')) return;
           this.openDetailModal(s);
         });
 
@@ -773,6 +869,7 @@
       }).join('');
 
       const naverUrl = naverLandUrl(s);
+      const variants = naverVariants(s);
 
       return `
         <div class="re-card-main">
@@ -810,10 +907,19 @@
         </div>
 
         <div>
-          <a href="${naverUrl}" target="_blank" rel="noopener noreferrer" class="re-naver-link">
-            <span>네이버 부동산</span>
-            <span>↗</span>
-          </a>
+          ${variants.length > 1 ? `
+            <button type="button" class="re-naver-link re-naver-btn"
+                    data-gu="${escapeHtml(s.gu)}" data-dong="${escapeHtml(s.dong)}"
+                    data-apt="${escapeHtml(s.apt_name)}">
+              <span>네이버 부동산</span>
+              <span>▾</span>
+            </button>
+          ` : `
+            <a href="${naverUrl}" target="_blank" rel="noopener noreferrer" class="re-naver-link">
+              <span>네이버 부동산</span>
+              <span>↗</span>
+            </a>
+          `}
         </div>
       `;
     }
@@ -859,11 +965,14 @@
                 </div>
               </div>
               <div class="re-detail-links">
-                <a href="${naverLandUrl(s)}" target="_blank" rel="noopener noreferrer" class="re-naver-link">
-                  <span>네이버 부동산 매물 보기 ↗</span>
-                </a>
+                ${naverVariants(s).map((v, i) => `
+                  <a href="${v.url}" target="_blank" rel="noopener noreferrer"
+                     class="${i === 0 ? 're-naver-link' : 're-naver-alt'}">
+                    <span>네이버 부동산 · ${escapeHtml(v.label)}</span>
+                  </a>
+                `).join('')}
                 <a href="${naverSearchUrl(s)}" target="_blank" rel="noopener noreferrer" class="re-naver-fallback">
-                  네이버 부동산에서 안 나오면 → 통합검색 ↗
+                  그래도 안 나오면 → 네이버 통합검색 ↗
                 </a>
               </div>
             </div>
@@ -987,6 +1096,12 @@
 
   const instance = new RealEstateUI();
   window.realEstateUI = instance;
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && instance.isSheetOpen && instance.isSheetOpen()) {
+      instance.closeNaverChooser();
+    }
+  });
 
   // bfcache 로 되살아난 경우(뒤로가기) 컨트롤 값이 어긋날 수 있어 다시 맞춰줍니다.
   window.addEventListener('pageshow', (e) => {
