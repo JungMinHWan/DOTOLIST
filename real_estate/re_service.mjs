@@ -1,4 +1,14 @@
-import { parseXmlItems } from './re_parser.mjs';
+import { parseXmlItems, GU_MAP } from './re_parser.mjs';
+
+/**
+ * GU_MAP 재수출.
+ * netlify/functions/re_collector.mjs 와 re_scheduled_collector.mjs 가
+ *   import { collectAndSaveSingleMonth, GU_MAP } from '../../real_estate/re_service.mjs'
+ * 형태로 가져오는데, 정작 이 모듈이 GU_MAP 을 내보내지 않아
+ * esbuild 번들 단계에서 "No matching export ... for import GU_MAP" 로
+ * Netlify 빌드 전체가 exit code 2 로 실패했습니다.
+ */
+export { GU_MAP };
 
 /**
  * 국토교통부 실거래가 API 호출 (CORS 차단 방지 및 serviceKey 보안 관리용)
