@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.5';
+    link.href = 'real_estate/re_styles.css?v=1.6';
     document.head.appendChild(link);
   }
 
@@ -216,6 +216,7 @@
       this.activeLabel = '전체'; // 모아보기 필터
       this.viewMode = 'signals'; // 'signals' | 'labeled'
       this.activePrice = '전체';
+      this.filtersOpen = false;   // 모바일 기본 접힘 (데스크톱은 CSS 로 항상 펼침)
       this.historyDepth = 0;
       this.suppressPop = false;
       this.historyBound = false;
@@ -318,6 +319,7 @@
           activePrice: this.activePrice,
           viewMode: this.viewMode,
           activeLabel: this.activeLabel,
+          filtersOpen: this.filtersOpen,
           scrollTop: this.modalEl
             ? (this.modalEl.querySelector('.re-modal-body')?.scrollTop || 0) : 0,
           ts: Date.now()
@@ -343,6 +345,7 @@
       this.activePrice = st.activePrice || '전체';
       this.viewMode = st.viewMode || 'signals';
       this.activeLabel = st.activeLabel || '전체';
+      this.filtersOpen = !!st.filtersOpen;
       this._restoreScrollTop = st.scrollTop || 0;
 
       this.openModal();
@@ -368,6 +371,7 @@
       if (bar) bar.style.display = this.viewMode === 'labeled' ? 'flex' : 'none';
       const sb = this.modalEl.querySelector('.re-search-bar');
       if (sb) sb.style.display = this.viewMode === 'labeled' ? 'none' : '';
+      this.applyFilterCollapse();
       const clear = this.modalEl.querySelector('#re-search-clear');
       if (clear) clear.style.display = this.searchTerm ? 'flex' : 'none';
     }
@@ -503,6 +507,49 @@
       const cur = this.labelsOf(s);
       const next = cur.includes(label) ? cur.filter(l => l !== label) : cur.concat(label);
       this.setLabels(s, next);
+    }
+
+    /** 기본값이 아닌 필터의 개수와 요약 문구 */
+    activeFilterInfo() {
+      const items = [];
+      if (this.activeGu !== '전체') items.push(this.activeGu);
+      if (this.minScore !== 30) items.push(this.minScore + '점 이상');
+      if (this.activeDateDays !== '전체') items.push('최근 ' + this.activeDateDays + '일');
+      if (this.activePyeong !== '전체') {
+        const m = { under20: '20평 미만', '20s': '20평대', '30s': '30평대', over40: '40평 이상' };
+        items.push(m[this.activePyeong] || this.activePyeong);
+      }
+      if (this.activePrice !== '전체') {
+        const r = PRICE_RANGES.find(x => x.value === this.activePrice);
+        items.push(r ? r.label : this.activePrice);
+      }
+      if (this.activeFlagFilter !== '전체') items.push('플래그 제외');
+      if (this.activeSort !== 'score') {
+        items.push(this.activeSort === 'drop_rate' ? '하락률순' : '최근거래순');
+      }
+      return { count: items.length, text: items.length ? items.join(' · ') : '필터' };
+    }
+
+    applyFilterCollapse() {
+      if (!this.modalEl) return;
+      const bar = this.modalEl.querySelector('#re-filter-bar');
+      const btn = this.modalEl.querySelector('#re-filter-toggle');
+      const caret = this.modalEl.querySelector('.re-filter-caret');
+      if (!bar || !btn) return;
+
+      bar.classList.toggle('collapsed', !this.filtersOpen);
+      btn.setAttribute('aria-expanded', this.filtersOpen ? 'true' : 'false');
+      if (caret) caret.textContent = this.filtersOpen ? '▴' : '▾';
+
+      const info = this.activeFilterInfo();
+      const sum = this.modalEl.querySelector('#re-filter-summary');
+      const cnt = this.modalEl.querySelector('#re-filter-count');
+      if (sum) sum.textContent = info.text;
+      if (cnt) {
+        cnt.textContent = info.count;
+        cnt.style.display = info.count ? 'inline-flex' : 'none';
+      }
+      btn.classList.toggle('has-filter', info.count > 0);
     }
 
     renderLabelBar() {
@@ -722,7 +769,18 @@
             <div class="re-search-meta" id="re-search-meta"></div>
           </div>
 
-          <div class="re-filter-bar">
+          <button type="button" class="re-filter-toggle" id="re-filter-toggle" aria-expanded="false">
+            <span class="re-filter-toggle-left">
+              <span class="re-filter-toggle-icon">⚙️</span>
+              <span class="re-filter-toggle-text" id="re-filter-summary">필터</span>
+            </span>
+            <span class="re-filter-toggle-right">
+              <span class="re-filter-count" id="re-filter-count" style="display:none;">0</span>
+              <span class="re-filter-caret">▾</span>
+            </span>
+          </button>
+
+          <div class="re-filter-bar collapsed" id="re-filter-bar">
             <div class="re-filter-group">
               <span class="re-filter-label">자치구</span>
               <select class="re-select" id="re-filter-gu">
@@ -839,6 +897,13 @@
       overlay.querySelector('#re-filter-sort').addEventListener('change', (e) => {
         this.activeSort = e.target.value;
         this.fetchSignals();
+      });
+
+      // === 필터 접기/펼치기 (모바일) ===
+      overlay.querySelector('#re-filter-toggle').addEventListener('click', () => {
+        this.filtersOpen = !this.filtersOpen;
+        this.applyFilterCollapse();
+        this.saveState();
       });
 
       overlay.querySelector('#re-filter-price').addEventListener('change', (e) => {
@@ -1119,6 +1184,7 @@
       }
 
       this.saveState();
+      this.applyFilterCollapse();
 
       // 네이버 선택 시트 버튼 위임 (한 번만 바인딩)
       if (!container._reNaverBound) {

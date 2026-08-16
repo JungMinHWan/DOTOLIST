@@ -1199,3 +1199,92 @@
   }
   .re-label-input { font-size: 16px; }
 }
+
+/* ============================================================
+   필터 접기 (모바일 전용)
+   데스크톱에서는 토글 버튼을 숨기고 필터바를 항상 펼쳐 둡니다.
+   ============================================================ */
+.re-filter-toggle { display: none; }
+
+@media (max-width: 640px) {
+  .re-filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: calc(100% - 32px);
+    margin: 12px 16px 0 16px;
+    padding: 11px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #475569;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .re-filter-toggle.has-filter {
+    border-color: #3b82f6;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .re-filter-toggle-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .re-filter-toggle-icon { flex-shrink: 0; font-size: 14px; }
+
+  .re-filter-toggle-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .re-filter-toggle-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .re-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9999px;
+    background: #3b82f6;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .re-filter-caret { color: #94a3b8; font-size: 11px; }
+  .re-filter-toggle.has-filter .re-filter-caret { color: #3b82f6; }
+
+  /* 접힌 상태 */
+  .re-filter-bar.collapsed {
+    display: none;
+  }
+
+  /* 펼쳐진 상태는 기존 2열 그리드 유지 */
+  .re-filter-bar {
+    padding-top: 10px;
+    animation: reFilterOpen 0.18s ease-out;
+  }
+}
+
+@keyframes reFilterOpen {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
