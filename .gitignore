@@ -7,3 +7,9 @@
 
 # Workspace settings
 *.code-workspace
+
+# 실거래 신호 탐지 - 수집 원본 및 중간 산출물 (public 저장소에 올리지 않음)
+/real_estate/scripts/data_batches/
+/real_estate/scripts/sql_chunks/
+/real_estate/scripts/progress.json
+/real_estate/scripts/top5_high_dup_raw.json
