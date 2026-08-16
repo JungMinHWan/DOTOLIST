@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.4';
+    link.href = 'real_estate/re_styles.css?v=1.5';
     document.head.appendChild(link);
   }
 
@@ -171,6 +171,25 @@
     '전체', '강남구', '강동구', '강북구', '강서구', '관악구', '광진구', '구로구', '금천구',
     '노원구', '도봉구', '동대문구', '동작구', '마포구', '서대문구', '서초구', '성동구',
     '성북구', '송파구', '양천구', '영등포구', '용산구', '은평구', '종로구', '중구', '중랑구'
+  ];
+
+  /** 한 탭으로 붙이는 기본 라벨 */
+  const PRESET_LABELS = [
+    { text: '관심', emoji: '⭐' },
+    { text: '방문예정', emoji: '👣' },
+    { text: '보류', emoji: '⏸' },
+    { text: '재검토', emoji: '🔁' }
+  ];
+
+  /** 실거래가(최근 거래가) 구간 필터 — 값은 만원 단위 [최소, 최대) */
+  const PRICE_RANGES = [
+    { value: '전체',   label: '전체 가격' },
+    { value: '0-50000',        label: '5억 미만' },
+    { value: '50000-100000',   label: '5억 ~ 10억' },
+    { value: '100000-150000',  label: '10억 ~ 15억' },
+    { value: '150000-200000',  label: '15억 ~ 20억' },
+    { value: '200000-300000',  label: '20억 ~ 30억' },
+    { value: '300000-',        label: '30억 이상' }
   ];
 
   const FLAG_LABEL_MAP = {
@@ -192,6 +211,11 @@
       this.searchTerm = '';
       this.searchTimer = null;
       this.fetchSeq = 0;
+      this.labelMap = {};        // complex_key|area_bucket -> [라벨...]
+      this.labelCounts = [];     // 사용 중인 라벨 목록
+      this.activeLabel = '전체'; // 모아보기 필터
+      this.viewMode = 'signals'; // 'signals' | 'labeled'
+      this.activePrice = '전체';
       this.historyDepth = 0;
       this.suppressPop = false;
       this.historyBound = false;
@@ -291,6 +315,9 @@
           activePyeong: this.activePyeong,
           activeDateDays: this.activeDateDays,
           activeFlagFilter: this.activeFlagFilter,
+          activePrice: this.activePrice,
+          viewMode: this.viewMode,
+          activeLabel: this.activeLabel,
           scrollTop: this.modalEl
             ? (this.modalEl.querySelector('.re-modal-body')?.scrollTop || 0) : 0,
           ts: Date.now()
@@ -313,6 +340,9 @@
       this.activePyeong = st.activePyeong || '전체';
       this.activeDateDays = st.activeDateDays || '전체';
       this.activeFlagFilter = st.activeFlagFilter || '전체';
+      this.activePrice = st.activePrice || '전체';
+      this.viewMode = st.viewMode || 'signals';
+      this.activeLabel = st.activeLabel || '전체';
       this._restoreScrollTop = st.scrollTop || 0;
 
       this.openModal();
@@ -331,6 +361,13 @@
       set('#re-filter-pyeong', this.activePyeong);
       set('#re-filter-date', this.activeDateDays);
       set('#re-filter-flag', this.activeFlagFilter);
+      set('#re-filter-price', this.activePrice);
+      const tabs = this.modalEl.querySelectorAll('.re-tab');
+      tabs.forEach(t => t.classList.toggle('on', t.dataset.view === this.viewMode));
+      const bar = this.modalEl.querySelector('#re-label-bar');
+      if (bar) bar.style.display = this.viewMode === 'labeled' ? 'flex' : 'none';
+      const sb = this.modalEl.querySelector('.re-search-bar');
+      if (sb) sb.style.display = this.viewMode === 'labeled' ? 'none' : '';
       const clear = this.modalEl.querySelector('#re-search-clear');
       if (clear) clear.style.display = this.searchTerm ? 'flex' : 'none';
     }
@@ -368,6 +405,12 @@
         if (this.suppressPop) { this.suppressPop = false; return; }
 
         // 뒤로가기 → 위에 떠 있는 것부터 하나씩 닫기
+        if (this.isLabelSheetOpen()) {
+          this.closeLabelSheet();
+          this.suppressPop = true;
+          try { history.forward(); } catch (e) { this.suppressPop = false; }
+          return;
+        }
         if (this.isSheetOpen()) {
           this.closeNaverChooser();
           this.suppressPop = true;
@@ -384,6 +427,180 @@
         }
       });
     }
+
+    /* ============================================================
+     * 관심 단지 라벨 (Supabase re_watchlist, 기기 간 동기화)
+     * ============================================================ */
+    labelKey(s) { return `${s.complex_key}|${s.area_bucket}`; }
+    labelsOf(s) { return this.labelMap[this.labelKey(s)] || []; }
+
+    async rpc(name, payload) {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload || {})
+      });
+      const text = await res.text();
+      if (!res.ok) {
+        const err = new Error(`HTTP ${res.status} ${text.slice(0, 200)}`);
+        err.status = res.status;
+        err.body = text;
+        throw err;
+      }
+      try { return JSON.parse(text); } catch (e) { return null; }
+    }
+
+    /** 라벨 전체를 불러와 캐시에 담습니다. 미설치(PGRST202)면 조용히 비활성화. */
+    async loadLabels() {
+      try {
+        const rows = await this.rpc('re_get_labeled', { p_label: null });
+        this.labelMap = {};
+        (rows || []).forEach(r => {
+          this.labelMap[`${r.complex_key}|${r.area_bucket}`] = r.labels || [];
+        });
+        this.labelCounts = (await this.rpc('re_list_labels', {})) || [];
+        this.labelsEnabled = true;
+      } catch (e) {
+        if (e.status === 404 || (e.body || '').includes('PGRST202')) {
+          this.labelsEnabled = false;
+          console.warn('[실거래 신호 탐지] 라벨 기능 미설치 → real_estate/re_labels.sql 을 실행하세요.');
+        } else {
+          console.error('[실거래 신호 탐지] 라벨 조회 실패:', e);
+        }
+      }
+    }
+
+    async setLabels(s, labels) {
+      const key = this.labelKey(s);
+      const prev = this.labelMap[key] || [];
+      this.labelMap[key] = labels;            // 낙관적 반영
+      this.renderList();
+
+      try {
+        await this.rpc('re_set_labels', {
+          p_complex_key: s.complex_key,
+          p_area_bucket: s.area_bucket,
+          p_labels: labels,
+          p_gu: s.gu, p_dong: s.dong, p_apt_name: s.apt_name, p_pyeong: s.pyeong
+        });
+        if (labels.length === 0) delete this.labelMap[key];
+        this.labelCounts = (await this.rpc('re_list_labels', {})) || [];
+        if (this.viewMode === 'labeled') this.fetchSignals();
+        else this.renderLabelBar();
+      } catch (e) {
+        this.labelMap[key] = prev;            // 실패 시 되돌리기
+        this.renderList();
+        console.error('[실거래 신호 탐지] 라벨 저장 실패:', e);
+        alert('라벨 저장에 실패했습니다.\n' + (e.message || ''));
+      }
+    }
+
+    toggleLabel(s, label) {
+      const cur = this.labelsOf(s);
+      const next = cur.includes(label) ? cur.filter(l => l !== label) : cur.concat(label);
+      this.setLabels(s, next);
+    }
+
+    renderLabelBar() {
+      const bar = this.modalEl && this.modalEl.querySelector('#re-label-bar');
+      if (!bar) return;
+      const total = (this.labelCounts || []).reduce((a, b) => a + Number(b.cnt || 0), 0);
+      bar.innerHTML = `
+        <button type="button" class="re-label-filter ${this.activeLabel === '전체' ? 'on' : ''}" data-label="전체">
+          전체 ${total ? `<b>${total}</b>` : ''}
+        </button>
+        ${(this.labelCounts || []).map(l => `
+          <button type="button" class="re-label-filter ${this.activeLabel === l.label ? 'on' : ''}"
+                  data-label="${escapeHtml(l.label)}">
+            ${escapeHtml(l.label)} <b>${l.cnt}</b>
+          </button>
+        `).join('')}
+      `;
+    }
+
+    /** 라벨 붙이기 시트 */
+    openLabelSheet(s) {
+      this.closeLabelSheet();
+      const cur = this.labelsOf(s);
+      const custom = cur.filter(l => !PRESET_LABELS.some(p => p.text === l));
+
+      const sheet = document.createElement('div');
+      sheet.className = 're-label-sheet';
+      sheet.innerHTML = `
+        <div class="re-label-card" role="dialog" aria-label="라벨 붙이기">
+          <div class="re-label-title">라벨 붙이기</div>
+          <div class="re-label-sub">${escapeHtml(s.apt_name)} · ${s.pyeong}평</div>
+
+          <div class="re-label-grid">
+            ${PRESET_LABELS.map(pl => `
+              <button type="button" class="re-label-chip ${cur.includes(pl.text) ? 'on' : ''}"
+                      data-label="${escapeHtml(pl.text)}">
+                <span>${pl.emoji}</span> ${escapeHtml(pl.text)}
+              </button>
+            `).join('')}
+            ${custom.map(c => `
+              <button type="button" class="re-label-chip on re-label-custom" data-label="${escapeHtml(c)}">
+                <span>🏷</span> ${escapeHtml(c)}
+              </button>
+            `).join('')}
+          </div>
+
+          <div class="re-label-input-row">
+            <input type="text" class="re-label-input" id="re-label-input"
+                   placeholder="직접 입력 (예: 처형한 대온단지)" maxlength="20" autocomplete="off" />
+            <button type="button" class="re-label-add" id="re-label-add">추가</button>
+          </div>
+
+          <button type="button" class="re-label-close">완료</button>
+        </div>
+      `;
+
+      const input = () => sheet.querySelector('#re-label-input');
+
+      const addCustom = () => {
+        const v = (input().value || '').trim().slice(0, 20);
+        if (!v) return;
+        if (!this.labelsOf(s).includes(v)) this.toggleLabel(s, v);
+        input().value = '';
+        this.closeLabelSheet();
+        this.openLabelSheet(s);   // 갱신된 상태로 다시 그림
+      };
+
+      sheet.addEventListener('click', (e) => {
+        if (e.target === sheet || e.target.closest('.re-label-close')) {
+          this.closeLabelSheet();
+          return;
+        }
+        const chip = e.target.closest('.re-label-chip');
+        if (chip) {
+          const label = chip.dataset.label;
+          chip.classList.toggle('on');
+          this.toggleLabel(s, label);
+          return;
+        }
+        if (e.target.closest('#re-label-add')) addCustom();
+      });
+
+      sheet.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.id === 're-label-input') {
+          e.preventDefault();
+          addCustom();
+        }
+      });
+
+      document.body.appendChild(sheet);
+      this.labelSheetEl = sheet;
+    }
+
+    closeLabelSheet() {
+      if (this.labelSheetEl) { this.labelSheetEl.remove(); this.labelSheetEl = null; }
+    }
+
+    isLabelSheetOpen() { return !!this.labelSheetEl; }
 
     /* 네이버 단지명 선택 시트 (애매한 3.5% 단지에서만 사용) */
     openNaverChooser(info) {
@@ -487,6 +704,13 @@
             <button class="re-close-btn" id="re-modal-close-btn">&times;</button>
           </div>
 
+          <div class="re-tabs">
+            <button type="button" class="re-tab on" data-view="signals">📉 신호 목록</button>
+            <button type="button" class="re-tab" data-view="labeled">🏷 내 라벨</button>
+          </div>
+
+          <div class="re-label-bar" id="re-label-bar" style="display:none;"></div>
+
           <div class="re-search-bar">
             <div class="re-search-wrap">
               <span class="re-search-icon">🔍</span>
@@ -535,6 +759,13 @@
                 <option value="20s">20평대</option>
                 <option value="30s">30평대</option>
                 <option value="over40">40평 이상</option>
+              </select>
+            </div>
+
+            <div class="re-filter-group">
+              <span class="re-filter-label">실거래가</span>
+              <select class="re-select" id="re-filter-price">
+                ${PRICE_RANGES.map(r => `<option value="${r.value}">${r.label}</option>`).join('')}
               </select>
             </div>
 
@@ -610,6 +841,33 @@
         this.fetchSignals();
       });
 
+      overlay.querySelector('#re-filter-price').addEventListener('change', (e) => {
+        this.activePrice = e.target.value;
+        this.renderList();
+      });
+
+      // === 탭 전환 ===
+      overlay.querySelector('.re-tabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('.re-tab');
+        if (!tab) return;
+        const view = tab.dataset.view;
+        if (view === this.viewMode) return;
+        this.viewMode = view;
+        overlay.querySelectorAll('.re-tab').forEach(t => t.classList.toggle('on', t.dataset.view === view));
+        overlay.querySelector('#re-label-bar').style.display = view === 'labeled' ? 'flex' : 'none';
+        overlay.querySelector('.re-search-bar').style.display = view === 'labeled' ? 'none' : '';
+        this.activeLabel = '전체';
+        this.fetchSignals();
+      });
+
+      // === 라벨바 (모아보기 필터) ===
+      overlay.querySelector('#re-label-bar').addEventListener('click', (e) => {
+        const b = e.target.closest('.re-label-filter');
+        if (!b) return;
+        this.activeLabel = b.dataset.label;
+        this.fetchSignals();
+      });
+
       // === 검색창 ===
       const searchInput = overlay.querySelector('#re-search-input');
       const clearBtn = overlay.querySelector('#re-search-clear');
@@ -666,6 +924,24 @@
         // 검색 중에는 re_signals 가 아니라 국토부 원본(re_deals)까지 뒤지는 RPC 를 씁니다.
         // re_signals 에는 "하락 신호가 잡힌 평형"만 있어서, 표본이 적거나 값이 오른
         // 평형은 아예 행이 없기 때문입니다. (예: 용산더프라임 11개 평형 중 1개만 존재)
+        // 라벨 캐시가 없으면 먼저 채웁니다(카드에 라벨 칩을 그리기 위해).
+        if (!this.labelsLoaded) { this.labelsLoaded = true; await this.loadLabels(); }
+
+        // 내 라벨 탭
+        if (this.viewMode === 'labeled') {
+          const rows = await this.rpc('re_get_labeled', {
+            p_label: this.activeLabel === '전체' ? null : this.activeLabel
+          });
+          if (seq !== this.fetchSeq) return;
+          this.labelMap = {};
+          (rows || []).forEach(r => { this.labelMap[`${r.complex_key}|${r.area_bucket}`] = r.labels || []; });
+          this.labelCounts = (await this.rpc('re_list_labels', {})) || [];
+          this.signals = rows || [];
+          this.renderLabelBar();
+          this.renderList();
+          return;
+        }
+
         const isSearch = !!this.searchTerm;
 
         const callRpc = async (name, payload) => {
@@ -748,9 +1024,11 @@
       // 검색 중에는 서버가 점수 필터를 해제하므로 클라이언트에서도 동일하게 맞춥니다.
       // (안 맞추면 서버가 찾아준 낮은 점수 단지를 여기서 다시 걸러버립니다)
       const isSearching = !!this.searchTerm;
+      const isLabeled = this.viewMode === 'labeled';
 
       let filtered = this.signals.filter(s => {
-        if (!isSearching && parseInt(s.score) < parseInt(this.minScore)) return false;
+        // 내 라벨 탭에서는 점수 조건을 적용하지 않습니다(신호가 사라져도 보여야 하므로).
+        if (!isLabeled && !isSearching && parseInt(s.score) < parseInt(this.minScore)) return false;
         if (this.activeGu !== '전체' && s.gu !== this.activeGu) return false;
 
         if (this.activeDateDays !== '전체') {
@@ -761,6 +1039,13 @@
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > days || diffDays < 0) return false;
           }
+        }
+
+        if (this.activePrice !== '전체') {
+          const [lo, hi] = this.activePrice.split('-');
+          const amt = Number(s.latest_amount) || 0;
+          if (lo !== '' && amt < Number(lo)) return false;
+          if (hi !== '' && amt >= Number(hi)) return false;
         }
 
         const p = parseInt(s.pyeong);
@@ -779,7 +1064,11 @@
       // 검색 결과 요약 표시
       const metaEl = document.getElementById('re-search-meta');
       if (metaEl) {
-        if (isSearching) {
+        if (isLabeled) {
+          metaEl.innerHTML = filtered.length
+            ? `<span class="re-meta-dim">라벨 붙인 단지 <strong>${filtered.length}건</strong>${this.activeLabel !== '전체' ? ` · '${escapeHtml(this.activeLabel)}'` : ''}</span>`
+            : `<span class="re-meta-dim">아직 라벨을 붙인 단지가 없습니다</span>`;
+        } else if (isSearching) {
           const sig = filtered.filter(x => x.has_signal !== false && x.score !== null && x.score !== undefined).length;
           const degraded = this.searchDegraded
             ? ` <span class="re-meta-warn">⚠️ 신호 목록에서만 검색 중 — re_search_v2.sql 미실행</span>`
@@ -790,6 +1079,22 @@
         } else {
           metaEl.innerHTML = `<span class="re-meta-dim">${filtered.length}건 표시 중 · ${this.minScore}점 이상</span>`;
         }
+      }
+
+      if (filtered.length === 0 && isLabeled) {
+        container.innerHTML = `
+          <div class="re-empty-state">
+            <div class="re-empty-icon">🏷</div>
+            <div class="re-empty-text">${this.labelsEnabled === false ? '라벨 기능이 아직 설치되지 않았습니다.' : '라벨을 붙인 단지가 없습니다.'}</div>
+            <div class="re-empty-sub">
+              ${this.labelsEnabled === false
+                ? 'Supabase SQL Editor 에서 real_estate/re_labels.sql 을 실행해 주세요.'
+                : "신호 목록에서 마음에 드는 카드의 <b>🏷 라벨</b> 버튼을 눌러 보세요.<br>관심 · 방문예정 같은 기본 라벨을 한 번에 붙이거나 직접 입력할 수 있습니다."}
+            </div>
+          </div>
+        `;
+        this.saveState();
+        return;
       }
 
       if (filtered.length === 0) {
@@ -819,6 +1124,15 @@
       if (!container._reNaverBound) {
         container._reNaverBound = true;
         container.addEventListener('click', (e) => {
+          const lb = e.target.closest('.re-label-btn');
+          if (lb) {
+            e.preventDefault();
+            e.stopPropagation();
+            const row = this.signals.find(x =>
+              String(x.complex_key) === lb.dataset.ck && String(x.area_bucket) === lb.dataset.ab);
+            if (row) this.openLabelSheet(row);
+            return;
+          }
           const btn = e.target.closest('.re-naver-btn');
           if (!btn) return;
           e.preventDefault();
@@ -836,7 +1150,7 @@
         cardEl.innerHTML = this.renderCardHTML(s);
 
         cardEl.addEventListener('click', (e) => {
-          if (e.target.closest('.re-naver-link, .re-naver-btn, .re-naver-sheet')) return;
+          if (e.target.closest('.re-naver-link, .re-naver-btn, .re-naver-sheet, .re-label-btn, .re-label-sheet')) return;
           this.openDetailModal(s);
         });
 
@@ -870,6 +1184,7 @@
 
       const naverUrl = naverLandUrl(s);
       const variants = naverVariants(s);
+      const myLabels = this.labelsOf(s);
 
       return `
         <div class="re-card-main">
@@ -901,12 +1216,20 @@
               </div>
             </div>
 
+            ${myLabels.length ? `<div class="re-mylabel-group">${
+              myLabels.map(l => `<span class="re-mylabel">🏷 ${escapeHtml(l)}</span>`).join('')
+            }</div>` : ''}
             ${!hasSignal ? `<div class="re-nosignal-note">하락 신호 조건 미충족 — 거래 표본 3건 미만이거나, 최근 180일 거래가 없거나, 가격이 떨어지지 않은 평형입니다. 카드를 눌러 국토부 원본 거래내역은 볼 수 있습니다.</div>` : ''}
             ${tagHTML ? `<div class="re-tag-group">${tagHTML}</div>` : ''}
           </div>
         </div>
 
-        <div>
+        <div class="re-card-actions">
+          <button type="button" class="re-label-btn ${myLabels.length ? 'on' : ''}"
+                  data-ck="${escapeHtml(s.complex_key)}" data-ab="${escapeHtml(String(s.area_bucket))}"
+                  title="라벨 붙이기">
+            ${myLabels.length ? `🏷 ${myLabels.length}` : '🏷 라벨'}
+          </button>
           ${variants.length > 1 ? `
             <button type="button" class="re-naver-link re-naver-btn"
                     data-gu="${escapeHtml(s.gu)}" data-dong="${escapeHtml(s.dong)}"

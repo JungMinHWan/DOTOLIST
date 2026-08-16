@@ -989,3 +989,213 @@
   }
   .re-naver-alt { white-space: normal; }
 }
+
+/* ============================================================
+   탭 / 라벨 기능
+   ============================================================ */
+.re-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0 24px;
+  background: #f8fafc;
+}
+
+.re-tab {
+  flex: 0 0 auto;
+  padding: 9px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.re-tab:hover { border-color: #cbd5e1; }
+
+.re-tab.on {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+/* 라벨 필터 바 */
+.re-label-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 24px 0 24px;
+  background: #f8fafc;
+}
+
+.re-label-filter {
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.re-label-filter b { color: #94a3b8; margin-left: 2px; font-weight: 700; }
+.re-label-filter.on { background: #eff6ff; border-color: #3b82f6; color: #1d4ed8; }
+.re-label-filter.on b { color: #3b82f6; }
+
+/* 카드의 라벨 버튼 */
+.re-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.re-label-btn {
+  padding: 7px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.re-label-btn:hover { border-color: #f59e0b; color: #b45309; }
+.re-label-btn.on { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
+
+/* 카드에 붙은 라벨 칩 */
+.re-mylabel-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.re-mylabel {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* 라벨 붙이기 시트 */
+.re-label-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 100010;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: reFadeIn 0.18s ease-out;
+  box-sizing: border-box;
+}
+
+.re-label-sheet * { box-sizing: border-box; }
+
+.re-label-card {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 380px;
+  padding: 20px;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.re-label-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+.re-label-sub { font-size: 12px; color: #64748b; margin: 4px 0 14px; }
+
+.re-label-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.re-label-chip {
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.re-label-chip:hover { border-color: #fcd34d; }
+.re-label-chip.on { background: #fffbeb; border-color: #f59e0b; color: #b45309; }
+
+.re-label-input-row { display: flex; gap: 8px; margin-bottom: 14px; }
+
+.re-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font-size: 14px;
+  outline: none;
+  font-family: inherit;
+}
+
+.re-label-input:focus { border-color: #3b82f6; }
+
+.re-label-add {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.re-label-close {
+  width: 100%;
+  padding: 11px;
+  border: none;
+  border-radius: 10px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+@media (max-width: 640px) {
+  .re-tabs { padding: 12px 16px 0 16px; }
+  .re-tab { flex: 1; text-align: center; padding: 10px 8px; }
+  .re-label-bar { padding: 10px 16px 0 16px; }
+  .re-card-actions { flex-direction: row; }
+  .re-card-actions .re-label-btn { flex: 0 0 auto; }
+  .re-card-actions .re-naver-link { flex: 1; }
+  .re-label-sheet { align-items: flex-end; padding: 0; }
+  .re-label-card {
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+  .re-label-input { font-size: 16px; }
+}
