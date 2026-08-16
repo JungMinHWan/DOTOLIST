@@ -49,12 +49,31 @@
       .trim();
   }
 
+  /**
+   * 네이버 검색용으로 단지명을 "넓힌" 형태.
+   *
+   * 국토부는 같은 단지의 블록을 'N단지' 로 나눠 표기하지만
+   * 네이버·호갱노노·KB 등은 대개 접미사 없는 이름을 씁니다.
+   *   국토부 '목동센트럴아이파크위브1단지' → 네이버 '목동센트럴아이파크위브'
+   * 그래서 끝의 'N단지' 를 떼고 검색합니다.
+   *
+   * 접미사를 떼면 '창동주공3단지' → '창동주공' 처럼 넓어지는 경우도 있는데,
+   * 이때 네이버는 창동주공 1~4단지 목록을 보여줍니다.
+   * 즉 실패해도 '결과 없음' 막다른 길이 아니라 후보 목록이 나오므로,
+   * 정확도를 조금 잃더라도 항상 뭔가 보이는 쪽이 낫습니다.
+   */
+  function naverBroadName(aptName) {
+    const full = naverComplexName(aptName);
+    const stripped = full.replace(/\s*\d+\s*단지\s*$/, '').trim();
+    return stripped.length >= 2 ? stripped : full;
+  }
+
   function naverLandUrl(s) {
-    const q = `${s.dong || ''} ${naverComplexName(s.apt_name)}`.trim();
+    const q = `${s.dong || ''} ${naverBroadName(s.apt_name)}`.trim();
     return `https://m.land.naver.com/search/result/${encodeURIComponent(q)}`;
   }
 
-  /** 네이버 부동산에서 못 찾을 때를 위한 통합검색 폴백 (거의 항상 결과가 있음) */
+  /** 통합검색 폴백 — 여기서는 국토부 원래 이름을 그대로 써서 정확도를 살립니다. */
   function naverSearchUrl(s) {
     const q = `${s.gu || ''} ${naverComplexName(s.apt_name)} 아파트`.trim();
     return `https://m.search.naver.com/search.naver?query=${encodeURIComponent(q)}`;
@@ -119,7 +138,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.2';
+    link.href = 'real_estate/re_styles.css?v=1.3';
     document.head.appendChild(link);
   }
 
@@ -164,6 +183,9 @@
       if (!this.registerFeatureCard()) {
         this.observeDOM();
       }
+      // 외부 사이트(네이버 부동산)에 다녀와 페이지가 새로 로드된 경우
+      // 직전에 보던 목록과 검색어를 되살립니다.
+      this.restoreState();
     }
 
     observeDOM() {
@@ -224,6 +246,71 @@
     }
 
     /* ============================================================
+     * 화면 상태 보존
+     *
+     * 네이버 부동산 링크는 외부 사이트로 나가는데, PWA(standalone) 에서는
+     * 돌아올 때 페이지가 새로 로드되는 경우가 많습니다. 그러면 모달이 닫히고
+     * 입력했던 검색어와 필터가 전부 날아갑니다.
+     * ("뒤로가기하면 화면은 나오는데 검색은 안 되는" 증상)
+     *
+     * sessionStorage(탭 단위) 에 상태를 남겨 두었다가 복원합니다.
+     * ============================================================ */
+    saveState() {
+      try {
+        sessionStorage.setItem('re_ui_state', JSON.stringify({
+          open: this.isListOpen(),
+          searchTerm: this.searchTerm,
+          activeGu: this.activeGu,
+          minScore: this.minScore,
+          activeSort: this.activeSort,
+          activePyeong: this.activePyeong,
+          activeDateDays: this.activeDateDays,
+          activeFlagFilter: this.activeFlagFilter,
+          scrollTop: this.modalEl
+            ? (this.modalEl.querySelector('.re-modal-body')?.scrollTop || 0) : 0,
+          ts: Date.now()
+        }));
+      } catch (e) { /* 사파리 프라이빗 모드 등 */ }
+    }
+
+    restoreState() {
+      let st = null;
+      try { st = JSON.parse(sessionStorage.getItem('re_ui_state') || 'null'); } catch (e) {}
+      if (!st || !st.open) return false;
+
+      // 30분 넘게 지난 상태는 복원하지 않습니다.
+      if (st.ts && Date.now() - st.ts > 30 * 60 * 1000) return false;
+
+      this.searchTerm = st.searchTerm || '';
+      this.activeGu = st.activeGu || '전체';
+      this.minScore = Number.isFinite(st.minScore) ? st.minScore : 30;
+      this.activeSort = st.activeSort || 'score';
+      this.activePyeong = st.activePyeong || '전체';
+      this.activeDateDays = st.activeDateDays || '전체';
+      this.activeFlagFilter = st.activeFlagFilter || '전체';
+      this._restoreScrollTop = st.scrollTop || 0;
+
+      this.openModal();
+      this.syncControls();
+      return true;
+    }
+
+    /** 복원한 값들을 실제 입력 요소에 반영 */
+    syncControls() {
+      if (!this.modalEl) return;
+      const set = (id, val) => { const el = this.modalEl.querySelector(id); if (el) el.value = val; };
+      set('#re-search-input', this.searchTerm);
+      set('#re-filter-gu', this.activeGu);
+      set('#re-filter-score', String(this.minScore));
+      set('#re-filter-sort', this.activeSort);
+      set('#re-filter-pyeong', this.activePyeong);
+      set('#re-filter-date', this.activeDateDays);
+      set('#re-filter-flag', this.activeFlagFilter);
+      const clear = this.modalEl.querySelector('#re-search-clear');
+      if (clear) clear.style.display = this.searchTerm ? 'flex' : 'none';
+    }
+
+    /* ============================================================
      * 뒤로가기(브라우저/안드로이드 백버튼, iOS 스와이프) 대응
      *
      * 모달을 열 때 history 항목을 하나 쌓아두고, popstate 가 오면 모달을 닫습니다.
@@ -262,6 +349,7 @@
         } else if (this.isListOpen()) {
           this.historyDepth = Math.max(0, this.historyDepth - 1);
           this.hideList();
+          this.saveState();
         }
       });
     }
@@ -279,12 +367,14 @@
       this.bindHistory();
       this.modalEl.style.display = 'flex';
       this.pushHistory('list');
+      this.saveState();
       this.fetchSignals();
     }
 
     closeModal() {
       if (!this.isListOpen()) return;
       this.hideList();
+      this.saveState();
       this.popHistory();
     }
 
@@ -545,6 +635,13 @@
 
         this.signals = Array.isArray(fetchedData) ? fetchedData : [];
         this.renderList();
+        this.saveState();
+
+        if (this._restoreScrollTop) {
+          const body = this.modalEl && this.modalEl.querySelector('.re-modal-body');
+          if (body) body.scrollTop = this._restoreScrollTop;
+          this._restoreScrollTop = 0;
+        }
       } catch (err) {
         if (seq !== this.fetchSeq) return;
         console.error('[실거래 신호 탐지] 데이터 조회 오류:', err);
@@ -633,6 +730,8 @@
         `;
         return;
       }
+
+      this.saveState();
 
       container.innerHTML = '';
       filtered.forEach(s => {
@@ -888,6 +987,13 @@
 
   const instance = new RealEstateUI();
   window.realEstateUI = instance;
+
+  // bfcache 로 되살아난 경우(뒤로가기) 컨트롤 값이 어긋날 수 있어 다시 맞춰줍니다.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && instance.isListOpen && instance.isListOpen()) {
+      instance.syncControls();
+    }
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => instance.init());
