@@ -513,7 +513,7 @@ const api = {
   async searchTasks(keyword) {
     try {
       if (!keyword) return [];
-      
+
       const { data, error } = await supabaseClient
         .from('tasks')
         .select()
@@ -524,6 +524,37 @@ const api = {
     } catch (e) {
       console.error(e);
       return [];
+    }
+  },
+
+  // 통합 검색: 할일 + 메모 + 일기 + 신문을 한 번에 검색
+  async searchAll(keyword) {
+    const empty = { tasks: [], memos: [], diaries: [], news: [] };
+    try {
+      if (!keyword) return empty;
+      const like = `%${keyword}%`;
+
+      const [t, m, d, n] = await Promise.all([
+        supabaseClient.from('tasks').select().ilike('description', like),
+        supabaseClient.from('daily_memos').select('date, content').ilike('content', like).order('date', { ascending: false }),
+        supabaseClient.from('daily_diaries').select('date, content').ilike('content', like).order('date', { ascending: false }),
+        supabaseClient.from('daily_news').select('date, content').ilike('content', like).order('date', { ascending: false })
+      ]);
+
+      if (t.error) throw t.error;
+      if (m.error) throw m.error;
+      if (d.error) throw d.error;
+      if (n.error) throw n.error;
+
+      return {
+        tasks: this._sortTasks(t.data || []),
+        memos: m.data || [],
+        diaries: d.data || [],
+        news: n.data || []
+      };
+    } catch (e) {
+      console.error(e);
+      return empty;
     }
   },
 

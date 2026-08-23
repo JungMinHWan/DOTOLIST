@@ -19,13 +19,13 @@ let selectedManual = null;
 let currentManualFilter = 'all';
 
 const THEMES = {
-  0: { primary: '#9f383a', dark: '#6d2224', light: '#faf0f0', header: 'linear-gradient(135deg, #b55052 0%, #6d2224 100%)' }, // 일: Lava Falls (용암 폭포 레드 - 열정적인 레드)
-  1: { primary: '#f5b800', dark: '#5c3e00', light: '#fffdf0', header: 'linear-gradient(135deg, #ffe543 0%, #f5b800 100%)' }, // 월: Lemon & Mango (레몬 망고 옐로우 - 맑고 상큼한 팬톤 옐로우 에너지)
-  2: { primary: '#e88c67', dark: '#a45634', light: '#fdf7f4', header: 'linear-gradient(135deg, #f5a788 0%, #a45634 100%)' }, // 화: Muskmelon (머스크멜론 오렌지 - 기분 좋은 생기)
-  3: { primary: '#4a7a96', dark: '#2f5268', light: '#eef3f6', header: 'linear-gradient(135deg, #6c9bc0 0%, #2f5268 100%)' }, // 수: Marina (마리나 블루 - 한 주의 절반을 환기하는 평온한 블루)
-  4: { primary: '#2b8285', dark: '#1a5658', light: '#ecf6f6', header: 'linear-gradient(135deg, #44a2a5 0%, #1a5658 100%)' }, // 목: Alexandrite (알렉산드라이트 틸 - 고급스럽고 깊이 있는 청록색)
-  5: { primary: '#d1af4e', dark: '#91772f', light: '#faf8ee', header: 'linear-gradient(135deg, #e5c66b 0%, #91772f 100%)' }, // 금: Acacia (아카시아 옐로우 골드 - 주말을 앞둔 긍정적인 에너지)
-  6: { primary: '#8a456c', dark: '#5c2847', light: '#faf3f6', header: 'linear-gradient(135deg, #a55e87 0%, #5c2847 100%)' }  // 토: Amaranth (아마란스 딥 퍼플 - 주말 밤의 매혹적인 와인 퍼플)
+  0: { primary: '#E5484D', dark: '#C03538', light: '#FDECEC', header: '#E5484D' },                    // 일: 비비드 레드
+  1: { primary: '#1E40AF', dark: '#16308A', light: '#E8EDFB', header: '#1E40AF' },                    // 월: 딥 네이비
+  2: { primary: '#F76808', dark: '#C05206', light: '#FEF0E5', header: '#F76808' },                    // 화: 비비드 오렌지
+  3: { primary: '#0091FF', dark: '#0072C9', light: '#E5F3FF', header: '#0091FF' },                    // 수: 클리어 블루
+  4: { primary: '#12A594', dark: '#0E8074', light: '#E5F6F4', header: '#12A594' },                    // 목: 틸
+  5: { primary: '#D4A017', dark: '#8A6A0B', light: '#FBF3DC', header: '#D4A017', lightHeader: true }, // 금: 골드 (밝은 헤더 → 진한 글자)
+  6: { primary: '#6F4E37', dark: '#57402D', light: '#F3EDE8', header: '#6F4E37' }                     // 토: 딥 어스 브라운
 };
 
 
@@ -38,6 +38,8 @@ function applyThemeByDate(dateStr) {
   root.style.setProperty('--theme-primary-dark', theme.dark);
   root.style.setProperty('--theme-light-bg', theme.light);
   root.style.setProperty('--theme-header-bg', theme.header);
+  // 밝은 헤더(금요일 골드)는 흰 글자 대신 진한 글자로 전환
+  if (document.body) document.body.classList.toggle('light-header', !!theme.lightHeader);
 }
 
 function getTodayString() {
@@ -1588,10 +1590,81 @@ async function executeSearch() {
   list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
   closeAllHeaders();
   document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
-  
-  const tasks = await api.searchTasks(kw);
-  if(!tasks || tasks.length === 0) list.innerHTML = `<div class="empty-state"><p>'${kw}' 결과 없음</p></div>`;
-  else renderTasks(tasks);
+
+  const r = await api.searchAll(kw);
+  const total = r.tasks.length + r.memos.length + r.diaries.length + r.news.length;
+
+  if (total === 0) {
+    list.innerHTML = `<div class="empty-state"><p>'${escapeHtml(kw)}' 검색 결과가 없습니다</p></div>`;
+    return;
+  }
+
+  // 할일은 기존 렌더러 재사용 (체크/수정/삭제 인터랙션 유지)
+  if (r.tasks.length > 0) {
+    renderTasks(r.tasks);
+  } else {
+    list.innerHTML = '';
+    loadedTasks = [];
+  }
+
+  // 할일 섹션 레이블 + 요약 바를 위에 붙임
+  const summaryHtml = `
+    <div class="search-summary">
+      <span class="search-summary-total">'${escapeHtml(kw)}' 검색 결과 ${total}건</span>
+      <span class="search-summary-counts">할일 ${r.tasks.length} · 메모 ${r.memos.length} · 일기 ${r.diaries.length} · 신문 ${r.news.length}</span>
+    </div>
+    ${r.tasks.length > 0 ? '<div class="search-section-label">할일 · ' + r.tasks.length + '</div>' : ''}`;
+  list.insertAdjacentHTML('afterbegin', summaryHtml);
+
+  // 메모 / 일기 / 신문 스니펫 섹션
+  const sections = [
+    { key: 'memos',   label: '메모', type: 'memo',  rows: r.memos },
+    { key: 'diaries', label: '일기', type: 'diary', rows: r.diaries },
+    { key: 'news',    label: '신문', type: 'news',  rows: r.news }
+  ];
+
+  let recordsHtml = '';
+  sections.forEach(sec => {
+    if (!sec.rows || sec.rows.length === 0) return;
+    recordsHtml += `<div class="search-section-label">${sec.label} · ${sec.rows.length}</div>`;
+    recordsHtml += sec.rows.map(row => `
+      <div class="record-result-card" onclick="openRecordFromSearch('${row.date}', '${sec.type}')">
+        <div class="record-result-head">
+          <span class="record-result-date">${formatDateKorean(row.date)} ${sec.label}</span>
+          <span class="record-result-arrow">&rsaquo;</span>
+        </div>
+        <div class="record-result-snippet">${makeSearchSnippet(row.content, kw)}</div>
+      </div>`).join('');
+  });
+  if (recordsHtml) list.insertAdjacentHTML('beforeend', recordsHtml);
+}
+
+// 검색어 주변 발췌문 생성 + 키워드 하이라이트
+function makeSearchSnippet(content, kw, radius = 45) {
+  if (!content) return '';
+  const lowered = content.toLowerCase();
+  const idx = lowered.indexOf(kw.toLowerCase());
+  let start = 0, end = content.length;
+  if (idx >= 0) {
+    start = Math.max(0, idx - radius);
+    end = Math.min(content.length, idx + kw.length + radius);
+  } else {
+    end = Math.min(content.length, radius * 2);
+  }
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < content.length ? '…' : '';
+  const sliceEscaped = escapeHtml(content.slice(start, end).replace(/\s+/g, ' '));
+  const kwEscaped = escapeHtml(kw);
+  const pattern = new RegExp(kwEscaped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  const highlighted = sliceEscaped.replace(pattern, m => `<mark class="search-mark">${m}</mark>`);
+  return prefix + highlighted + suffix;
+}
+
+// 검색 결과 스니펫 클릭 → 해당 날짜로 이동 후 패널 오픈
+function openRecordFromSearch(dateStr, type) {
+  document.getElementById('searchInput').value = '';
+  selectDateFromCalendar(dateStr);
+  toggleHeader(type);
 }
 
 // 요일을 구하는 헬퍼 함수 (0: 일, 1: 월, 2: 화...)
