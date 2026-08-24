@@ -631,17 +631,20 @@ const LexiconUI = {
       const div = document.createElement('div');
       div.className = 'lexicon-deck-item';
 
+      const keyword = item.keyword || item.w || item.word || '단어';
+      const category = item.category || '지식';
+      const summary = item.short_summary || item.full_description || item.d || '';
       const masteryText = item.mastery_level === 2 ? '🟢 완전습득' : (item.mastery_level === 1 ? '🟡 복습중' : '🔴 생소함');
       const masteryClass = `level-${item.mastery_level || 0}`;
 
       div.innerHTML = `
         <div class="lexicon-deck-info">
           <div class="lexicon-deck-keyword">
-            ${item.keyword}
-            <span class="lexicon-badge ${item.category}">${item.category}</span>
+            <span>${keyword}</span>
+            <span class="lexicon-badge ${category}">${category}</span>
             <span class="lexicon-mastery-badge ${masteryClass}">${masteryText}</span>
           </div>
-          <div class="lexicon-deck-summary">${item.short_summary || item.full_description || ''}</div>
+          <div class="lexicon-deck-summary">${summary}</div>
         </div>
         <button class="lexicon-icon-btn lexicon-delete-btn btn-delete-deck" data-id="${item.id}" title="삭제">✕</button>
       `;

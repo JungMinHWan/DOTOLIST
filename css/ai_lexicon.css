@@ -358,8 +358,8 @@
 }
 
 .lexicon-deck-item {
-  background: var(--lex-paper-raised);
-  border: 1px solid var(--lex-rule);
+  background: var(--lex-paper-raised, #ffffff);
+  border: 1px solid var(--lex-rule, #e3dccc);
   border-radius: 11px;
   padding: 14px 18px;
   display: flex;
@@ -367,6 +367,7 @@
   align-items: center;
   gap: 12px;
   transition: border-color 0.15s, box-shadow 0.15s;
+  color: #23282e;
 }
 
 .lexicon-deck-item:hover {
@@ -379,21 +380,23 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .lexicon-deck-keyword {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--lex-ink);
+  color: #1e293b !important;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .lexicon-deck-summary {
   font-size: 0.82rem;
   line-height: 1.5;
-  color: var(--lex-ink-faint);
+  color: #475569 !important;
 }
 
 .lexicon-delete-btn {

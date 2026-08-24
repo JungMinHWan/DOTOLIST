@@ -50,6 +50,15 @@
     setupEventListeners();
     await loadDictionaryData();
     await loadSolvedList();
+
+    // Supabase 로그인 상태 변화 시 단어장 재동기화
+    if (window.supabaseClient && window.supabaseClient.auth) {
+      window.supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' || session) {
+          loadSolvedList();
+        }
+      });
+    }
   }
 
   // === 이벤트 리스너 바인딩 ===
@@ -93,10 +102,13 @@
   }
 
   // === 모달 제어 ===
-  function openVocabModal() {
+  async function openVocabModal() {
     elements.modalOverlay.classList.add('active');
     document.body.style.overflow = 'hidden';
     
+    // 모달을 열 때 최신 Vault 동기화 수행
+    await loadSolvedList();
+
     // 모달을 열면 게임 탭을 기본 활성화하고 문제 출제
     switchTab('game');
     if (!currentWord && vocabList.length > 0) {
@@ -109,7 +121,7 @@
     document.body.style.overflow = '';
   }
 
-  function switchTab(tab) {
+  async function switchTab(tab) {
     if (tab === 'game') {
       elements.tabGame.classList.add('active');
       elements.tabList.classList.remove('active');
@@ -123,6 +135,7 @@
       elements.sectionList.classList.add('active');
       
       elements.searchInput.value = '';
+      await loadSolvedList();
       renderSolvedList('');
     }
   }
@@ -153,27 +166,56 @@
     }
 
     // 2. Supabase Vault 연동 시도 (로그인 유저 정보 복원)
-    if (window.api && typeof window.api.getVaultValue === 'function') {
-      try {
-        const { data: { user } } = await window.supabaseClient.auth.getUser();
+    try {
+      const getApi = window.api || (typeof api !== 'undefined' ? api : null);
+      if (getApi && typeof getApi.getVaultValue === 'function' && window.supabaseClient) {
+        let user = null;
+        try {
+          const { data: sessionData } = await window.supabaseClient.auth.getSession();
+          if (sessionData && sessionData.session) {
+            user = sessionData.session.user;
+          } else {
+            const { data: userData } = await window.supabaseClient.auth.getUser();
+            user = userData ? userData.user : null;
+          }
+        } catch (authErr) {
+          console.warn('Supabase Auth user fetch skipped:', authErr);
+        }
+
         if (user) {
-          const vaultVal = await window.api.getVaultValue(`solved_vocabs_${user.id}`);
+          const vaultKey = `solved_vocabs_${user.id}`;
+          const vaultVal = await getApi.getVaultValue(vaultKey);
           if (vaultVal) {
             const vaultSolved = JSON.parse(vaultVal);
-            // 로컬 데이터와 Vault 데이터를 병합 (중복 제거)
-            const merged = [...solvedVocabs];
-            vaultSolved.forEach(v => {
-              if (!merged.some(m => m.w === v.w)) {
-                merged.push(v);
+            // 로컬 데이터와 Vault 데이터를 양방향 병합 (중복 제거 & 최신순 정렬)
+            const mergedMap = new Map();
+            // 로컬 및 Vault 항목 병합
+            [...solvedVocabs, ...vaultSolved].forEach(v => {
+              if (v && v.w) {
+                if (!mergedMap.has(v.w)) {
+                  mergedMap.set(v.w, v);
+                }
               }
             });
-            solvedVocabs = merged;
+
+            solvedVocabs = Array.from(mergedMap.values());
+            // 날짜 기준 내림차순 정렬 (최신 단어 우선)
+            solvedVocabs.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
             saveSolvedListLocally();
+            
+            // Vault에도 융합된 최신 목록 업링크
+            if (solvedVocabs.length > vaultSolved.length && typeof getApi.saveVaultValue === 'function') {
+              await getApi.saveVaultValue(vaultKey, JSON.stringify(solvedVocabs));
+            }
+          } else if (solvedVocabs.length > 0 && typeof getApi.saveVaultValue === 'function') {
+            // Vault에 없으면 로컬 데이터 최초 백업
+            await getApi.saveVaultValue(vaultKey, JSON.stringify(solvedVocabs));
           }
         }
-      } catch (e) {
-        console.warn('Supabase Vault solved vocabs load skipped:', e);
       }
+    } catch (e) {
+      console.warn('Supabase Vault solved vocabs load skipped:', e);
     }
     
     updateSolvedUI();
@@ -197,15 +239,16 @@
     updateSolvedUI();
 
     // Supabase Vault 저장 시도
-    if (window.api && typeof window.api.saveVaultValue === 'function') {
-      try {
+    try {
+      const getApi = window.api || (typeof api !== 'undefined' ? api : null);
+      if (getApi && typeof getApi.saveVaultValue === 'function' && window.supabaseClient) {
         const { data: { user } } = await window.supabaseClient.auth.getUser();
         if (user) {
-          await window.api.saveVaultValue(`solved_vocabs_${user.id}`, JSON.stringify(solvedVocabs));
+          await getApi.saveVaultValue(`solved_vocabs_${user.id}`, JSON.stringify(solvedVocabs));
         }
-      } catch (e) {
-        console.warn('Supabase Vault solved vocabs save skipped:', e);
       }
+    } catch (e) {
+      console.warn('Supabase Vault solved vocabs save skipped:', e);
     }
   }
 
@@ -508,24 +551,31 @@
       const vocabItem = document.createElement('div');
       vocabItem.className = 'vocab-item';
       
-      const badgeColor = item.l === '초급' ? 'green' : 'blue';
+      const wordText = item.w || item.keyword || item.word || '단어';
+      const levelText = item.l || '일반';
+      const posText = item.p || '어휘';
+      const defText = item.d || item.short_summary || item.definition || '뜻 정보 없음';
+      const exList = Array.isArray(item.e) ? item.e : (item.examples || []);
+      const badgeColor = levelText === '초급' ? 'green' : 'blue';
       
       // 아코디언 헤더
       vocabItem.innerHTML = `
         <div class="vocab-item-header">
           <div class="vocab-item-word-info">
-            <span class="vocab-item-word">${item.w}</span>
-            <span class="vocab-item-badge ${badgeColor}">${item.l} · ${item.p}</span>
+            <span class="vocab-item-word">${wordText}</span>
+            <span class="vocab-item-badge ${badgeColor}">${levelText} · ${posText}</span>
           </div>
           <span class="vocab-item-arrow">▼</span>
         </div>
         <div class="vocab-item-body">
           <div class="vocab-item-content">
-            <div class="vocab-item-def">${item.d}</div>
-            <div class="vocab-item-ex-title">예문</div>
-            <div class="vocab-item-ex-list">
-              ${item.e.map(ex => `<div class="vocab-item-ex">• ${ex}</div>`).join('')}
-            </div>
+            <div class="vocab-item-def">${defText}</div>
+            ${exList.length > 0 ? `
+              <div class="vocab-item-ex-title">예문</div>
+              <div class="vocab-item-ex-list">
+                ${exList.map(ex => `<div class="vocab-item-ex">• ${ex}</div>`).join('')}
+              </div>
+            ` : ''}
           </div>
         </div>
       `;
