@@ -148,16 +148,17 @@
 .vocab-body {
   flex: 1;
   padding: 20px;
-  overflow-y: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .vocab-section {
   display: none;
   flex-direction: column;
-  min-height: 100%;
-  height: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .vocab-section.active {
@@ -431,6 +432,7 @@
 
 .vocab-list-container {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -461,6 +463,7 @@
   overflow: hidden;
   transition: all 0.25s ease;
   color: #f8fafc;
+  flex-shrink: 0;
 }
 
 .vocab-item:hover {
