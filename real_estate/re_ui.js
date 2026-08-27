@@ -263,7 +263,7 @@
       card.innerHTML = `
         <div>
           <div class="re-feature-title">
-            <span>🏢</span> Real Estate Signals
+            실거래가
           </div>
           <div class="re-feature-desc">
             서울 25개 구 아파트 실거래가 및 급매·하락 신호 탐지 모니터링
