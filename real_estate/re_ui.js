@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=2.0';
+    link.href = 'real_estate/re_styles.css?v=2.1';
     document.head.appendChild(link);
   }
 
@@ -1571,6 +1571,24 @@
       } catch (err) {
         console.error('[실거래 신호 탐지] 원본 내역 조회 실패:', err);
       }
+    }
+
+    toast(message) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(message);
+        return;
+      }
+      const existing = document.getElementById('re-toast-msg');
+      if (existing) existing.remove();
+      const el = document.createElement('div');
+      el.id = 're-toast-msg';
+      el.textContent = message;
+      el.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);color:#f8fafc;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:99999;box-shadow:0 4px 16px rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.15);pointer-events:none;transition:opacity 0.3s;';
+      document.body.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      }, 3000);
     }
 
     formatPrice(amountInTenThousand) {
