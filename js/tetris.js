@@ -39,13 +39,13 @@
       };
       
       this.COLORS = {
-        'I': '#00f2fe', // 시안 네온
-        'J': '#0072ff', // 블루 네온
-        'L': '#f97316', // 오렌지 네온
-        'O': '#f5b800', // 옐로우 네온
-        'S': '#22c55e', // 그린 네온
-        'Z': '#ef4444', // 레드 네온
-        'T': '#a855f7'  // 퍼플 네온
+        'I': '#00f5ff', // 밝은 일렉트릭 시안
+        'J': '#38bdf8', // 밝은 스카이 블루
+        'L': '#fb923c', // 밝은 코랄 오렌지
+        'O': '#fde047', // 밝은 네온 옐로우
+        'S': '#4ade80', // 밝은 네온 라임그린
+        'Z': '#ff4b72', // 화사한 네온 로즈레드
+        'T': '#c084fc'  // 밝은 네온 라벤더 퍼플
       };
       
       this.board = [];
@@ -428,8 +428,8 @@
     
     // 캔버스 그리기 함수
     draw() {
-      // 1. 보드 전체 지우기
-      this.ctx.fillStyle = '#020617';
+      // 1. 보드 전체 지우기 (깔끔한 아케이드 딥네이비)
+      this.ctx.fillStyle = '#090d16';
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
       
       // 2. 그리드 배경선 그리기
@@ -466,7 +466,7 @@
     
     // 그리드 보조선
     drawGridLines() {
-      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.025)';
+      this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
       this.ctx.lineWidth = 1;
       
       for (let c = 1; c < this.gridCols; c++) {
@@ -497,7 +497,7 @@
       
       // 네온 빛 효과 (성능을 위해 고스트는 제외)
       if (!isGhost) {
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 10;
         ctx.shadowColor = colorStr;
       }
       
@@ -516,10 +516,10 @@
         ctx.fill();
         ctx.stroke();
         
-        // 안쪽에 살짝 밝은 네온 반사광 하이라이트 추가
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        // 안쪽에 산뜻하고 밝은 3D 네온 반사광 하이라이트 추가
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         ctx.beginPath();
-        ctx.roundRect(bx + 2, by + 2, bSize - 4, bSize - 4, radius - 1);
+        ctx.roundRect(bx + 2, by + 2, bSize - 4, (bSize - 4) * 0.45, radius - 1);
         ctx.fill();
       }
       
