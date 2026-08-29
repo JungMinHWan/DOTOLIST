@@ -33,6 +33,7 @@
     answerInput: document.getElementById('vocabAnswerInput'),
     submitBtn: document.getElementById('vocabSubmitBtn'),
     feedback: document.getElementById('vocabFeedback'),
+    hintGroup: document.getElementById('vocabHintGroup'),
     hintBtn: document.getElementById('vocabHintBtn'),
     giveUpBtn: document.getElementById('vocabGiveUpBtn'),
     nextBtn: document.getElementById('vocabNextBtn'),
@@ -295,8 +296,12 @@
     elements.answerInput.disabled = false;
     elements.submitBtn.disabled = false;
     elements.nextBtn.style.display = 'none';
+    if (elements.hintGroup) elements.hintGroup.style.display = 'flex';
     elements.hintBtn.style.display = 'inline-block';
     elements.giveUpBtn.style.display = 'inline-block';
+
+    const bodyEl = document.querySelector('.vocab-body');
+    if (bodyEl) bodyEl.scrollTop = 0;
     
     // 맞추지 않은 단어 필터링
     const solvedWordsSet = new Set(solvedVocabs.map(v => v.w));
@@ -392,9 +397,13 @@
       isSolved = true;
       elements.answerInput.disabled = true;
       elements.submitBtn.disabled = true;
+      if (elements.hintGroup) elements.hintGroup.style.display = 'none';
       elements.hintBtn.style.display = 'none';
       elements.giveUpBtn.style.display = 'none';
-      elements.nextBtn.style.display = 'inline-block';
+      elements.nextBtn.style.display = 'block';
+      setTimeout(() => {
+        elements.nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
       elements.nextBtn.focus();
       
       showFeedback('🎉 정답입니다! (+3 XP 획득)', true);
@@ -494,9 +503,13 @@
     elements.answerInput.value = currentWord.w;
     elements.answerInput.disabled = true;
     elements.submitBtn.disabled = true;
+    if (elements.hintGroup) elements.hintGroup.style.display = 'none';
     elements.hintBtn.style.display = 'none';
     elements.giveUpBtn.style.display = 'none';
-    elements.nextBtn.style.display = 'inline-block';
+    elements.nextBtn.style.display = 'block';
+    setTimeout(() => {
+      elements.nextBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 50);
     elements.nextBtn.focus();
     
     showFeedback(`정답은 '${currentWord.w}'입니다. 뜻과 예문을 학습해 보세요!`, false);

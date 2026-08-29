@@ -148,8 +148,9 @@
 /* 바디 영역 */
 .vocab-body {
   flex: 1;
-  padding: 20px;
-  overflow: hidden;
+  padding: 16px 20px 24px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -160,6 +161,8 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow-y: visible;
+  padding-bottom: 16px;
 }
 
 .vocab-section.active {
@@ -204,13 +207,13 @@
   background: var(--vocab-card-bg);
   border: 1px solid var(--vocab-border);
   border-radius: 16px;
-  padding: 20px;
-  flex: none; /* 부모 크기에 맞춰 수축되지 않고 콘텐츠 높이에 맞게 늘어나도록 수정 */
+  padding: 18px;
+  flex: none;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 16px;
-  min-height: 280px;
+  gap: 14px;
+  margin-bottom: 14px;
+  min-height: auto;
 }
 
 .vocab-card-label {
@@ -320,9 +323,15 @@
 /* 힌트 및 다음버튼 영역 */
 .vocab-action-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.vocab-hint-group {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
 }
 
 .vocab-hint-btn {
@@ -331,8 +340,8 @@
   color: var(--vocab-text-sub);
   font-size: 0.85rem;
   font-weight: 700;
-  padding: 8px 14px;
-  border-radius: 8px;
+  padding: 10px 14px;
+  border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -346,17 +355,24 @@
   background: linear-gradient(135deg, var(--vocab-green), #059669);
   border: none;
   color: white;
-  font-weight: 800;
-  padding: 10px 20px;
-  border-radius: 10px;
+  font-weight: 900;
+  font-size: 1.05rem;
+  padding: 14px 20px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px var(--vocab-green-glow);
+  box-shadow: 0 4px 16px var(--vocab-green-glow);
+  width: 100%;
+  text-align: center;
 }
 
 .vocab-next-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.vocab-next-btn:active {
+  transform: scale(0.98);
 }
 
 /* 결과 안내 피드백 */
