@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.7';
+    link.href = 'real_estate/re_styles.css?v=1.8';
     document.head.appendChild(link);
   }
 
@@ -786,7 +786,10 @@
               <div>
                 <h3 class="re-header-title">
                   실거래 신호 탐지
-                  <span class="re-date-pill">${todayString()} 기준</span>
+                  <button type="button" class="re-date-pill re-refresh-btn" id="re-refresh-btn" title="클릭하여 국토부 실거래가 API 최신 데이터 갱신">
+                    <span class="re-refresh-icon">🔄</span>
+                    <span class="re-refresh-text">${todayString()} 기준 (갱신)</span>
+                  </button>
                 </h3>
                 <div class="re-header-subtitle">서울 25개 구 아파트 매매 급매 및 하락 변동 신호 모니터링 (카드를 클릭하면 국토부 원본 데이터를 확인합니다)</div>
               </div>
@@ -909,6 +912,41 @@
       overlay.addEventListener('click', (e) => {
         if (e.target === overlay) this.closeModal();
       });
+
+      const refreshBtn = overlay.querySelector('#re-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', async () => {
+          if (this.isRefreshing) return;
+          this.isRefreshing = true;
+
+          const icon = refreshBtn.querySelector('.re-refresh-icon');
+          const text = refreshBtn.querySelector('.re-refresh-text');
+          if (icon) icon.classList.add('spinning');
+          if (text) text.textContent = 'API 수집 & 갱신 중...';
+          refreshBtn.disabled = true;
+
+          try {
+            const res = await fetch('/.netlify/functions/re_scheduled_collector');
+            if (!res.ok) throw new Error('서버 응답 오류 (' + res.status + ')');
+            
+            if (text) text.textContent = `${todayString()} 기준 (완료!)`;
+            this.toast('최신 국토부 실거래가 수집 및 신호 갱신이 완료되었습니다!');
+            
+            await this.fetchSignals();
+          } catch (err) {
+            console.error('API 갱신 실패:', err);
+            if (text) text.textContent = `${todayString()} 기준 (실패)`;
+            this.toast('API 데이터 갱신 실패: ' + err.message);
+          } finally {
+            if (icon) icon.classList.remove('spinning');
+            setTimeout(() => {
+              if (text) text.textContent = `${todayString()} 기준 (갱신)`;
+              refreshBtn.disabled = false;
+              this.isRefreshing = false;
+            }, 3000);
+          }
+        });
+      }
 
       // 기존 버그: 자치구 변경 시 서버 재조회 없이 클라이언트 필터만 돌려서,
       // 특정 구를 골랐다가 '전체'로 되돌리면 그 구 데이터만 남아 있었습니다.
