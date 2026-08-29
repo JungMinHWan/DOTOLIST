@@ -186,15 +186,16 @@ function getRecent2Months() {
 export async function handler(event, context) {
   console.log('[re_scheduled_collector] Collector & signal recalculation started at', new Date().toISOString());
 
-  const serviceKey = process.env.PUBLIC_DATA_API_KEY || process.env.SERVICE_KEY;
+  const serviceKey = process.env.PUBLIC_DATA_API_KEY || process.env.SERVICE_KEY || 'GY%2BV1BnKDmURgbv1z5mJB3QnX278JWkGMm9wOMP7ubR3B04uNiTRmYWC5cQBw5wHfOwgT32VRx9oFE4kgcF8qQ%3D%3D';
   const supabaseUrl = process.env.SUPABASE_URL || 'https://xeawqnnugytabmaixrcv.supabase.co';
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!serviceKey || !serviceRoleKey) {
-    console.error('[re_scheduled_collector] Missing required environment variables.');
+  if (!serviceRoleKey) {
+    console.error('[re_scheduled_collector] Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.');
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Missing environment variables.' })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'Netlify 서버에 SUPABASE_SERVICE_ROLE_KEY 환경변수가 등록되어 있지 않습니다.' })
     };
   }
 
