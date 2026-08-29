@@ -1835,12 +1835,16 @@ body {
   transform: translateY(-1px);
 }
 
-/* Mobile Controls - Vivid & Bright Button Aesthetic */
+/* Mobile Controls - Keyboard Arrow Keys T-Cluster Layout */
 .tetris-mobile-controls {
   display: none;
-  grid-template-columns: repeat(4, 1fr); /* 4-column layout */
-  gap: 10px;
-  margin-top: 16px;
+  grid-template-columns: 1.15fr 1fr 1fr 1fr;
+  grid-template-rows: 46px 52px;
+  grid-template-areas:
+    "hard . rotate ."
+    "hard left soft right";
+  gap: 8px;
+  margin-top: 14px;
   width: 100%;
 }
 .ctrl-btn {
@@ -1848,7 +1852,6 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 14px;
   color: #f8fafc;
-  height: 54px;
   font-size: 22px;
   font-weight: 800;
   display: flex;
@@ -1858,40 +1861,39 @@ body {
   user-select: none;
   -webkit-user-select: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  transition: all 0.15s ease;
+  transition: all 0.12s ease;
 }
 .ctrl-btn:active {
   transform: scale(0.92);
 }
 
-/* 내리기(⚡) - 밝은 앰버 골드 */
+/* 한번에 내리기 (⚡ DROP) - 좌측 2칸 차지 */
 .ctrl-hard {
+  grid-area: hard;
+  height: 100%;
+  flex-direction: column;
+  gap: 4px;
   background: linear-gradient(135deg, #f59e0b, #d97706);
   border-color: #fde047;
   color: #ffffff;
   box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+.ctrl-subtext {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  opacity: 0.95;
+}
 .ctrl-hard:active {
   background: #b45309;
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
 }
 
-/* 좌우 이동(←, →) - 산뜻한 시안 블루 */
-.ctrl-left, .ctrl-right {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(2, 132, 199, 0.35));
-  border-color: rgba(56, 189, 248, 0.55);
-  color: #38bdf8;
-  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25);
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
-}
-.ctrl-left:active, .ctrl-right:active {
-  background: #0284c7;
-  color: #ffffff;
-}
-
-/* 회전(↻) - 화사한 네온 바이올렛 핑크 */
+/* 회전(↻) - 아래버튼 위쪽 */
 .ctrl-rotate {
+  grid-area: rotate;
+  height: 100%;
   background: linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(236, 72, 153, 0.4));
   border-color: rgba(244, 114, 182, 0.65);
   color: #f472b6;
@@ -1903,30 +1905,74 @@ body {
   color: #ffffff;
 }
 
+/* 좌우 이동(←, →) - 산뜻한 시안 블루 */
+.ctrl-left {
+  grid-area: left;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(2, 132, 199, 0.35));
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25);
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+.ctrl-left:active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.ctrl-right {
+  grid-area: right;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.25), rgba(2, 132, 199, 0.35));
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #38bdf8;
+  box-shadow: 0 4px 14px rgba(14, 165, 233, 0.25);
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+}
+.ctrl-right:active {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+/* 아래로 연속 하강(↓) - 밝고 선명한 에메랄드/블루 네온 */
+.ctrl-soft {
+  grid-area: soft;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.45));
+  border-color: rgba(52, 211, 153, 0.65);
+  color: #34d399;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+}
+.ctrl-soft:active {
+  background: #059669;
+  color: #ffffff;
+}
+
 @media (max-width: 768px) {
   .tetris-mobile-controls {
     display: grid;
   }
   .tetris-modal {
-    padding: 18px 16px;
-    width: calc(100% - 24px);
+    padding: 16px 14px;
+    width: calc(100% - 20px);
     max-width: 380px;
   }
   #tetrisCanvas {
-    width: 220px;
-    height: 440px;
+    width: 210px;
+    height: 420px;
   }
   .tetris-game-area {
-    gap: 12px;
-  }
-  .tetris-side-panel {
     gap: 10px;
   }
+  .tetris-side-panel {
+    gap: 8px;
+  }
   .tetris-value {
-    font-size: 18px;
+    font-size: 17px;
   }
   .tetris-btn {
-    padding: 8px;
+    padding: 7px;
     font-size: 11px;
   }
 }

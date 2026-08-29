@@ -118,21 +118,62 @@
         }
       });
       
-      // 모바일 가상 패드 터치 이벤트 (touchstart를 사용해 300ms 딜레이 제거)
-      const bindMobileBtn = (btn, action) => {
+      // 모바일 가상 패드 터치 이벤트 (touchstart 300ms 딜레이 제거 + 롱프레스 연속 실행 지원)
+      const bindSingleBtn = (btn, action) => {
         if (!btn) return;
-        btn.addEventListener('touchstart', (e) => {
-          e.preventDefault();
+        const trigger = (e) => {
+          if (e.cancelable) e.preventDefault();
           if (!this.isOpen || this.gameOver || this.isPaused) return;
           action();
-        }, { passive: false });
+        };
+        btn.addEventListener('touchstart', trigger, { passive: false });
+        btn.addEventListener('mousedown', trigger);
+      };
+
+      const bindRepeatBtn = (btn, action, repeatDelay = 65, initialDelay = 140) => {
+        if (!btn) return;
+        let repeatTimer = null;
+        let initialTimer = null;
+
+        const start = (e) => {
+          if (e.cancelable) e.preventDefault();
+          if (!this.isOpen || this.gameOver || this.isPaused) return;
+          stop();
+          action(); // 첫 1회 즉시 실행
+          
+          initialTimer = setTimeout(() => {
+            repeatTimer = setInterval(() => {
+              if (!this.isOpen || this.gameOver || this.isPaused) {
+                stop();
+                return;
+              }
+              action(); // 누르고 있는 동안 고속 연속 실행
+            }, repeatDelay);
+          }, initialDelay);
+        };
+
+        const stop = (e) => {
+          if (e && e.cancelable) e.preventDefault();
+          if (initialTimer) { clearTimeout(initialTimer); initialTimer = null; }
+          if (repeatTimer) { clearInterval(repeatTimer); repeatTimer = null; }
+        };
+
+        btn.addEventListener('touchstart', start, { passive: false });
+        btn.addEventListener('touchend', stop, { passive: false });
+        btn.addEventListener('touchcancel', stop);
+        btn.addEventListener('mousedown', start);
+        btn.addEventListener('mouseup', stop);
+        btn.addEventListener('mouseleave', stop);
       };
       
-      bindMobileBtn(this.ctrlLeft, () => this.move(-1));
-      bindMobileBtn(this.ctrlRight, () => this.move(1));
-      bindMobileBtn(this.ctrlRotate, () => this.rotate());
-      bindMobileBtn(this.ctrlSoft, () => this.drop());
-      bindMobileBtn(this.ctrlHard, () => this.hardDrop());
+      // 단타 버튼: 회전, 하드드롭
+      bindSingleBtn(this.ctrlRotate, () => this.rotate());
+      bindSingleBtn(this.ctrlHard, () => this.hardDrop());
+      
+      // 연속 반복 지원 버튼: 아래로 고속 내리기 (누르고 있으면 빠르게 연속 하강), 좌/우 이동
+      bindRepeatBtn(this.ctrlSoft, () => this.drop(), 60, 100);
+      bindRepeatBtn(this.ctrlLeft, () => this.move(-1), 75, 150);
+      bindRepeatBtn(this.ctrlRight, () => this.move(1), 75, 150);
     }
     
     // 모달 열기
