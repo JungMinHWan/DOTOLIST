@@ -200,12 +200,15 @@ export async function handler(event, context) {
   }
 
   const targetLawdCd = event.queryStringParameters?.lawd_cd;
+  const isFastMode = event.queryStringParameters?.fast === 'true' || event.queryStringParameters?.mode === 'fast' || !targetLawdCd;
   const lawdList = (targetLawdCd && targetLawdCd !== '전체') ? [targetLawdCd] : SEOUL_LAWD_CDS;
-  const months = getRecent2Months();
+  
+  // fast 모드(UI 수동 갱신 시)는 이번 달(당월) 최신 실거래가를 2초 만에 초고속 수집
+  const months = isFastMode ? [getRecent2Months()[0]] : getRecent2Months();
   
   const summary = [];
 
-  // 1. 수집 파이프라인 (Netlify 10초 타임아웃 방지를 위한 청크 단위 병렬 처리)
+  // 1. 수집 파이프라인 (10개씩 초고속 병렬 처리)
   const tasks = [];
   for (const lawdCd of lawdList) {
     for (const ym of months) {
@@ -213,8 +216,7 @@ export async function handler(event, context) {
     }
   }
 
-  // 8개씩 병렬 실행 (타임아웃 10초 절대 방지)
-  const CHUNK_SIZE = 8;
+  const CHUNK_SIZE = 10;
   for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
     const chunk = tasks.slice(i, i + CHUNK_SIZE);
     const chunkResults = await Promise.all(
@@ -228,16 +230,15 @@ export async function handler(event, context) {
       })
     );
     summary.push(...chunkResults);
-    await new Promise(r => setTimeout(r, 20));
   }
 
-  // 2. 신호 산출 전범위 갱신 (병렬 처리)
+  // 2. 신호 산출 전범위 갱신 (10개씩 병렬 처리)
   try {
     if (lawdList.length === SEOUL_LAWD_CDS.length) {
       await execSql('TRUNCATE re_signals;', supabaseUrl, serviceRoleKey);
     }
-    for (let i = 0; i < lawdList.length; i += 5) {
-      const chunk = lawdList.slice(i, i + 5);
+    for (let i = 0; i < lawdList.length; i += 10) {
+      const chunk = lawdList.slice(i, i + 10);
       await Promise.all(chunk.map(code => execSql(buildSignalSql(code), supabaseUrl, serviceRoleKey)));
     }
     console.log('[re_scheduled_collector] Signal recalculation finished.');

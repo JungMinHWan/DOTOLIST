@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=1.8';
+    link.href = 'real_estate/re_styles.css?v=2.0';
     document.head.appendChild(link);
   }
 
@@ -935,9 +935,9 @@
               '관악구':'11620', '서초구':'11650', '강남구':'11680', '송파구':'11710',
               '강동구':'11740'
             };
-            let apiUrl = '/.netlify/functions/re_scheduled_collector';
+            let apiUrl = '/.netlify/functions/re_scheduled_collector?mode=fast';
             if (this.activeGu && this.activeGu !== '전체' && GU_MAP_CODES[this.activeGu]) {
-              apiUrl += '?lawd_cd=' + GU_MAP_CODES[this.activeGu];
+              apiUrl += '&lawd_cd=' + GU_MAP_CODES[this.activeGu];
             }
 
             const res = await fetch(apiUrl);
