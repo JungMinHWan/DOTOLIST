@@ -213,8 +213,8 @@ export async function handler(event, context) {
     }
   }
 
-  // 5개씩 병렬 실행
-  const CHUNK_SIZE = 5;
+  // 8개씩 병렬 실행 (타임아웃 10초 절대 방지)
+  const CHUNK_SIZE = 8;
   for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
     const chunk = tasks.slice(i, i + CHUNK_SIZE);
     const chunkResults = await Promise.all(
@@ -228,14 +228,17 @@ export async function handler(event, context) {
       })
     );
     summary.push(...chunkResults);
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 20));
   }
 
-  // 2. 신호 산출 전범위 갱신
+  // 2. 신호 산출 전범위 갱신 (병렬 처리)
   try {
-    await execSql('TRUNCATE re_signals;', supabaseUrl, serviceRoleKey);
-    for (const lawdCd of lawdList) {
-      await execSql(buildSignalSql(lawdCd), supabaseUrl, serviceRoleKey);
+    if (lawdList.length === SEOUL_LAWD_CDS.length) {
+      await execSql('TRUNCATE re_signals;', supabaseUrl, serviceRoleKey);
+    }
+    for (let i = 0; i < lawdList.length; i += 5) {
+      const chunk = lawdList.slice(i, i + 5);
+      await Promise.all(chunk.map(code => execSql(buildSignalSql(code), supabaseUrl, serviceRoleKey)));
     }
     console.log('[re_scheduled_collector] Signal recalculation finished.');
   } catch (calcErr) {

@@ -50,14 +50,27 @@ export async function saveDealsToSupabase(deals, supabaseUrl, serviceRoleKey) {
   }
 
   // 1. re_deals Upsert (resolution=merge-duplicates)
-  // cdealType, rgstDate, aptDong 등 업데이트 반영
+  // cdealType, rgstDate, aptDong 등 업데이트 반영 및 동일 배치 내 deal_key 중복 병합 제거
   const dealsEndpoint = `${supabaseUrl.replace(/\/$/, '')}/rest/v1/re_deals`;
   
-  // payload 파싱 (raw_cdeal_type 제거)
-  const dealsPayload = deals.map(d => {
+  const dealMap = new Map();
+  for (const d of deals) {
     const { raw_cdeal_type, ...rest } = d;
-    return rest;
-  });
+    const existing = dealMap.get(rest.deal_key);
+    if (!existing) {
+      dealMap.set(rest.deal_key, rest);
+    } else {
+      dealMap.set(rest.deal_key, {
+        ...existing,
+        ...rest,
+        is_canceled: Boolean(existing.is_canceled || rest.is_canceled),
+        canceled_at: existing.canceled_at || rest.canceled_at,
+        registered_at: existing.registered_at || rest.registered_at
+      });
+    }
+  }
+
+  const dealsPayload = Array.from(dealMap.values());
 
   const dealsRes = await fetch(dealsEndpoint, {
     method: 'POST',
