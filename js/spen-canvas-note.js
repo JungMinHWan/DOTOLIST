@@ -104,13 +104,15 @@
       .spen-btn {
         border: 1px solid #cbd5e1;
         background: #ffffff;
-        padding: 6px 12px;
-        border-radius: 10px;
-        font-size: 13px;
+        padding: 6px 10px;
+        min-width: 34px;
+        height: 34px;
+        border-radius: 9px;
+        font-size: 15px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        justify-content: center;
         font-weight: 500;
         color: #334155;
         transition: all 0.15s ease;
@@ -175,14 +177,14 @@
             <span class="spen-badge" id="spen-palm-badge">팜리젝션 ON</span>
           </div>
           <div class="spen-toolbar">
-            <button class="spen-btn active" id="spen-tool-pen" data-tool="pen">🖊️ 펜</button>
-            <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter">🖍️ 형광펜</button>
-            <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser">🧹 지우개</button>
-            <input type="color" id="spen-color-input" class="spen-color-picker" value="${CONFIG.DEFAULT_PEN_COLOR}">
+            <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️</button>
+            <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️</button>
+            <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹</button>
+            <input type="color" id="spen-color-input" class="spen-color-picker" value="${CONFIG.DEFAULT_PEN_COLOR}" title="색상 선택">
             <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️</button>
             <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️</button>
-            <button class="spen-btn spen-btn-save" id="spen-btn-save">💾 저장</button>
-            <button class="spen-btn" id="spen-btn-close">✕</button>
+            <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾</button>
+            <button class="spen-btn" id="spen-btn-close" title="닫기">✕</button>
           </div>
         </div>
         <div class="spen-canvas-wrapper spen-grid-bg">
