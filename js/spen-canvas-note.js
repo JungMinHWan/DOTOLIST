@@ -143,36 +143,37 @@
         gap: 6px;
         width: 100%;
         flex-wrap: nowrap;
-        overflow-x: auto;
       }
       .spen-tool-left {
         display: flex;
         align-items: center;
         gap: 6px;
+        flex-shrink: 0;
       }
       .spen-tool-right {
         display: flex;
         align-items: center;
         gap: 6px;
+        flex-shrink: 0;
       }
       .spen-btn {
         border: 1px solid #cbd5e1;
         background: #ffffff;
-        padding: 6px 10px;
-        min-width: 36px;
-        height: 36px;
-        border-radius: 9px;
-        font-size: 15px;
+        padding: 0;
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        border-radius: 10px;
+        font-size: 18px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-weight: 600;
         color: #334155;
         transition: all 0.15s ease;
         flex-shrink: 0;
       }
-      .spen-btn:active { transform: scale(0.95); }
+      .spen-btn:active { transform: scale(0.92); }
       .spen-btn.active {
         background: #3b82f6;
         color: #ffffff;
@@ -184,8 +185,8 @@
         border-color: #059669;
       }
       .spen-color-picker {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         border-radius: 50%;
         border: 2px solid #cbd5e1;
         cursor: pointer;
@@ -284,15 +285,15 @@
           </div>
           <div class="spen-toolbar">
             <div class="spen-tool-left">
-              <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️ 펜</button>
-              <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️ 형광펜</button>
-              <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹 지우개</button>
+              <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️</button>
+              <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️</button>
+              <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹</button>
               <input type="color" id="spen-color-input" class="spen-color-picker" value="${currentColor}" title="색상 선택">
             </div>
             <div class="spen-tool-right">
-              <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️ 취소</button>
-              <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️ 삭제</button>
-              <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾 저장</button>
+              <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️</button>
+              <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️</button>
+              <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾</button>
               <button class="spen-btn" id="spen-btn-close" title="닫기">✕</button>
             </div>
           </div>
