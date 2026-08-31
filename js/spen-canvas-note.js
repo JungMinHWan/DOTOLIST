@@ -672,24 +672,37 @@
     }
   }
 
-  // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 가져오기
+  // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 완벽 추출
   function getCurrentDateKey() {
-    // 1. TODOLIST 전역 변수 selectedDate 확인
-    if (typeof window.selectedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(window.selectedDate)) {
-      return window.selectedDate;
+    // 1. TODOLIST의 inputDueDate 값 확인 (app.js에서 어제/오늘/내일/달력 변경 시 항상 100% 동기화됨)
+    const dueDateInput = document.getElementById('inputDueDate');
+    if (dueDateInput && dueDateInput.value && /^\d{4}-\d{2}-\d{2}$/.test(dueDateInput.value)) {
+      return dueDateInput.value;
     }
-    // 2. DOM 레이블이나 인풋 확인
+
+    // 2. 상단 활성 탭 (어제 / 오늘 / 내일) 확인
+    const activeTab = document.querySelector('.period-tab.active');
+    if (activeTab && activeTab.dataset && activeTab.dataset.period) {
+      const period = activeTab.dataset.period;
+      const d = new Date();
+      if (period === 'yesterday') d.setDate(d.getDate() - 1);
+      else if (period === 'tomorrow') d.setDate(d.getDate() + 1);
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+
+    // 3. 달력 선택 레이블 확인
     const dateLabel = document.getElementById('selectedDateLabel');
     if (dateLabel && dateLabel.dataset && dateLabel.dataset.date) {
       return dateLabel.dataset.date;
     }
-    // 3. 기본값: 오늘 날짜
+
+    // 4. 기본값: 오늘 날짜
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
   function openModal(noteKey) {
-    // 날짜별 키 지정 (전달받지 않으면 현재 선택된 날짜 자동 적용)
+    // 현재 보고 있는 날짜(YYYY-MM-DD)를 키로 설정
     currentKey = noteKey || getCurrentDateKey();
     injectStyles();
     createModalDOM();
@@ -708,6 +721,11 @@
     loadNoteData();
     requestAnimationFrame(() => {
       initCanvas();
+      // 열린 날짜 안내 토스트 (예: 8월 30일 필기장)
+      const parts = currentKey.split('-');
+      if (parts.length === 3) {
+        showToast(`📅 ${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일 필기장`);
+      }
     });
   }
 
