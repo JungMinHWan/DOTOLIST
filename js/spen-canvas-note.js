@@ -64,11 +64,11 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        animation: spenPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        animation: spenFadeIn 0.15s ease-out;
       }
-      @keyframes spenPop {
-        from { transform: scale(0.92); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
+      @keyframes spenFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
       .spen-header {
         padding: 12px 18px;
@@ -201,34 +201,62 @@
   // 4. 캔버스 드로잉 로직 (필압 + 팜 리젝션)
   // -------------------------------------------------------------
   let canvas, ctx;
+  let isEventsBound = false;
 
   function initCanvas() {
     canvas = document.getElementById('spen-note-canvas');
     if (!canvas) return;
     ctx = canvas.getContext('2d', { desynchronized: true });
 
-    // Retina 및 고해상도 지원
-    const rect = canvas.getBoundingClientRect();
+    const wrapper = canvas.parentElement;
+    const rect = wrapper ? wrapper.getBoundingClientRect() : canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
 
-    // Pointer Events 등록 (S-Pen 및 마우스/터치 대응)
-    canvas.addEventListener('pointerdown', handlePointerDown);
-    canvas.addEventListener('pointermove', handlePointerMove);
-    canvas.addEventListener('pointerup', handlePointerUp);
-    canvas.addEventListener('pointercancel', handlePointerUp);
-    canvas.addEventListener('pointerleave', handlePointerUp);
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0); // 기존 스케일 리셋
+      ctx.scale(dpr, dpr);
+    }
+
+    if (!isEventsBound) {
+      canvas.addEventListener('pointerdown', handlePointerDown);
+      canvas.addEventListener('pointermove', handlePointerMove);
+      canvas.addEventListener('pointerup', handlePointerUp);
+      canvas.addEventListener('pointercancel', handlePointerUp);
+      canvas.addEventListener('pointerleave', handlePointerUp);
+      window.addEventListener('resize', handleResize);
+      isEventsBound = true;
+    }
 
     redrawCanvas();
   }
 
+  function handleResize() {
+    const overlay = document.getElementById('spen-modal-overlay');
+    if (!overlay || overlay.style.display !== 'flex' || !canvas) return;
+    const wrapper = canvas.parentElement;
+    const rect = wrapper ? wrapper.getBoundingClientRect() : canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = Math.round(rect.width * dpr);
+      canvas.height = Math.round(rect.height * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      redrawCanvas();
+    }
+  }
+
   function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    // 캔버스 내부 논리 해상도와 브라우저 렌더링 CSS 크기 간의 정확한 비율 보정
+    const scaleX = (canvas.width / dpr) / (rect.width || 1);
+    const scaleY = (canvas.height / dpr) / (rect.height || 1);
+
     return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
       p: (e.pressure !== undefined && e.pressure > 0) ? e.pressure : 0.5
     };
   }
@@ -404,7 +432,9 @@
     if (overlay) overlay.style.display = 'flex';
 
     loadNoteData();
-    setTimeout(initCanvas, 50);
+    requestAnimationFrame(() => {
+      initCanvas();
+    });
   }
 
   function closeModal() {
