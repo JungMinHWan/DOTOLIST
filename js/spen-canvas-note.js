@@ -16,25 +16,26 @@
   // 1. 설정 및 상태 변수
   // -------------------------------------------------------------
   const CONFIG = {
-    LONG_PRESS_DURATION: 2200, // 2.2초 롱프레스
+    LONG_PRESS_DURATION: 1500, // 1.5초 롱프레스
     STORAGE_KEY_PREFIX: 'GROW_GUEST_SPEN_NOTE_',
+    SAVED_COLOR_KEY: 'GROW_GUEST_SPEN_LAST_COLOR',
     DEFAULT_PEN_COLOR: '#1e293b',
     HIGHLIGHTER_COLOR: 'rgba(250, 204, 21, 0.45)',
     DEFAULT_SIZE: 3,
-    PALM_REJECTION: true // S펜 사용 시 손가락 터치 차단 여부
+    PALM_REJECTION: true
   };
 
   let currentKey = 'default_note';
-  let strokes = []; // [{ tool: 'pen'|'highlighter', color, size, points: [{x, y, p}] }]
+  let strokes = [];
   let currentStroke = null;
   let isDrawing = false;
-  let currentTool = 'pen'; // 'pen', 'highlighter', 'eraser'
-  let currentColor = CONFIG.DEFAULT_PEN_COLOR;
+  let currentTool = 'pen';
+  let currentColor = localStorage.getItem(CONFIG.SAVED_COLOR_KEY) || CONFIG.DEFAULT_PEN_COLOR;
   let currentSize = CONFIG.DEFAULT_SIZE;
   let activePointerType = null;
 
   // -------------------------------------------------------------
-  // 2. 스타일 자동 주입 (독립성을 위해 JS에서 생성)
+  // 2. 스타일 자동 주입
   // -------------------------------------------------------------
   function injectStyles() {
     if (document.getElementById('spen-note-styles')) return;
@@ -71,44 +72,29 @@
         to { opacity: 1; }
       }
       .spen-header {
-        padding: 12px 18px;
+        padding: 10px 14px;
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-      .spen-title {
-        font-size: 15px;
-        font-weight: 700;
-        color: #0f172a;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .spen-badge {
-        font-size: 11px;
-        padding: 2px 7px;
-        background: #dbeafe;
-        color: #1e40af;
-        border-radius: 12px;
-        font-weight: 600;
       }
       .spen-toolbar {
         display: flex;
         align-items: center;
-        gap: 6px;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+        max-width: 500px;
       }
       .spen-btn {
         border: 1px solid #cbd5e1;
         background: #ffffff;
         padding: 6px 10px;
-        min-width: 34px;
-        height: 34px;
+        min-width: 36px;
+        height: 36px;
         border-radius: 9px;
-        font-size: 15px;
+        font-size: 16px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
@@ -129,8 +115,8 @@
         border-color: #059669;
       }
       .spen-color-picker {
-        width: 26px;
-        height: 26px;
+        width: 28px;
+        height: 28px;
         border-radius: 50%;
         border: 2px solid #cbd5e1;
         cursor: pointer;
@@ -184,7 +170,7 @@
   }
 
   // -------------------------------------------------------------
-  // 3. 모달 DOM 생성
+  // 3. 모달 DOM 생성 (도구모음 전용 심플 헤더)
   // -------------------------------------------------------------
   function createModalDOM() {
     if (document.getElementById('spen-modal-overlay')) return;
@@ -194,15 +180,11 @@
     overlay.innerHTML = `
       <div id="spen-modal-container">
         <div class="spen-header">
-          <div class="spen-title">
-            <span>✍️ S-Pen 손글씨 필기장</span>
-            <span class="spen-badge" id="spen-palm-badge">S-Pen 전용 필기 / ✌️ 두손가락 스크롤·Undo</span>
-          </div>
           <div class="spen-toolbar">
             <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️</button>
             <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️</button>
             <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹</button>
-            <input type="color" id="spen-color-input" class="spen-color-picker" value="${CONFIG.DEFAULT_PEN_COLOR}" title="색상 선택">
+            <input type="color" id="spen-color-input" class="spen-color-picker" value="${currentColor}" title="색상 선택">
             <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️</button>
             <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️</button>
             <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾</button>
@@ -640,6 +622,10 @@
     if (colorInput) {
       colorInput.addEventListener('input', (e) => {
         currentColor = e.target.value;
+        try {
+          localStorage.setItem(CONFIG.SAVED_COLOR_KEY, currentColor);
+        } catch (err) {}
+
         if (currentTool === 'eraser') {
           const penBtn = document.getElementById('spen-tool-pen');
           if (penBtn) penBtn.click();
@@ -686,10 +672,35 @@
     }
   }
 
-  function openModal(noteKey = 'default_note') {
-    currentKey = noteKey;
+  // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 가져오기
+  function getCurrentDateKey() {
+    // 1. TODOLIST 전역 변수 selectedDate 확인
+    if (typeof window.selectedDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(window.selectedDate)) {
+      return window.selectedDate;
+    }
+    // 2. DOM 레이블이나 인풋 확인
+    const dateLabel = document.getElementById('selectedDateLabel');
+    if (dateLabel && dateLabel.dataset && dateLabel.dataset.date) {
+      return dateLabel.dataset.date;
+    }
+    // 3. 기본값: 오늘 날짜
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function openModal(noteKey) {
+    // 날짜별 키 지정 (전달받지 않으면 현재 선택된 날짜 자동 적용)
+    currentKey = noteKey || getCurrentDateKey();
     injectStyles();
     createModalDOM();
+
+    // 저장된 펜 색상 복원
+    const savedColor = localStorage.getItem(CONFIG.SAVED_COLOR_KEY);
+    if (savedColor) {
+      currentColor = savedColor;
+      const colorInput = document.getElementById('spen-color-input');
+      if (colorInput) colorInput.value = savedColor;
+    }
 
     const overlay = document.getElementById('spen-modal-overlay');
     if (overlay) overlay.style.display = 'flex';
@@ -724,7 +735,7 @@
   }
 
   // -------------------------------------------------------------
-  // 6. 신문 아이콘 롱프레스 감지기
+  // 6. 신문 아이콘 롱프레스 감지기 (1.5초)
   // -------------------------------------------------------------
   function attachLongPressListeners() {
     let pressTimer = null;
@@ -734,9 +745,10 @@
     function isNewsIcon(target) {
       if (!target) return false;
       return target.closest([
+        '#newsToggleBtn',
         '[id*="news"]', '[class*="news"]', '[class*="newspaper"]',
         '[data-type="news"]', '[data-action*="news"]',
-        'button:has(svg)', '.memo-btn', '.news-btn', '.fa-newspaper'
+        '.memo-btn', '.news-btn', '.fa-newspaper'
       ].join(','));
     }
 
@@ -752,11 +764,11 @@
         isLongPressTriggered = true;
 
         if (navigator.vibrate) {
-          navigator.vibrate(60);
+          navigator.vibrate(50);
         }
 
-        const noteId = iconTarget.dataset.id || iconTarget.id || 'news_memo';
-        openModal(noteId);
+        // 현재 보고 있는 일자별(YYYY-MM-DD)로 캔버스 오픈
+        openModal(getCurrentDateKey());
       }, CONFIG.LONG_PRESS_DURATION);
     }
 
