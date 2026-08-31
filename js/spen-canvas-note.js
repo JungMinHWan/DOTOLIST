@@ -248,11 +248,28 @@
     }
   }
 
-  // S펜 측면 버튼(Barrel Button / Eraser) 누름 여부 체크
-  function isSpenButtonPressed(e) {
-    if (e.pointerType !== 'pen') return false;
-    // W3C Pointer Events: buttons 2 (secondary), 32 (eraser button), or button 2, 5
-    return (e.buttons & 2) !== 0 || (e.buttons & 32) !== 0 || e.button === 2 || e.button === 5;
+  // S펜 측면 버튼(Barrel Button / Eraser) 누름 여부 포괄 체크
+  function isSpenEraser(e) {
+    if (!e) return false;
+    // 1. 포인터 타입 자체가 eraser로 들어오는 경우
+    if (e.pointerType === 'eraser') return true;
+
+    // 2. 포인터 타입이 pen인 경우 (삼성 브라우저/크롬 모든 비트마스크 & 버튼 지원)
+    if (e.pointerType === 'pen') {
+      const b = (e.buttons !== undefined) ? e.buttons : 0;
+      const btn = (e.button !== undefined) ? e.button : -1;
+      const which = (e.which !== undefined) ? e.which : 0;
+
+      // buttons 비트마스크: 2(우클릭/배럴), 32(지우개), 3(좌클릭+배럴), 33(좌클릭+지우개)
+      if ((b & 2) !== 0 || (b & 32) !== 0 || b === 2 || b === 3 || b === 32 || b === 33) {
+        return true;
+      }
+      // button 또는 which 속성: 2, 5, 3
+      if (btn === 2 || btn === 5 || which === 3) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function getCanvasPos(e) {
@@ -280,7 +297,7 @@
 
     isDrawing = true;
     const pt = getCanvasPos(e);
-    const isEraser = isSpenButtonPressed(e) || currentTool === 'eraser';
+    const isEraser = isSpenEraser(e) || currentTool === 'eraser';
 
     currentStroke = {
       tool: isEraser ? 'eraser' : currentTool,
@@ -299,14 +316,13 @@
   function handlePointerMove(e) {
     if (!isDrawing || !currentStroke) return;
 
-    // S-Pen 고속 샘플링(Coalesced Events)을 지원하면 모든 정밀 중간 좌표 수집
     const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
-    const isEraser = isSpenButtonPressed(e) || currentTool === 'eraser';
+    const isEraser = isSpenEraser(e) || currentTool === 'eraser';
 
     // 펜 버튼을 누른 채로 움직이면 즉시 지우개 모드로 전환
     if (isEraser && currentStroke.tool !== 'eraser') {
       currentStroke.tool = 'eraser';
-      currentStroke.points = []; // 이전 그리기 선 분리
+      currentStroke.points = [];
     }
 
     for (let i = 0; i < events.length; i++) {
@@ -316,7 +332,6 @@
       if (isEraser) {
         eraseStrokeAt(pt);
       } else {
-        // 미세한 떨림 및 중복 좌표 필터링
         if (!prevPt || Math.hypot(pt.x - prevPt.x, pt.y - prevPt.y) >= 0.5) {
           currentStroke.points.push(pt);
 
@@ -334,7 +349,7 @@
     if (!isDrawing) return;
     isDrawing = false;
 
-    if (currentStroke && currentStroke.points.length > 0 && currentTool !== 'eraser') {
+    if (currentStroke && currentStroke.points.length > 0 && currentStroke.tool !== 'eraser') {
       strokes.push(currentStroke);
     }
     currentStroke = null;
@@ -415,12 +430,34 @@
     ctx.restore();
   }
 
+  // 점과 선분 사이의 최단 거리 계산 (지우개 정밀 감지)
+  function distToSegment(p, v, w) {
+    const l2 = (v.x - w.x) * (v.x - w.x) + (v.y - w.y) * (v.y - w.y);
+    if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+  }
+
+  // 획 단위 지우기
   function eraseStrokeAt(point) {
-    const threshold = 20;
+    const threshold = 26; // 지우개 반경
     const initialLen = strokes.length;
+
     strokes = strokes.filter(s => {
-      return !s.points.some(p => Math.hypot(p.x - point.x, p.y - point.y) < threshold);
+      const pts = s.points;
+      if (!pts || pts.length === 0) return false;
+      if (pts.length === 1) {
+        return Math.hypot(pts[0].x - point.x, pts[0].y - point.y) >= threshold;
+      }
+      for (let i = 0; i < pts.length - 1; i++) {
+        if (distToSegment(point, pts[i], pts[i + 1]) < threshold) {
+          return false; // 이 획 삭제
+        }
+      }
+      return true;
     });
+
     if (strokes.length !== initialLen) {
       redrawCanvas();
     }
