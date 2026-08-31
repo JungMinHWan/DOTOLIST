@@ -250,13 +250,15 @@
   function getCanvasPos(e) {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    // 캔버스 내부 논리 해상도와 브라우저 렌더링 CSS 크기 간의 정확한 비율 보정
     const scaleX = (canvas.width / dpr) / (rect.width || 1);
     const scaleY = (canvas.height / dpr) / (rect.height || 1);
 
+    // S펜 디스플레이 시차(Parallax) 보정: S펜일 때 펜촉 중심점에 정확히 맞추기 위한 미세 오프셋
+    const yOffset = (e.pointerType === 'pen') ? -1.2 : 0;
+
     return {
       x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      y: (e.clientY - rect.top + yOffset) * scaleY,
       p: (e.pressure !== undefined && e.pressure > 0) ? e.pressure : 0.5
     };
   }
@@ -264,7 +266,6 @@
   function handlePointerDown(e) {
     activePointerType = e.pointerType;
 
-    // 팜 리젝션: S펜 사용 환경에서 손가락(touch)이 닿으면 필기 무시
     if (CONFIG.PALM_REJECTION && e.pointerType === 'touch' && activePointerType === 'pen') {
       return;
     }
@@ -281,19 +282,33 @@
 
     if (currentTool === 'eraser') {
       eraseStrokeAt(pt);
+    } else {
+      drawPoint(pt, currentStroke);
     }
   }
 
   function handlePointerMove(e) {
     if (!isDrawing || !currentStroke) return;
 
-    const pt = getCanvasPos(e);
-    currentStroke.points.push(pt);
+    // S-Pen 고속 샘플링(Coalesced Events)을 지원하면 모든 정밀 중간 좌표 수집
+    const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
 
-    if (currentTool === 'eraser') {
-      eraseStrokeAt(pt);
-    } else {
-      drawSegment(currentStroke, currentStroke.points.length - 2, currentStroke.points.length - 1);
+    for (let i = 0; i < events.length; i++) {
+      const pt = getCanvasPos(events[i]);
+      const prevPt = currentStroke.points[currentStroke.points.length - 1];
+
+      // 미세한 떨림 및 너무 가까운 중복 좌표 필터링 (최소 0.5px 이동 시 추가)
+      if (!prevPt || Math.hypot(pt.x - prevPt.x, pt.y - prevPt.y) >= 0.5) {
+        currentStroke.points.push(pt);
+
+        if (currentTool === 'eraser') {
+          eraseStrokeAt(pt);
+        } else if (currentStroke.points.length >= 3) {
+          drawSmoothCurve(currentStroke);
+        } else {
+          drawSegment(currentStroke, currentStroke.points.length - 2, currentStroke.points.length - 1);
+        }
+      }
     }
   }
 
@@ -306,6 +321,54 @@
     }
     currentStroke = null;
     redrawCanvas();
+  }
+
+  // 첫 번째 점 찍기 (탭 또는 점 그리기)
+  function drawPoint(pt, stroke) {
+    ctx.save();
+    ctx.fillStyle = stroke.color;
+    if (stroke.tool === 'highlighter') {
+      ctx.globalCompositeOperation = 'multiply';
+    }
+    const r = (stroke.size * (0.6 + pt.p * 0.9)) / 2;
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 부드러운 베지에 스플라인 곡선 (중간점 보간으로 펜촉에 밀착)
+  function drawSmoothCurve(stroke) {
+    const pts = stroke.points;
+    const len = pts.length;
+    if (len < 3) return;
+
+    const p0 = pts[len - 3];
+    const p1 = pts[len - 2];
+    const p2 = pts[len - 1];
+
+    const mid1 = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+    const mid2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = stroke.color;
+
+    const pressureMultiplier = (p0.p + p1.p + p2.p) / 3;
+    ctx.lineWidth = stroke.size * (0.6 + pressureMultiplier * 0.9);
+
+    if (stroke.tool === 'highlighter') {
+      ctx.globalCompositeOperation = 'multiply';
+    } else {
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(mid1.x, mid1.y);
+    ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
+    ctx.stroke();
+    ctx.restore();
   }
 
   function drawSegment(stroke, idxA, idxB) {
@@ -335,7 +398,7 @@
   }
 
   function eraseStrokeAt(point) {
-    const threshold = 18;
+    const threshold = 20;
     const initialLen = strokes.length;
     strokes = strokes.filter(s => {
       return !s.points.some(p => Math.hypot(p.x - point.x, p.y - point.y) < threshold);
@@ -351,9 +414,50 @@
     ctx.clearRect(0, 0, rect.width, rect.height);
 
     strokes.forEach(stroke => {
-      for (let i = 0; i < stroke.points.length - 1; i++) {
-        drawSegment(stroke, i, i + 1);
+      const pts = stroke.points;
+      if (!pts || pts.length === 0) return;
+
+      if (pts.length === 1) {
+        drawPoint(pts[0], stroke);
+        return;
       }
+
+      ctx.save();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = stroke.color;
+
+      if (stroke.tool === 'highlighter') {
+        ctx.globalCompositeOperation = 'multiply';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+      }
+
+      if (pts.length === 2) {
+        const pAvg = (pts[0].p + pts[1].p) / 2;
+        ctx.lineWidth = stroke.size * (0.6 + pAvg * 0.9);
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        ctx.lineTo(pts[1].x, pts[1].y);
+        ctx.stroke();
+      } else {
+        for (let i = 0; i < pts.length - 2; i++) {
+          const p0 = pts[i];
+          const p1 = pts[i + 1];
+          const p2 = pts[i + 2];
+          const mid1 = (i === 0) ? p0 : { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+          const mid2 = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+
+          const pAvg = (p0.p + p1.p + p2.p) / 3;
+          ctx.lineWidth = stroke.size * (0.6 + pAvg * 0.9);
+
+          ctx.beginPath();
+          ctx.moveTo(mid1.x, mid1.y);
+          ctx.quadraticCurveTo(p1.x, p1.y, mid2.x, mid2.y);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
     });
   }
 
