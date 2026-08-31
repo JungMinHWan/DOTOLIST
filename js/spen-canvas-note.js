@@ -741,6 +741,7 @@
     } catch (err) {
       console.warn('S-Pen 필기 저장 실패:', err);
     }
+    syncNewsBadge();
   }
 
   function loadNoteData() {
@@ -750,6 +751,38 @@
     } catch (err) {
       strokes = [];
     }
+    syncNewsBadge();
+  }
+
+  // -------------------------------------------------------------
+  // 신문 뱃지(동그라미 점) 동기화 (손필기 또는 텍스트 존재 시 표시)
+  // -------------------------------------------------------------
+  function syncNewsBadge() {
+    try {
+      const dateKey = getCurrentDateKey();
+      const raw = localStorage.getItem(CONFIG.STORAGE_KEY_PREFIX + dateKey);
+      let hasSpenNote = false;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          hasSpenNote = true;
+        }
+      }
+
+      const newsBadge = document.getElementById('newsBadge');
+      const newsInput = document.getElementById('newsInput');
+      const hasText = newsInput && newsInput.value && newsInput.value.trim().length > 0;
+
+      if (newsBadge) {
+        if (hasSpenNote || hasText) {
+          newsBadge.style.display = 'flex';
+          // 손글씨 메모가 작성된 날은 산뜻한 포인트 컬러 적용
+          newsBadge.style.background = hasSpenNote ? '#10b981' : '#10b981';
+        } else {
+          newsBadge.style.display = 'none';
+        }
+      }
+    } catch (e) {}
   }
 
   // -------------------------------------------------------------
@@ -819,6 +852,16 @@
     document.addEventListener('pointerup', cancelPress, { passive: true });
     document.addEventListener('pointercancel', cancelPress, { passive: true });
     document.addEventListener('click', handleClickCapture, { capture: true });
+
+    // 탭/달력 변경 시 뱃지 상태 실시간 갱신
+    document.addEventListener('click', () => {
+      setTimeout(syncNewsBadge, 100);
+      setTimeout(syncNewsBadge, 400);
+    });
+
+    // 초기 뱃지 동기화
+    setTimeout(syncNewsBadge, 300);
+    setTimeout(syncNewsBadge, 1000);
   }
 
   if (document.readyState === 'loading') {
@@ -828,4 +871,5 @@
   }
 
   window.openSpenNote = openModal;
+  window.syncSpenNewsBadge = syncNewsBadge;
 })();
