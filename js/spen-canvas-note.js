@@ -492,14 +492,13 @@
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const scaleX = (canvas.width / dpr) / (rect.width || 1);
-    const scaleY = 1;
+    const scaleY = (canvas.height / dpr) / (rect.height || 1);
 
-    const yOffset = (e.pointerType === 'pen') ? -1.2 : 0;
-    const scrollY = wrapper ? wrapper.scrollTop : 0;
-
+    // canvas.getBoundingClientRect()는 이미 현재 스크롤 위치(뷰포트 기준)를 반영하므로
+    // e.clientY - rect.top 자체가 캔버스 최상단(0,0) 기준의 정확한 Y좌표입니다.
     return {
       x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top + scrollY + yOffset) * scaleY,
+      y: (e.clientY - rect.top) * scaleY,
       p: (e.pressure !== undefined && e.pressure > 0) ? e.pressure : 0.5
     };
   }
@@ -680,8 +679,8 @@
 
   function redrawCanvas() {
     if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    const dpr = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
     strokes.forEach(stroke => {
       const pts = stroke.points;
