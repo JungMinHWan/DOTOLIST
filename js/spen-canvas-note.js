@@ -310,9 +310,12 @@
   // 멀티터치 제스처 핸들러 (두 손가락 스크롤 및 Undo)
   // -------------------------------------------------------------
   function handleTouchStart(e) {
-    if (e.touches.length === 2) {
+    if (e.touches.length >= 2) {
       isTwoFingerGesture = true;
       isTwoFingerDragging = false;
+      isDrawing = false;
+      currentStroke = null;
+      redrawCanvas();
       touchStartTime = Date.now();
       touchStartY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       e.preventDefault();
@@ -379,14 +382,23 @@
     };
   }
 
-  function handlePointerDown(e) {
-    activePointerType = e.pointerType;
+  // 오직 S-Pen (또는 데스크탑 마우스) 만 필기 허용 (손가락 터치 100% 차단)
+  function isPenEvent(e) {
+    if (!e) return false;
+    // 1. S-Pen 포인터인 경우 허용
+    if (e.pointerType === 'pen') return true;
+    // 2. 데스크탑 마우스 테스트용 (터치 디바이스가 아닐 때만)
+    if (e.pointerType === 'mouse' && !('ontouchstart' in window)) return true;
+    return false;
+  }
 
-    // ★ 한 손가락 터치로는 선분이 그려지지 않도록 완벽 차단! (S-Pen 및 마우스만 필기 허용)
-    if (e.pointerType === 'touch') {
+  function handlePointerDown(e) {
+    // S-Pen이 아니면(손가락 터치 등) 필기 즉시 차단
+    if (!isPenEvent(e) || isTwoFingerGesture) {
       return;
     }
 
+    activePointerType = e.pointerType;
     isDrawing = true;
     const pt = getCanvasPos(e);
     const isEraser = isSpenEraser(e) || currentTool === 'eraser';
@@ -406,7 +418,7 @@
   }
 
   function handlePointerMove(e) {
-    if (!isDrawing || !currentStroke) return;
+    if (!isDrawing || !currentStroke || !isPenEvent(e) || isTwoFingerGesture) return;
 
     const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
     const isEraser = isSpenEraser(e) || currentTool === 'eraser';
