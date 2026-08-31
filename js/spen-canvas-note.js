@@ -141,21 +141,43 @@
         flex: 1;
         position: relative;
         background: #ffffff;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
         touch-action: none;
+        -webkit-overflow-scrolling: touch;
       }
       #spen-note-canvas {
         position: absolute;
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%;
+        height: 2500px;
         touch-action: none;
         cursor: crosshair;
       }
       .spen-grid-bg {
         background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
         background-size: 20px 20px;
+      }
+      .spen-toast {
+        position: absolute;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.88);
+        color: #ffffff;
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 100;
+      }
+      .spen-toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-6px);
       }
     `;
     document.head.appendChild(style);
@@ -174,7 +196,7 @@
         <div class="spen-header">
           <div class="spen-title">
             <span>✍️ S-Pen 손글씨 필기장</span>
-            <span class="spen-badge" id="spen-palm-badge">팜리젝션 ON</span>
+            <span class="spen-badge" id="spen-palm-badge">S-Pen 전용 필기 / ✌️ 두손가락 스크롤·Undo</span>
           </div>
           <div class="spen-toolbar">
             <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️</button>
@@ -187,8 +209,9 @@
             <button class="spen-btn" id="spen-btn-close" title="닫기">✕</button>
           </div>
         </div>
-        <div class="spen-canvas-wrapper spen-grid-bg">
+        <div class="spen-canvas-wrapper spen-grid-bg" id="spen-canvas-wrapper">
           <canvas id="spen-note-canvas"></canvas>
+          <div class="spen-toast" id="spen-toast"></div>
         </div>
       </div>
     `;
@@ -198,34 +221,69 @@
   }
 
   // -------------------------------------------------------------
-  // 4. 캔버스 드로잉 로직 (필압 + 팜 리젝션)
+  // 4. 캔버스 드로잉 로직 (S-Pen 전용 필기 + 두손가락 제스처)
   // -------------------------------------------------------------
-  let canvas, ctx;
+  let canvas, ctx, wrapper;
   let isEventsBound = false;
+
+  // 두 손가락 제스처 상태 변수
+  let touchStartTime = 0;
+  let touchStartY = 0;
+  let isTwoFingerGesture = false;
+  let isTwoFingerDragging = false;
+
+  function showToast(msg) {
+    const toast = document.getElementById('spen-toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => {
+      toast.classList.remove('show');
+    }, 1200);
+  }
+
+  function triggerUndo() {
+    if (strokes.length > 0) {
+      strokes.pop();
+      redrawCanvas();
+      if (navigator.vibrate) navigator.vibrate(35);
+      showToast('↩️ 실행 취소 (두 손가락 탭)');
+    }
+  }
 
   function initCanvas() {
     canvas = document.getElementById('spen-note-canvas');
-    if (!canvas) return;
+    wrapper = document.getElementById('spen-canvas-wrapper');
+    if (!canvas || !wrapper) return;
     ctx = canvas.getContext('2d', { desynchronized: true });
 
-    const wrapper = canvas.parentElement;
-    const rect = wrapper ? wrapper.getBoundingClientRect() : canvas.getBoundingClientRect();
+    const rect = wrapper.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
+    const canvasH = 2500; // 넉넉한 2500px 긴 필기 높이
 
-    if (rect.width > 0 && rect.height > 0) {
+    if (rect.width > 0) {
       canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
-      ctx.setTransform(1, 0, 0, 1, 0, 0); // 기존 스케일 리셋
+      canvas.height = Math.round(canvasH * dpr);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
     }
 
     if (!isEventsBound) {
+      // 1. S-Pen 및 마우스 필기 이벤트
       canvas.addEventListener('pointerdown', handlePointerDown);
       canvas.addEventListener('pointermove', handlePointerMove);
       canvas.addEventListener('pointerup', handlePointerUp);
       canvas.addEventListener('pointercancel', handlePointerUp);
       canvas.addEventListener('pointerleave', handlePointerUp);
-      canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // S펜 버튼 클릭 시 컨텍스트 메뉴 차단
+      canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // 2. 두 손가락 멀티터치 제스처 (스크롤 & Undo)
+      wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
+      wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
+      wrapper.addEventListener('touchend', handleTouchEnd, { passive: false });
+      wrapper.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
       window.addEventListener('resize', handleResize);
       isEventsBound = true;
     }
@@ -235,39 +293,72 @@
 
   function handleResize() {
     const overlay = document.getElementById('spen-modal-overlay');
-    if (!overlay || overlay.style.display !== 'flex' || !canvas) return;
-    const wrapper = canvas.parentElement;
-    const rect = wrapper ? wrapper.getBoundingClientRect() : canvas.getBoundingClientRect();
+    if (!overlay || overlay.style.display !== 'flex' || !canvas || !wrapper) return;
+    const rect = wrapper.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    if (rect.width > 0 && rect.height > 0) {
+    const canvasH = 2500;
+    if (rect.width > 0) {
       canvas.width = Math.round(rect.width * dpr);
-      canvas.height = Math.round(rect.height * dpr);
+      canvas.height = Math.round(canvasH * dpr);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       redrawCanvas();
     }
   }
 
-  // S펜 측면 버튼(Barrel Button / Eraser) 누름 여부 포괄 체크
+  // -------------------------------------------------------------
+  // 멀티터치 제스처 핸들러 (두 손가락 스크롤 및 Undo)
+  // -------------------------------------------------------------
+  function handleTouchStart(e) {
+    if (e.touches.length === 2) {
+      isTwoFingerGesture = true;
+      isTwoFingerDragging = false;
+      touchStartTime = Date.now();
+      touchStartY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      e.preventDefault();
+    }
+  }
+
+  function handleTouchMove(e) {
+    if (isTwoFingerGesture && e.touches.length === 2 && wrapper) {
+      e.preventDefault();
+      const curY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      const dy = curY - touchStartY;
+
+      if (Math.abs(dy) > 4) {
+        isTwoFingerDragging = true;
+        wrapper.scrollTop -= dy;
+        touchStartY = curY;
+      }
+    }
+  }
+
+  function handleTouchEnd(e) {
+    if (isTwoFingerGesture) {
+      const duration = Date.now() - touchStartTime;
+
+      // 두 손가락으로 짧게 톡 쳤을 때 (350ms 이하이고 드래그 안 함) -> 실행 취소(Undo)
+      if (!isTwoFingerDragging && duration < 380) {
+        triggerUndo();
+      }
+
+      if (e.touches.length < 2) {
+        isTwoFingerGesture = false;
+        isTwoFingerDragging = false;
+      }
+    }
+  }
+
+  // S펜 측면 버튼 누름 여부 포괄 체크
   function isSpenEraser(e) {
     if (!e) return false;
-    // 1. 포인터 타입 자체가 eraser로 들어오는 경우
     if (e.pointerType === 'eraser') return true;
-
-    // 2. 포인터 타입이 pen인 경우 (삼성 브라우저/크롬 모든 비트마스크 & 버튼 지원)
     if (e.pointerType === 'pen') {
       const b = (e.buttons !== undefined) ? e.buttons : 0;
       const btn = (e.button !== undefined) ? e.button : -1;
       const which = (e.which !== undefined) ? e.which : 0;
-
-      // buttons 비트마스크: 2(우클릭/배럴), 32(지우개), 3(좌클릭+배럴), 33(좌클릭+지우개)
-      if ((b & 2) !== 0 || (b & 32) !== 0 || b === 2 || b === 3 || b === 32 || b === 33) {
-        return true;
-      }
-      // button 또는 which 속성: 2, 5, 3
-      if (btn === 2 || btn === 5 || which === 3) {
-        return true;
-      }
+      if ((b & 2) !== 0 || (b & 32) !== 0 || b === 2 || b === 3 || b === 32 || b === 33) return true;
+      if (btn === 2 || btn === 5 || which === 3) return true;
     }
     return false;
   }
@@ -276,14 +367,14 @@
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const scaleX = (canvas.width / dpr) / (rect.width || 1);
-    const scaleY = (canvas.height / dpr) / (rect.height || 1);
+    const scaleY = 1; // 캔버스 좌표계와 1:1
 
-    // S펜 디스플레이 시차(Parallax) 보정: S펜일 때 펜촉 중심점에 정확히 맞추기 위한 미세 오프셋
     const yOffset = (e.pointerType === 'pen') ? -1.2 : 0;
+    const scrollY = wrapper ? wrapper.scrollTop : 0;
 
     return {
       x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top + yOffset) * scaleY,
+      y: (e.clientY - rect.top + scrollY + yOffset) * scaleY,
       p: (e.pressure !== undefined && e.pressure > 0) ? e.pressure : 0.5
     };
   }
@@ -291,7 +382,8 @@
   function handlePointerDown(e) {
     activePointerType = e.pointerType;
 
-    if (CONFIG.PALM_REJECTION && e.pointerType === 'touch' && activePointerType === 'pen') {
+    // ★ 한 손가락 터치로는 선분이 그려지지 않도록 완벽 차단! (S-Pen 및 마우스만 필기 허용)
+    if (e.pointerType === 'touch') {
       return;
     }
 
