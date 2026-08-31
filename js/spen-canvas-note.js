@@ -1,12 +1,12 @@
 /**
- * GROW GUEST - S-Pen 독립형 캔버스 필기 노트 모듈
+ * GROW GUEST - S-Pen 독립형 캔버스 필기 노트 모듈 (업무 메모 / 일기 / 신문 통합 지원)
  * 
- * [특징]
- * 1. 신문 아이콘 2~3초 롱프레스 시 햅틱 진동과 함께 필기 모달 실행
- * 2. S-Pen 필압(Pressure) 감지 및 굵기 보정
- * 3. 팜 리젝션(Palm Rejection: S-Pen 사용 시 손바닥 터치 오작동 차단)
- * 4. 선/좌표(Vector JSON) 형태 저장 및 복원 (이어쓰기, Undo 지원)
- * 5. 별도 CSS 파일 불필요 (단일 스크립트 자동 주입)
+ * [주요 기능]
+ * 1. 업무 메모, 일기장, 신문 스크랩 3대 영역 일자별 손필기 완벽 지원
+ * 2. 캔버스 모달 내에서 [메모 / 일기 / 신문] 탭 실시간 스위칭 (자동 저장 연동)
+ * 3. S-Pen 필압(Pressure) 정밀 감지, 부드러운 스플라인 곡선 및 팜 리젝션(손터치 오작동 100% 차단)
+ * 4. 두 손가락 제스처 지원 (2핑거 스크롤 및 2핑거 탭 실행취소)
+ * 5. 손필기 또는 텍스트 입력 유무에 따른 상단 뱃지(동그라미 점) 실시간 자동 동기화
  */
 
 (function () {
@@ -25,7 +25,14 @@
     PALM_REJECTION: true
   };
 
-  let currentKey = 'default_note';
+  const TYPE_INFO = {
+    memo: { title: '업무 메모', icon: '📝', color: '#ff3b30' },
+    diary: { title: '일기장', icon: '📔', color: '#10b981' },
+    news: { title: '신문 스크랩', icon: '📰', color: '#3b82f6' }
+  };
+
+  let currentType = 'news'; // 'memo' | 'diary' | 'news'
+  let currentDate = ''; // YYYY-MM-DD
   let strokes = [];
   let currentStroke = null;
   let isDrawing = false;
@@ -35,7 +42,7 @@
   let activePointerType = null;
 
   // -------------------------------------------------------------
-  // 2. 스타일 자동 주입
+  // 2. 스타일 자동 주입 (반응형 탭 + 현대적인 툴바)
   // -------------------------------------------------------------
   function injectStyles() {
     if (document.getElementById('spen-note-styles')) return;
@@ -56,9 +63,9 @@
         -webkit-user-select: none;
       }
       #spen-modal-container {
-        width: 95vw;
-        max-width: 850px;
-        height: 90vh;
+        width: 96vw;
+        max-width: 900px;
+        height: 92vh;
         background: #ffffff;
         border-radius: 20px;
         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
@@ -68,24 +75,85 @@
         animation: spenFadeIn 0.15s ease-out;
       }
       @keyframes spenFadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from { opacity: 0; transform: scale(0.98); }
+        to { opacity: 1; transform: scale(1); }
       }
       .spen-header {
-        padding: 10px 14px;
         background: #f8fafc;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 14px;
+      }
+      .spen-header-top {
+        display: flex;
         align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .spen-tab-group {
+        display: flex;
+        align-items: center;
+        background: #e2e8f0;
+        padding: 3px;
+        border-radius: 12px;
+        gap: 3px;
+      }
+      .spen-tab-btn {
+        border: none;
+        background: transparent;
+        padding: 6px 12px;
+        border-radius: 9px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .spen-tab-btn.active {
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .spen-tab-btn.active[data-type="memo"] { color: #e11d48; }
+      .spen-tab-btn.active[data-type="diary"] { color: #059669; }
+      .spen-tab-btn.active[data-type="news"] { color: #2563eb; }
+
+      .spen-date-display {
+        font-size: 13px;
+        font-weight: 700;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #ffffff;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
       }
       .spen-toolbar {
         display: flex;
         align-items: center;
-        justify-content: center;
-        gap: 8px;
+        justify-content: space-between;
+        gap: 6px;
         width: 100%;
-        max-width: 500px;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+      }
+      .spen-tool-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .spen-tool-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
       }
       .spen-btn {
         border: 1px solid #cbd5e1;
@@ -94,14 +162,15 @@
         min-width: 36px;
         height: 36px;
         border-radius: 9px;
-        font-size: 16px;
+        font-size: 15px;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-weight: 500;
+        font-weight: 600;
         color: #334155;
         transition: all 0.15s ease;
+        flex-shrink: 0;
       }
       .spen-btn:active { transform: scale(0.95); }
       .spen-btn.active {
@@ -122,6 +191,7 @@
         cursor: pointer;
         outline: none;
         padding: 0;
+        flex-shrink: 0;
       }
       .spen-canvas-wrapper {
         flex: 1;
@@ -142,7 +212,7 @@
         cursor: crosshair;
       }
       .spen-grid-bg {
-        background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+        background-image: radial-gradient(#e2e8f0 1.2px, transparent 1.2px);
         background-size: 20px 20px;
       }
       .spen-toast {
@@ -160,17 +230,39 @@
         opacity: 0;
         transition: opacity 0.2s ease, transform 0.2s ease;
         z-index: 100;
+        white-space: nowrap;
       }
       .spen-toast.show {
         opacity: 1;
         transform: translateX(-50%) translateY(-6px);
+      }
+
+      /* 헤더 패널 내 손필기 진입 버튼 공통 스타일 */
+      .spen-open-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        border-radius: 8px;
+        border: 1px solid var(--border-color, #e2e8f0);
+        background: var(--bg-card, #ffffff);
+        color: var(--text-main, #334155);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      .spen-open-btn:hover {
+        border-color: #3b82f6;
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.05);
       }
     `;
     document.head.appendChild(style);
   }
 
   // -------------------------------------------------------------
-  // 3. 모달 DOM 생성 (도구모음 전용 심플 헤더)
+  // 3. 모달 DOM 생성 (탭 + 도구모음 헤더)
   // -------------------------------------------------------------
   function createModalDOM() {
     if (document.getElementById('spen-modal-overlay')) return;
@@ -180,15 +272,29 @@
     overlay.innerHTML = `
       <div id="spen-modal-container">
         <div class="spen-header">
+          <div class="spen-header-top">
+            <div class="spen-tab-group" id="spen-tab-group">
+              <button class="spen-tab-btn active" data-type="memo">📝 메모</button>
+              <button class="spen-tab-btn" data-type="diary">📔 일기</button>
+              <button class="spen-tab-btn" data-type="news">📰 신문</button>
+            </div>
+            <div class="spen-date-display" id="spen-date-display">
+              📅 <span>2026-08-31</span>
+            </div>
+          </div>
           <div class="spen-toolbar">
-            <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️</button>
-            <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️</button>
-            <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹</button>
-            <input type="color" id="spen-color-input" class="spen-color-picker" value="${currentColor}" title="색상 선택">
-            <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️</button>
-            <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️</button>
-            <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾</button>
-            <button class="spen-btn" id="spen-btn-close" title="닫기">✕</button>
+            <div class="spen-tool-left">
+              <button class="spen-btn active" id="spen-tool-pen" data-tool="pen" title="펜">🖊️ 펜</button>
+              <button class="spen-btn" id="spen-tool-highlighter" data-tool="highlighter" title="형광펜">🖍️ 형광펜</button>
+              <button class="spen-btn" id="spen-tool-eraser" data-tool="eraser" title="지우개">🧹 지우개</button>
+              <input type="color" id="spen-color-input" class="spen-color-picker" value="${currentColor}" title="색상 선택">
+            </div>
+            <div class="spen-tool-right">
+              <button class="spen-btn" id="spen-tool-undo" title="실행 취소">↩️ 취소</button>
+              <button class="spen-btn" id="spen-tool-clear" title="전체 지우기">🗑️ 삭제</button>
+              <button class="spen-btn spen-btn-save" id="spen-btn-save" title="저장">💾 저장</button>
+              <button class="spen-btn" id="spen-btn-close" title="닫기">✕</button>
+            </div>
           </div>
         </div>
         <div class="spen-canvas-wrapper spen-grid-bg" id="spen-canvas-wrapper">
@@ -203,12 +309,52 @@
   }
 
   // -------------------------------------------------------------
-  // 4. 캔버스 드로잉 로직 (S-Pen 전용 필기 + 두손가락 제스처)
+  // 4. 스토리지 키 관리 및 데이터 입출력 (호환성 포함)
+  // -------------------------------------------------------------
+  function getStorageKey(type, dateKey) {
+    const t = type || currentType || 'news';
+    const d = dateKey || currentDate || getCurrentDateKey();
+    return `${CONFIG.STORAGE_KEY_PREFIX}${t}_${d}`;
+  }
+
+  function saveNoteData() {
+    try {
+      const key = getStorageKey(currentType, currentDate);
+      const dataStr = JSON.stringify(strokes);
+      localStorage.setItem(key, dataStr);
+    } catch (err) {
+      console.warn('S-Pen 필기 저장 실패:', err);
+    }
+    syncAllBadges();
+  }
+
+  function loadNoteData() {
+    try {
+      const key = getStorageKey(currentType, currentDate);
+      let raw = localStorage.getItem(key);
+
+      // 하위 호환 처리: 기존 신문 데이터가 접두사 없는 날짜 키로 저장되어 있는 경우 마이그레이션
+      if (!raw && currentType === 'news') {
+        const oldKey = CONFIG.STORAGE_KEY_PREFIX + currentDate;
+        const oldRaw = localStorage.getItem(oldKey);
+        if (oldRaw) {
+          raw = oldRaw;
+          localStorage.setItem(key, oldRaw);
+        }
+      }
+
+      strokes = raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      strokes = [];
+    }
+  }
+
+  // -------------------------------------------------------------
+  // 5. 캔버스 드로잉 로직 (S-Pen 전용 필기 + 멀티터치 제스처)
   // -------------------------------------------------------------
   let canvas, ctx, wrapper;
   let isEventsBound = false;
 
-  // 두 손가락 제스처 상태 변수
   let touchStartTime = 0;
   let touchStartY = 0;
   let isTwoFingerGesture = false;
@@ -242,7 +388,7 @@
 
     const rect = wrapper.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const canvasH = 2500; // 넉넉한 2500px 긴 필기 높이
+    const canvasH = 2500; // 넉넉한 2500px 세로 길이
 
     if (rect.width > 0) {
       canvas.width = Math.round(rect.width * dpr);
@@ -288,9 +434,6 @@
     }
   }
 
-  // -------------------------------------------------------------
-  // 멀티터치 제스처 핸들러 (두 손가락 스크롤 및 Undo)
-  // -------------------------------------------------------------
   function handleTouchStart(e) {
     if (e.touches.length >= 2) {
       isTwoFingerGesture = true;
@@ -321,12 +464,9 @@
   function handleTouchEnd(e) {
     if (isTwoFingerGesture) {
       const duration = Date.now() - touchStartTime;
-
-      // 두 손가락으로 짧게 톡 쳤을 때 (350ms 이하이고 드래그 안 함) -> 실행 취소(Undo)
       if (!isTwoFingerDragging && duration < 380) {
         triggerUndo();
       }
-
       if (e.touches.length < 2) {
         isTwoFingerGesture = false;
         isTwoFingerDragging = false;
@@ -334,7 +474,6 @@
     }
   }
 
-  // S펜 측면 버튼 누름 여부 포괄 체크
   function isSpenEraser(e) {
     if (!e) return false;
     if (e.pointerType === 'eraser') return true;
@@ -352,7 +491,7 @@
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const scaleX = (canvas.width / dpr) / (rect.width || 1);
-    const scaleY = 1; // 캔버스 좌표계와 1:1
+    const scaleY = 1;
 
     const yOffset = (e.pointerType === 'pen') ? -1.2 : 0;
     const scrollY = wrapper ? wrapper.scrollTop : 0;
@@ -364,21 +503,15 @@
     };
   }
 
-  // 오직 S-Pen (또는 데스크탑 마우스) 만 필기 허용 (손가락 터치 100% 차단)
   function isPenEvent(e) {
     if (!e) return false;
-    // 1. S-Pen 포인터인 경우 허용
     if (e.pointerType === 'pen') return true;
-    // 2. 데스크탑 마우스 테스트용 (터치 디바이스가 아닐 때만)
     if (e.pointerType === 'mouse' && !('ontouchstart' in window)) return true;
     return false;
   }
 
   function handlePointerDown(e) {
-    // S-Pen이 아니면(손가락 터치 등) 필기 즉시 차단
-    if (!isPenEvent(e) || isTwoFingerGesture) {
-      return;
-    }
+    if (!isPenEvent(e) || isTwoFingerGesture) return;
 
     activePointerType = e.pointerType;
     isDrawing = true;
@@ -405,7 +538,6 @@
     const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
     const isEraser = isSpenEraser(e) || currentTool === 'eraser';
 
-    // 펜 버튼을 누른 채로 움직이면 즉시 지우개 모드로 전환
     if (isEraser && currentStroke.tool !== 'eraser') {
       currentStroke.tool = 'eraser';
       currentStroke.points = [];
@@ -442,7 +574,6 @@
     redrawCanvas();
   }
 
-  // 첫 번째 점 찍기 (탭 또는 점 그리기)
   function drawPoint(pt, stroke) {
     ctx.save();
     ctx.fillStyle = stroke.color;
@@ -456,7 +587,6 @@
     ctx.restore();
   }
 
-  // 부드러운 베지에 스플라인 곡선 (중간점 보간으로 펜촉에 밀착)
   function drawSmoothCurve(stroke) {
     const pts = stroke.points;
     const len = pts.length;
@@ -516,7 +646,6 @@
     ctx.restore();
   }
 
-  // 점과 선분 사이의 최단 거리 계산 (지우개 정밀 감지)
   function distToSegment(p, v, w) {
     const l2 = (v.x - w.x) * (v.x - w.x) + (v.y - w.y) * (v.y - w.y);
     if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
@@ -525,9 +654,8 @@
     return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
   }
 
-  // 획 단위 지우기
   function eraseStrokeAt(point) {
-    const threshold = 26; // 지우개 반경
+    const threshold = 26;
     const initialLen = strokes.length;
 
     strokes = strokes.filter(s => {
@@ -538,7 +666,7 @@
       }
       for (let i = 0; i < pts.length - 1; i++) {
         if (distToSegment(point, pts[i], pts[i + 1]) < threshold) {
-          return false; // 이 획 삭제
+          return false;
         }
       }
       return true;
@@ -603,9 +731,31 @@
   }
 
   // -------------------------------------------------------------
-  // 5. 모달 제어 및 이벤트 바인딩
+  // 6. 모달 이벤트 및 탭 제어
   // -------------------------------------------------------------
   function bindModalEvents() {
+    // 탭 전환 버튼
+    const tabBtns = document.querySelectorAll('.spen-tab-btn');
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const targetType = e.currentTarget.dataset.type;
+        if (targetType === currentType) return;
+
+        // 현재 작성 내용 저장
+        saveNoteData();
+
+        // 탭 상태 전환
+        currentType = targetType;
+        updateModalHeaderUI();
+
+        // 새로운 탭 데이터 로드 및 리드로우
+        loadNoteData();
+        redrawCanvas();
+        showToast(`${TYPE_INFO[currentType].icon} ${TYPE_INFO[currentType].title} 필기장`);
+      });
+    });
+
+    // 툴 선택
     const tools = ['pen', 'highlighter', 'eraser'];
     tools.forEach(t => {
       const btn = document.getElementById(`spen-tool-${t}`);
@@ -618,6 +768,7 @@
       }
     });
 
+    // 색상 선택
     const colorInput = document.getElementById('spen-color-input');
     if (colorInput) {
       colorInput.addEventListener('input', (e) => {
@@ -633,6 +784,7 @@
       });
     }
 
+    // 실행 취소
     const undoBtn = document.getElementById('spen-tool-undo');
     if (undoBtn) {
       undoBtn.addEventListener('click', () => {
@@ -643,16 +795,18 @@
       });
     }
 
+    // 전체 지우기
     const clearBtn = document.getElementById('spen-tool-clear');
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
-        if (confirm('작성 중인 필기를 모두 지우시겠습니까?')) {
+        if (confirm(`작성 중인 ${TYPE_INFO[currentType].title} 필기를 모두 지우시겠습니까?`)) {
           strokes = [];
           redrawCanvas();
         }
       });
     }
 
+    // 저장 버튼
     const saveBtn = document.getElementById('spen-btn-save');
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
@@ -661,6 +815,7 @@
       });
     }
 
+    // 닫기 버튼
     const closeBtn = document.getElementById('spen-btn-close');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
@@ -672,15 +827,40 @@
     }
   }
 
-  // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 완벽 추출
+  function updateModalHeaderUI() {
+    // 탭 버튼 활성화 상태 업데이트
+    document.querySelectorAll('.spen-tab-btn').forEach(btn => {
+      if (btn.dataset.type === currentType) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // 날짜 레이블 업데이트
+    const dateDisplay = document.getElementById('spen-date-display');
+    if (dateDisplay) {
+      const parts = currentDate.split('-');
+      if (parts.length === 3) {
+        const year = parts[0];
+        const month = parseInt(parts[1], 10);
+        const day = parseInt(parts[2], 10);
+        dateDisplay.innerHTML = `📅 <span>${year}.${month}.${day}</span> <strong style="color:${TYPE_INFO[currentType].color}">(${TYPE_INFO[currentType].title})</strong>`;
+      } else {
+        dateDisplay.innerHTML = `📅 <span>${currentDate}</span>`;
+      }
+    }
+  }
+
+  // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 추출
   function getCurrentDateKey() {
-    // 1. TODOLIST의 inputDueDate 값 확인 (app.js에서 어제/오늘/내일/달력 변경 시 항상 100% 동기화됨)
+    // 1. TODOLIST의 inputDueDate
     const dueDateInput = document.getElementById('inputDueDate');
     if (dueDateInput && dueDateInput.value && /^\d{4}-\d{2}-\d{2}$/.test(dueDateInput.value)) {
       return dueDateInput.value;
     }
 
-    // 2. 상단 활성 탭 (어제 / 오늘 / 내일) 확인
+    // 2. 상단 활성 기간 탭 (어제 / 오늘 / 내일)
     const activeTab = document.querySelector('.period-tab.active');
     if (activeTab && activeTab.dataset && activeTab.dataset.period) {
       const period = activeTab.dataset.period;
@@ -690,22 +870,34 @@
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
-    // 3. 달력 선택 레이블 확인
+    // 3. 달력 선택 레이블
     const dateLabel = document.getElementById('selectedDateLabel');
     if (dateLabel && dateLabel.dataset && dateLabel.dataset.date) {
       return dateLabel.dataset.date;
     }
 
-    // 4. 기본값: 오늘 날짜
+    // 4. 기본 오늘
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   }
 
-  function openModal(noteKey) {
-    // 현재 보고 있는 날짜(YYYY-MM-DD)를 키로 설정
-    currentKey = noteKey || getCurrentDateKey();
+  /**
+   * 모달 열기 함수 (다양한 인자 형식 유연 지원)
+   * @param {string} [typeOrDate] - 'memo' | 'diary' | 'news' 또는 날짜 'YYYY-MM-DD'
+   * @param {string} [dateKey] - 'YYYY-MM-DD'
+   */
+  function openModal(typeOrDate, dateKey) {
+    if (typeOrDate && /^\d{4}-\d{2}-\d{2}$/.test(typeOrDate)) {
+      currentDate = typeOrDate;
+      currentType = dateKey && TYPE_INFO[dateKey] ? dateKey : 'news';
+    } else {
+      currentType = (typeOrDate && TYPE_INFO[typeOrDate]) ? typeOrDate : 'news';
+      currentDate = dateKey || getCurrentDateKey();
+    }
+
     injectStyles();
     createModalDOM();
+    updateModalHeaderUI();
 
     // 저장된 펜 색상 복원
     const savedColor = localStorage.getItem(CONFIG.SAVED_COLOR_KEY);
@@ -721,10 +913,9 @@
     loadNoteData();
     requestAnimationFrame(() => {
       initCanvas();
-      // 열린 날짜 안내 토스트 (예: 8월 30일 필기장)
-      const parts = currentKey.split('-');
+      const parts = currentDate.split('-');
       if (parts.length === 3) {
-        showToast(`📅 ${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일 필기장`);
+        showToast(`${TYPE_INFO[currentType].icon} ${parseInt(parts[1], 10)}월 ${parseInt(parts[2], 10)}일 ${TYPE_INFO[currentType].title} 필기장`);
       }
     });
   }
@@ -734,79 +925,82 @@
     if (overlay) overlay.style.display = 'none';
   }
 
-  function saveNoteData() {
-    try {
-      const dataStr = JSON.stringify(strokes);
-      localStorage.setItem(CONFIG.STORAGE_KEY_PREFIX + currentKey, dataStr);
-    } catch (err) {
-      console.warn('S-Pen 필기 저장 실패:', err);
-    }
-    syncNewsBadge();
-  }
-
-  function loadNoteData() {
-    try {
-      const raw = localStorage.getItem(CONFIG.STORAGE_KEY_PREFIX + currentKey);
-      strokes = raw ? JSON.parse(raw) : [];
-    } catch (err) {
-      strokes = [];
-    }
-    syncNewsBadge();
-  }
-
   // -------------------------------------------------------------
-  // 신문 뱃지(동그라미 점) 동기화 (손필기 또는 텍스트 존재 시 표시)
+  // 7. 메모 / 일기 / 신문 뱃지(동그라미 점) 통합 동기화
   // -------------------------------------------------------------
-  function syncNewsBadge() {
+  function checkHasSpenNote(type, dateKey) {
     try {
-      const dateKey = getCurrentDateKey();
-      const raw = localStorage.getItem(CONFIG.STORAGE_KEY_PREFIX + dateKey);
-      let hasSpenNote = false;
+      const key = getStorageKey(type, dateKey);
+      let raw = localStorage.getItem(key);
+      if (!raw && type === 'news') {
+        raw = localStorage.getItem(CONFIG.STORAGE_KEY_PREFIX + dateKey);
+      }
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          hasSpenNote = true;
-        }
+        return Array.isArray(parsed) && parsed.length > 0;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function syncAllBadges() {
+    try {
+      const dateKey = getCurrentDateKey();
+
+      // 1. 메모 뱃지
+      const memoBadge = document.getElementById('memoBadge');
+      const memoInput = document.getElementById('memoInput');
+      const hasMemoText = memoInput && memoInput.value && memoInput.value.trim().length > 0;
+      const hasMemoSpen = checkHasSpenNote('memo', dateKey);
+      if (memoBadge) {
+        memoBadge.style.display = (hasMemoText || hasMemoSpen) ? 'flex' : 'none';
       }
 
+      // 2. 일기 뱃지
+      const diaryBadge = document.getElementById('diaryBadge');
+      const diaryInput = document.getElementById('diaryInput');
+      const hasDiaryText = diaryInput && diaryInput.value && diaryInput.value.trim().length > 0;
+      const hasDiarySpen = checkHasSpenNote('diary', dateKey);
+      if (diaryBadge) {
+        diaryBadge.style.display = (hasDiaryText || hasDiarySpen) ? 'flex' : 'none';
+      }
+
+      // 3. 신문 뱃지
       const newsBadge = document.getElementById('newsBadge');
       const newsInput = document.getElementById('newsInput');
-      const hasText = newsInput && newsInput.value && newsInput.value.trim().length > 0;
-
+      const hasNewsText = newsInput && newsInput.value && newsInput.value.trim().length > 0;
+      const hasNewsSpen = checkHasSpenNote('news', dateKey);
       if (newsBadge) {
-        if (hasSpenNote || hasText) {
-          newsBadge.style.display = 'flex';
-          // 손글씨 메모가 작성된 날은 산뜻한 포인트 컬러 적용
-          newsBadge.style.background = hasSpenNote ? '#10b981' : '#10b981';
-        } else {
-          newsBadge.style.display = 'none';
-        }
+        newsBadge.style.display = (hasNewsText || hasNewsSpen) ? 'flex' : 'none';
       }
     } catch (e) {}
   }
 
   // -------------------------------------------------------------
-  // 6. 신문 아이콘 롱프레스 감지기 (1.5초)
+  // 8. 상단 아이콘 롱프레스 감지기 (일기, 신문 등)
   // -------------------------------------------------------------
   function attachLongPressListeners() {
     let pressTimer = null;
     let isLongPressTriggered = false;
     let startX = 0, startY = 0;
+    let targetType = 'news';
 
-    function isNewsIcon(target) {
-      if (!target) return false;
-      return target.closest([
-        '#newsToggleBtn',
-        '[id*="news"]', '[class*="news"]', '[class*="newspaper"]',
-        '[data-type="news"]', '[data-action*="news"]',
-        '.memo-btn', '.news-btn', '.fa-newspaper'
-      ].join(','));
+    function getTargetType(target) {
+      if (!target) return null;
+      if (target.closest('#newsToggleBtn, [class*="news"], [class*="newspaper"], .fa-newspaper')) {
+        return 'news';
+      }
+      if (target.closest('#diaryToggleBtn, [title*="일기"]')) {
+        return 'diary';
+      }
+      return null;
     }
 
     function startPress(e) {
-      const iconTarget = isNewsIcon(e.target);
-      if (!iconTarget) return;
+      const type = getTargetType(e.target);
+      if (!type) return;
 
+      targetType = type;
       isLongPressTriggered = false;
       startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
       startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
@@ -818,8 +1012,7 @@
           navigator.vibrate(50);
         }
 
-        // 현재 보고 있는 일자별(YYYY-MM-DD)로 캔버스 오픈
-        openModal(getCurrentDateKey());
+        openModal(targetType, getCurrentDateKey());
       }, CONFIG.LONG_PRESS_DURATION);
     }
 
@@ -855,13 +1048,13 @@
 
     // 탭/달력 변경 시 뱃지 상태 실시간 갱신
     document.addEventListener('click', () => {
-      setTimeout(syncNewsBadge, 100);
-      setTimeout(syncNewsBadge, 400);
+      setTimeout(syncAllBadges, 100);
+      setTimeout(syncAllBadges, 400);
     });
 
     // 초기 뱃지 동기화
-    setTimeout(syncNewsBadge, 300);
-    setTimeout(syncNewsBadge, 1000);
+    setTimeout(syncAllBadges, 300);
+    setTimeout(syncAllBadges, 1000);
   }
 
   if (document.readyState === 'loading') {
@@ -870,6 +1063,8 @@
     attachLongPressListeners();
   }
 
+  // 글로벌 API 노출
   window.openSpenNote = openModal;
-  window.syncSpenNewsBadge = syncNewsBadge;
+  window.syncSpenBadges = syncAllBadges;
+  window.syncSpenNewsBadge = syncAllBadges; // 구버전 호환용
 })();

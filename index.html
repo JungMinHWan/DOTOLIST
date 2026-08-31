@@ -111,25 +111,34 @@
 
     <div class="memo-wrapper" id="memoWrapper">
       <textarea class="memo-area" id="memoInput" placeholder="이 날의 메모..."></textarea>
-      <div class="action-row" style="justify-content: flex-end;">
-        <span class="save-status" id="memoStatus"></span>
-        <button class="action-btn" id="saveMemoBtn">메모 저장</button>
+      <div class="action-row" style="justify-content: space-between;">
+        <button class="spen-open-btn" id="openMemoSpenBtn" title="S-Pen 손필기 열기">✍️ 손필기 (S-Pen)</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="save-status" id="memoStatus"></span>
+          <button class="action-btn" id="saveMemoBtn">메모 저장</button>
+        </div>
       </div>
     </div>
 
     <div class="memo-wrapper" id="diaryWrapper">
       <textarea class="memo-area diary-area" id="diaryInput" placeholder="이 날의 일기..."></textarea>
-      <div class="action-row" style="justify-content: flex-end;">
-        <span class="save-status" id="diaryStatus"></span>
-        <button class="action-btn" id="saveDiaryBtn">일기 저장</button>
+      <div class="action-row" style="justify-content: space-between;">
+        <button class="spen-open-btn" id="openDiarySpenBtn" title="S-Pen 손필기 열기">✍️ 손필기 (S-Pen)</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="save-status" id="diaryStatus"></span>
+          <button class="action-btn" id="saveDiaryBtn">일기 저장</button>
+        </div>
       </div>
     </div>
 
     <div class="memo-wrapper" id="newsWrapper">
       <textarea class="memo-area news-area" id="newsInput" placeholder="이 날의 신문 스크랩..."></textarea>
-      <div class="action-row" style="justify-content: flex-end;">
-        <span class="save-status" id="newsStatus"></span>
-        <button class="action-btn" id="saveNewsBtn">신문 저장</button>
+      <div class="action-row" style="justify-content: space-between;">
+        <button class="spen-open-btn" id="openNewsSpenBtn" title="S-Pen 손필기 열기">✍️ 손필기 (S-Pen)</button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="save-status" id="newsStatus"></span>
+          <button class="action-btn" id="saveNewsBtn">신문 저장</button>
+        </div>
       </div>
     </div>
 

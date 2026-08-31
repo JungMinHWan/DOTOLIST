@@ -266,6 +266,26 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('saveMemoBtn').onclick = saveMemo;
   document.getElementById('saveDiaryBtn').onclick = saveDiary;
   document.getElementById('saveNewsBtn').onclick = saveNews;
+
+  // 손필기(S-Pen) 전용 모달 오픈 버튼
+  const memoSpenBtn = document.getElementById('openMemoSpenBtn');
+  if (memoSpenBtn) {
+    memoSpenBtn.onclick = () => {
+      if (window.openSpenNote) window.openSpenNote('memo', currentMetricsDate || selectedDate);
+    };
+  }
+  const diarySpenBtn = document.getElementById('openDiarySpenBtn');
+  if (diarySpenBtn) {
+    diarySpenBtn.onclick = () => {
+      if (window.openSpenNote) window.openSpenNote('diary', currentMetricsDate || selectedDate);
+    };
+  }
+  const newsSpenBtn = document.getElementById('openNewsSpenBtn');
+  if (newsSpenBtn) {
+    newsSpenBtn.onclick = () => {
+      if (window.openSpenNote) window.openSpenNote('news', currentMetricsDate || selectedDate);
+    };
+  }
   
   // 기간 탭 및 롱프레스 이벤트 바인딩
   document.querySelectorAll('.period-tab').forEach(tab => {
@@ -1316,15 +1336,25 @@ async function refreshAllData() {
 
 function updateMemoBadge(content) {
   const badge = document.getElementById('memoBadge');
-  if(content && content.trim().length > 0) badge.style.display = 'flex';
-  else badge.style.display = 'none';
+  if (badge) {
+    if (window.syncSpenBadges) {
+      window.syncSpenBadges();
+    } else {
+      if (content && content.trim().length > 0) badge.style.display = 'flex';
+      else badge.style.display = 'none';
+    }
+  }
 }
 
 function updateBadge(badgeId, content) {
   const badge = document.getElementById(badgeId);
-  if(badge) {
-    if(content && content.trim().length > 0) badge.style.display = 'flex';
-    else badge.style.display = 'none';
+  if (badge) {
+    if (window.syncSpenBadges) {
+      window.syncSpenBadges();
+    } else {
+      if (content && content.trim().length > 0) badge.style.display = 'flex';
+      else badge.style.display = 'none';
+    }
   }
 }
 
