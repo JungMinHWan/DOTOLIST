@@ -366,8 +366,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 240px;
-  overflow-y: auto;
 }
 .db-channel-row {
   display: grid;

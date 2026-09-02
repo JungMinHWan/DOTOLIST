@@ -1385,11 +1385,9 @@ function parseDailyReportText(raw) {
   };
 
   lines.forEach(line => {
-    let tokens = line.split(/\t+| {2,}/).map(t => t.trim()).filter(Boolean);
-    if (tokens.length === 1) tokens = line.split(/\s+/);
-
     // 1. 계약
     if (line.includes('계약') && !line.includes('플래너') && !line.includes('혼수') && !line.includes('스드메')) {
+      const tokens = line.split(/\s+/).filter(Boolean);
       const numbers = [];
       tokens.forEach(tok => {
         const num = tok.replace(/,/g, '');
@@ -1398,16 +1396,15 @@ function parseDailyReportText(raw) {
       if (numbers.length > 0) result.contractsCount = numbers[0];
       const cumMatch = line.match(/당해\s*(\d+)건/);
       if (cumMatch) result.cumulativeContractsCount = cumMatch[1];
-      for (let i = 1; i < tokens.length; i++) {
-        if (tokens[i].includes('당해') || tokens[i].includes('당월') || tokens[i].includes('/')) {
-          result.contractNote = tokens.slice(i).join(' ');
-          break;
-        }
+      const noteMatch = line.match(/(당해.*$|당월.*$)/);
+      if (noteMatch) {
+        result.contractNote = noteMatch[0].trim();
       }
     }
 
     // 2. DB유입 - 전체 합계
     if (line.includes('DB유입') || line.includes('전체 합계') || line.includes('전체합계')) {
+      const tokens = line.split(/\s+/).filter(Boolean);
       const numbers = [];
       tokens.forEach(tok => {
         const num = tok.replace(/,/g, '');
@@ -1419,54 +1416,57 @@ function parseDailyReportText(raw) {
       } else if (numbers.length === 1) {
         result.dbTotalApplied = numbers[0];
       }
-      const noteMatch = line.match(/(당월\s*실회원\s*[\d,]+명.*$|실회원.*$)/);
+      const noteMatch = line.match(/(당월\s*실회원.*$|실회원.*$)/);
       if (noteMatch) result.dbTotalNote = noteMatch[0].trim();
     }
 
     // 3. 경로별 DB유입
     if (line.includes('경로별') || line.startsWith('·')) {
       let clean = line.replace(/^[·\s\*\-]+/, '').replace(/^경로별\s*/, '').trim();
-      const parts = clean.split(/\t+| {2,}/).map(p => p.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        const channelName = parts[0];
+      const tokens = clean.split(/\s+/).filter(Boolean);
+      if (tokens.length >= 2) {
+        const channelName = tokens[0];
         let applied = '';
         let actual = '';
-        let note = '';
-        const nums = [];
-        for (let i = 1; i < parts.length; i++) {
-          const num = parts[i].replace(/,/g, '');
-          if (/^\d+$/.test(num)) {
-            nums.push(parseInt(num));
-          } else if (parts[i] !== '-') {
-            note = parts.slice(i).join(' ');
-            break;
+        let noteTokens = [];
+        let numCount = 0;
+
+        for (let i = 1; i < tokens.length; i++) {
+          const tok = tokens[i];
+          const cleanNum = tok.replace(/,/g, '');
+          if (/^\d+$/.test(cleanNum) && numCount < 2) {
+            if (numCount === 0) applied = parseInt(cleanNum);
+            else if (numCount === 1) actual = parseInt(cleanNum);
+            numCount++;
+          } else if (tok === '-' && numCount < 2) {
+            numCount++;
+          } else {
+            noteTokens.push(tok);
           }
         }
-        if (nums.length >= 2) {
-          applied = nums[0];
-          actual = nums[1];
-        } else if (nums.length === 1) {
-          applied = nums[0];
-          actual = nums[0];
+
+        if (applied !== '' && actual === '') {
+          actual = applied;
         }
+
         result.dbChannels.push({
           channel: channelName,
           applied: applied,
           actual: actual,
-          note: note
+          note: noteTokens.join(' ')
         });
       }
     }
 
     // 4. 방문예정
-    if (line.includes('방문예정') || line.includes('방문 예정')) {
-      if (line.includes('토요일')) {
-        const numMatch = line.match(/토요일[^\d]*(\d+)/);
+    if (line.includes('방문예정') || line.includes('방문 예정') || line.includes('스드메상담')) {
+      if (line.includes('토요일') || line.includes('토')) {
+        const numMatch = line.match(/(?:토요일|토)[^\d]*(\d+)/);
         if (numMatch) result.saturdayVisitors = parseInt(numMatch[1]);
         const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
         if (noteMatch) result.saturdayNote = noteMatch[0].trim();
-      } else if (line.includes('일요일')) {
-        const numMatch = line.match(/일요일[^\d]*(\d+)/);
+      } else if (line.includes('일요일') || line.includes('일')) {
+        const numMatch = line.match(/(?:일요일|일)[^\d]*(\d+)/);
         if (numMatch) result.sundayVisitors = parseInt(numMatch[1]);
         const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
         if (noteMatch) result.sundayNote = noteMatch[0].trim();
@@ -1477,7 +1477,7 @@ function parseDailyReportText(raw) {
     if (line.includes('플래너') || line.includes('TOP') || line.includes('BOTTOM') || line.includes('▲') || line.includes('▼') || line.includes('1위') || line.includes('2위') || line.includes('3위') || line.includes('하위')) {
       const isBottom = line.includes('BOTTOM') || line.includes('▼') || line.includes('하위');
       let rank = '';
-      let rankMatch = line.match(/(1위|2위|3위|하위1|하위2|하위3|하위 1|하위 2|하위 3)/);
+      let rankMatch = line.match(/(1위|2위|3위|하위\s*1|하위\s*2|하위\s*3)/);
       if (rankMatch) rank = rankMatch[1].replace(/\s+/g, '');
 
       let name = '';
@@ -1500,7 +1500,7 @@ function parseDailyReportText(raw) {
 
       if (name || rank) {
         const item = { rank: rank || (isBottom ? '하위' : '순위'), name, count, note };
-        if (isBottom || rank.includes('하위')) {
+        if (isBottom || (rank && rank.includes('하위'))) {
           result.plannerBottom.push(item);
         } else {
           result.plannerTop.push(item);
