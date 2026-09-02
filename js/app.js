@@ -472,11 +472,83 @@ document.addEventListener('DOMContentLoaded', async function() {
   const metricsBody = document.getElementById('metricsBody');
   const metricsToggleIcon = document.getElementById('metricsToggleIcon');
   
-  metricsHeader.onclick = () => {
+  metricsHeader.onclick = (e) => {
+    // 내부 버튼 클릭 시 접힘 방지
+    if (e.target.closest('#btnToggleSmartParser')) return;
     const isCollapsed = metricsBody.classList.toggle('collapsed');
     metricsToggleIcon.innerText = isCollapsed ? '▲' : '▼';
     localStorage.setItem('metricsCollapsed', isCollapsed ? 'true' : 'false');
   };
+
+  // 스마트 텍스트 파서 토글 및 이벤트 바인딩
+  const btnToggleSmartParser = document.getElementById('btnToggleSmartParser');
+  const smartParserPanel = document.getElementById('smartParserPanel');
+  const btnCloseSmartParser = document.getElementById('btnCloseSmartParser');
+  const btnSampleData = document.getElementById('btnSampleData');
+  const btnApplyParsed = document.getElementById('btnApplyParsed');
+  const smartParserInput = document.getElementById('smartParserInput');
+
+  if (btnToggleSmartParser && smartParserPanel) {
+    btnToggleSmartParser.onclick = (e) => {
+      e.stopPropagation();
+      const isHidden = smartParserPanel.classList.toggle('hidden');
+      if (!isHidden) smartParserInput.focus();
+    };
+  }
+  if (btnCloseSmartParser && smartParserPanel) {
+    btnCloseSmartParser.onclick = (e) => {
+      e.stopPropagation();
+      smartParserPanel.classList.add('hidden');
+    };
+  }
+  if (btnSampleData && smartParserInput) {
+    btnSampleData.onclick = () => {
+      smartParserInput.value = SAMPLE_DAILY_REPORT_TEXT;
+    };
+  }
+  if (btnApplyParsed && smartParserInput) {
+    btnApplyParsed.onclick = () => {
+      applyParsedReportText(smartParserInput.value);
+    };
+  }
+
+  // DB 경로별 상세 토글 바인딩
+  const btnToggleDbChannels = document.getElementById('btnToggleDbChannels');
+  const dbChannelsContainer = document.getElementById('dbChannelsContainer');
+  const dbChannelsToggleText = document.getElementById('dbChannelsToggleText');
+  if (btnToggleDbChannels && dbChannelsContainer) {
+    btnToggleDbChannels.onclick = () => {
+      const isHidden = dbChannelsContainer.classList.toggle('hidden');
+      dbChannelsToggleText.innerText = isHidden ? '경로별 상세 펼치기 ▼' : '경로별 상세 접기 ▲';
+    };
+  }
+
+  // DB 경로 추가 버튼 바인딩
+  const btnAddChannel = document.getElementById('btnAddChannel');
+  if (btnAddChannel) {
+    btnAddChannel.onclick = () => {
+      addDbChannelRow({ channel: '', applied: '', actual: '', note: '' });
+    };
+  }
+
+  // 플래너 입력 시 요약 텍스트 자동 동기화
+  const plannerTopContainer = document.getElementById('plannerTopList');
+  if (plannerTopContainer) {
+    plannerTopContainer.addEventListener('input', () => {
+      const topList = getPlannerListFromUI('plannerTopList');
+      const summary = topList.filter(p => p.name).map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
+      document.getElementById('contractTop').value = summary;
+    });
+  }
+
+  const plannerBottomContainer = document.getElementById('plannerBottomList');
+  if (plannerBottomContainer) {
+    plannerBottomContainer.addEventListener('input', () => {
+      const bottomList = getPlannerListFromUI('plannerBottomList');
+      const summary = bottomList.filter(p => p.name).map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
+      document.getElementById('contractBottom').value = summary;
+    });
+  }
   
   // 기존 상태 복원
   if (localStorage.getItem('metricsCollapsed') === 'true') {
@@ -1130,12 +1202,19 @@ function updateUIForCustomDate() {
 
 function handleSwipeGesture() {
   // 모달 오버레이들이 열려 있는 경우 날짜 스와이프 차단
+  const spenOverlay = document.getElementById('spen-modal-overlay');
+  const isSpenOpen = spenOverlay && (spenOverlay.style.display === 'flex' || spenOverlay.style.display === 'block');
+  
   const isMathOpen = document.getElementById('mathModalOverlay') && !document.getElementById('mathModalOverlay').classList.contains('hidden');
   const isTetrisOpen = document.getElementById('tetrisModalOverlay') && !document.getElementById('tetrisModalOverlay').classList.contains('hidden');
   const isNapOpen = document.getElementById('napModalOverlay') && !document.getElementById('napModalOverlay').classList.contains('hidden');
   const isFeatureSelectionOpen = document.getElementById('featureSelectionModal') && !document.getElementById('featureSelectionModal').classList.contains('hidden');
+  const isSecretOpen = document.getElementById('secretLetterModalOverlay') && !document.getElementById('secretLetterModalOverlay').classList.contains('hidden');
+  const isBookOpen = document.getElementById('bookShelfModalOverlay') && !document.getElementById('bookShelfModalOverlay').classList.contains('hidden');
+  const isManualOpen = document.getElementById('manualShelfModalOverlay') && !document.getElementById('manualShelfModalOverlay').classList.contains('hidden');
+  const isLexiconOpen = document.getElementById('lexiconModalOverlay') && !document.getElementById('lexiconModalOverlay').classList.contains('hidden');
   
-  if (isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen) return;
+  if (isSpenOpen || isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen || isSecretOpen || isBookOpen || isManualOpen || isLexiconOpen) return;
 
   if(document.getElementById('searchWrapper').classList.contains('show') || 
      document.getElementById('memoWrapper').classList.contains('show') ||
@@ -1157,6 +1236,328 @@ function changeDate(offset) {
   d.setDate(d.getDate() + offset);
   const newDateStr = formatDateString(d);
   selectDateFromCalendar(newDateStr);
+}
+
+// 기본 경로별 DB 유입 목록
+const DEFAULT_DB_CHANNELS = [
+  { channel: '요즘웨딩어플/앱', applied: 32, actual: 36, note: '실회원 36명' },
+  { channel: '네이버카페', applied: 24, actual: 24, note: '실회원 24명' },
+  { channel: '인스타그램_웨딩홀', applied: 24, actual: 24, note: '실회원 24명' },
+  { channel: '홈페이지_웨딩홀', applied: 14, actual: 14, note: '실회원 14명' },
+  { channel: '홈페이지_드레스랜드', applied: 11, actual: 11, note: '실회원 11명' },
+  { channel: '홈페이지_웨딩페스타', applied: 11, actual: 11, note: '실회원 11명' },
+  { channel: '홈페이지_상담신청', applied: 6, actual: 6, note: '실회원 6명' },
+  { channel: '친구추천/업체추천', applied: 3, actual: 3, note: '실회원 3명' },
+  { channel: '채널톡', applied: 3, actual: 3, note: '실회원 3명' },
+  { channel: '웹앱_웨딩페스타', applied: 2, actual: 2, note: '실회원 2명' },
+  { channel: '매니저SNS', applied: 1, actual: 1, note: '실회원 1명' }
+];
+
+const SAMPLE_DAILY_REPORT_TEXT = `■ 계약\t계약건수\t4\t4\t당해 2168건 / 당월금액 9,680,000
+■ DB유입\t── 전체 합계 ──\t131\t135\t당월 실회원 135명
+  · 경로별\t요즘웨딩어플/앱\t32\t36\t실회원 36명
+  · 경로별\t네이버카페\t24\t24\t실회원 24명
+  · 경로별\t인스타그램_웨딩홀\t24\t24\t실회원 24명
+  · 경로별\t홈페이지_웨딩홀\t14\t14\t실회원 14명
+  · 경로별\t홈페이지_드레스랜드\t11\t11\t실회원 11명
+  · 경로별\t홈페이지_웨딩페스타\t11\t11\t실회원 11명
+  · 경로별\t홈페이지_상담신청\t6\t6\t실회원 6명
+  · 경로별\t친구추천/업체추천\t3\t3\t실회원 3명
+  · 경로별\t채널톡\t3\t3\t실회원 3명
+  · 경로별\t웹앱_웨딩페스타\t2\t2\t실회원 2명
+  · 경로별\t매니저SNS\t1\t1\t실회원 1명
+■ 방문예정\t이번주 토요일\t37\t-\t09-05 스드메상담
+■ 방문예정\t이번주 일요일\t24\t-\t09-06 스드메상담
+▲ 플래너 TOP3\t1위  김시율\t2건\t-\t당월 5,650,000원
+▲ 플래너 TOP3\t2위  장한별\t1건\t-\t당월 2,260,000원
+▲ 플래너 TOP3\t3위  정유나\t1건\t-\t당월 1,770,000원
+▼ 플래너 BOTTOM3\t하위1  정유나\t1건\t-\t당월 1,770,000원
+▼ 플래너 BOTTOM3\t하위2  장한별\t1건\t-\t당월 2,260,000원
+▼ 플래너 BOTTOM3\t하위3  김시율\t2건\t-\t당월 5,650,000원`;
+
+// DB 경로 목록 렌더링
+function renderDbChannels(channels) {
+  const container = document.getElementById('dbChannelsList');
+  if (!container) return;
+  container.innerHTML = '';
+  const list = Array.isArray(channels) && channels.length > 0 ? channels : DEFAULT_DB_CHANNELS;
+  list.forEach((item, idx) => {
+    addDbChannelRow(item);
+  });
+}
+
+function addDbChannelRow(item = { channel: '', applied: '', actual: '', note: '' }) {
+  const container = document.getElementById('dbChannelsList');
+  if (!container) return;
+  const row = document.createElement('div');
+  row.className = 'db-channel-row';
+  row.innerHTML = `
+    <input type="text" class="metric-input ch-name" placeholder="경로명" value="${item.channel || ''}">
+    <input type="number" class="metric-input ch-applied" placeholder="0" value="${item.applied !== null && item.applied !== undefined ? item.applied : ''}">
+    <input type="number" class="metric-input ch-actual" placeholder="0" value="${item.actual !== null && item.actual !== undefined ? item.actual : ''}">
+    <input type="text" class="metric-input ch-note" placeholder="비고" value="${item.note || ''}">
+    <button type="button" class="btn-del-channel" title="삭제">×</button>
+  `;
+  row.querySelector('.btn-del-channel').onclick = () => row.remove();
+  container.appendChild(row);
+}
+
+function getDbChannelsFromUI() {
+  const container = document.getElementById('dbChannelsList');
+  if (!container) return [];
+  const rows = container.querySelectorAll('.db-channel-row');
+  const result = [];
+  rows.forEach(r => {
+    const channel = r.querySelector('.ch-name').value.trim();
+    const applied = r.querySelector('.ch-applied').value;
+    const actual = r.querySelector('.ch-actual').value;
+    const note = r.querySelector('.ch-note').value.trim();
+    if (channel || applied || actual || note) {
+      result.push({
+        channel,
+        applied: applied ? parseInt(applied) : null,
+        actual: actual ? parseInt(actual) : null,
+        note
+      });
+    }
+  });
+  return result;
+}
+
+// 플래너 TOP/BOTTOM 렌더링 및 UI 수집
+function renderPlannerList(containerId, list, defaultRanks) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const rows = container.querySelectorAll('.planner-row');
+  rows.forEach((row, idx) => {
+    const item = (list && list[idx]) || {};
+    const rankEl = row.querySelector('.planner-rank');
+    if (rankEl && defaultRanks && defaultRanks[idx]) {
+      rankEl.innerText = item.rank || defaultRanks[idx];
+    }
+    const nameInput = row.querySelector('.planner-name');
+    const countInput = row.querySelector('.planner-count');
+    const noteInput = row.querySelector('.planner-note');
+    if (nameInput) nameInput.value = item.name || '';
+    if (countInput) countInput.value = item.count || '';
+    if (noteInput) noteInput.value = item.note || '';
+  });
+}
+
+function getPlannerListFromUI(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return [];
+  const rows = container.querySelectorAll('.planner-row');
+  const result = [];
+  rows.forEach(row => {
+    const rank = row.querySelector('.planner-rank')?.innerText?.trim() || '';
+    const name = row.querySelector('.planner-name')?.value?.trim() || '';
+    const count = row.querySelector('.planner-count')?.value?.trim() || '';
+    const note = row.querySelector('.planner-note')?.value?.trim() || '';
+    if (name || count || note) {
+      result.push({ rank, name, count, note });
+    }
+  });
+  return result;
+}
+
+// 스마트 텍스트 파서
+function parseDailyReportText(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const result = {
+    contractsCount: '',
+    cumulativeContractsCount: '',
+    contractNote: '',
+    dbTotalApplied: '',
+    dbTotalActual: '',
+    dbTotalNote: '',
+    dbChannels: [],
+    saturdayVisitors: '',
+    saturdayNote: '',
+    sundayVisitors: '',
+    sundayNote: '',
+    plannerTop: [],
+    plannerBottom: [],
+    contractTop: '',
+    contractBottom: '',
+    rawReport: raw
+  };
+
+  lines.forEach(line => {
+    let tokens = line.split(/\t+| {2,}/).map(t => t.trim()).filter(Boolean);
+    if (tokens.length === 1) tokens = line.split(/\s+/);
+
+    // 1. 계약
+    if (line.includes('계약') && !line.includes('플래너') && !line.includes('혼수') && !line.includes('스드메')) {
+      const numbers = [];
+      tokens.forEach(tok => {
+        const num = tok.replace(/,/g, '');
+        if (/^\d+$/.test(num)) numbers.push(parseInt(num));
+      });
+      if (numbers.length > 0) result.contractsCount = numbers[0];
+      const cumMatch = line.match(/당해\s*(\d+)건/);
+      if (cumMatch) result.cumulativeContractsCount = cumMatch[1];
+      for (let i = 1; i < tokens.length; i++) {
+        if (tokens[i].includes('당해') || tokens[i].includes('당월') || tokens[i].includes('/')) {
+          result.contractNote = tokens.slice(i).join(' ');
+          break;
+        }
+      }
+    }
+
+    // 2. DB유입 - 전체 합계
+    if (line.includes('DB유입') || line.includes('전체 합계') || line.includes('전체합계')) {
+      const numbers = [];
+      tokens.forEach(tok => {
+        const num = tok.replace(/,/g, '');
+        if (/^\d+$/.test(num)) numbers.push(parseInt(num));
+      });
+      if (numbers.length >= 2) {
+        result.dbTotalApplied = numbers[0];
+        result.dbTotalActual = numbers[1];
+      } else if (numbers.length === 1) {
+        result.dbTotalApplied = numbers[0];
+      }
+      const noteMatch = line.match(/(당월\s*실회원\s*[\d,]+명.*$|실회원.*$)/);
+      if (noteMatch) result.dbTotalNote = noteMatch[0].trim();
+    }
+
+    // 3. 경로별 DB유입
+    if (line.includes('경로별') || line.startsWith('·')) {
+      let clean = line.replace(/^[·\s\*\-]+/, '').replace(/^경로별\s*/, '').trim();
+      const parts = clean.split(/\t+| {2,}/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const channelName = parts[0];
+        let applied = '';
+        let actual = '';
+        let note = '';
+        const nums = [];
+        for (let i = 1; i < parts.length; i++) {
+          const num = parts[i].replace(/,/g, '');
+          if (/^\d+$/.test(num)) {
+            nums.push(parseInt(num));
+          } else if (parts[i] !== '-') {
+            note = parts.slice(i).join(' ');
+            break;
+          }
+        }
+        if (nums.length >= 2) {
+          applied = nums[0];
+          actual = nums[1];
+        } else if (nums.length === 1) {
+          applied = nums[0];
+          actual = nums[0];
+        }
+        result.dbChannels.push({
+          channel: channelName,
+          applied: applied,
+          actual: actual,
+          note: note
+        });
+      }
+    }
+
+    // 4. 방문예정
+    if (line.includes('방문예정') || line.includes('방문 예정')) {
+      if (line.includes('토요일')) {
+        const numMatch = line.match(/토요일[^\d]*(\d+)/);
+        if (numMatch) result.saturdayVisitors = parseInt(numMatch[1]);
+        const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
+        if (noteMatch) result.saturdayNote = noteMatch[0].trim();
+      } else if (line.includes('일요일')) {
+        const numMatch = line.match(/일요일[^\d]*(\d+)/);
+        if (numMatch) result.sundayVisitors = parseInt(numMatch[1]);
+        const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
+        if (noteMatch) result.sundayNote = noteMatch[0].trim();
+      }
+    }
+
+    // 5. 플래너 TOP3 / BOTTOM3
+    if (line.includes('플래너') || line.includes('TOP') || line.includes('BOTTOM') || line.includes('▲') || line.includes('▼') || line.includes('1위') || line.includes('2위') || line.includes('3위') || line.includes('하위')) {
+      const isBottom = line.includes('BOTTOM') || line.includes('▼') || line.includes('하위');
+      let rank = '';
+      let rankMatch = line.match(/(1위|2위|3위|하위1|하위2|하위3|하위 1|하위 2|하위 3)/);
+      if (rankMatch) rank = rankMatch[1].replace(/\s+/g, '');
+
+      let name = '';
+      let count = '';
+      let note = '';
+
+      const countMatch = line.match(/(\d+건)/);
+      if (countMatch) {
+        count = countMatch[1];
+      } else {
+        const numOnly = line.match(/\s+(\d+)\s+/);
+        if (numOnly) count = `${numOnly[1]}건`;
+      }
+      
+      const noteMatch = line.match(/(당월\s*[\d,]+원.*$|[\d,]+원.*$)/);
+      if (noteMatch) note = noteMatch[0].trim();
+
+      const nameMatch = line.match(/(?:1위|2위|3위|하위\s*\d)\s+([가-힣]{2,4})/);
+      if (nameMatch) name = nameMatch[1];
+
+      if (name || rank) {
+        const item = { rank: rank || (isBottom ? '하위' : '순위'), name, count, note };
+        if (isBottom || rank.includes('하위')) {
+          result.plannerBottom.push(item);
+        } else {
+          result.plannerTop.push(item);
+        }
+      }
+    }
+  });
+
+  return result;
+}
+
+// 파싱 결과를 폼에 즉시 적용
+function applyParsedReportText(text) {
+  const parsed = parseDailyReportText(text);
+  if (!parsed) {
+    alert('파싱할 내용이 없습니다.');
+    return;
+  }
+
+  if (parsed.contractsCount !== '') document.getElementById('contractsCount').value = parsed.contractsCount;
+  if (parsed.cumulativeContractsCount !== '') document.getElementById('cumulativeContractsCount').value = parsed.cumulativeContractsCount;
+  if (parsed.contractNote !== '') document.getElementById('contractNote').value = parsed.contractNote;
+
+  if (parsed.dbTotalApplied !== '') {
+    document.getElementById('dbCount').value = parsed.dbTotalApplied;
+  }
+  if (parsed.dbTotalActual !== '') {
+    document.getElementById('dbTotalActual').value = parsed.dbTotalActual;
+  }
+  if (parsed.dbTotalNote !== '') {
+    document.getElementById('dbTotalNote').value = parsed.dbTotalNote;
+  }
+
+  if (parsed.dbChannels.length > 0) {
+    renderDbChannels(parsed.dbChannels);
+  }
+
+  if (parsed.saturdayVisitors !== '') document.getElementById('saturdayVisitors').value = parsed.saturdayVisitors;
+  if (parsed.saturdayNote !== '') document.getElementById('saturdayNote').value = parsed.saturdayNote;
+  if (parsed.sundayVisitors !== '') document.getElementById('sundayVisitors').value = parsed.sundayVisitors;
+  if (parsed.sundayNote !== '') document.getElementById('sundayNote').value = parsed.sundayNote;
+
+  if (parsed.plannerTop.length > 0) {
+    renderPlannerList('plannerTopList', parsed.plannerTop, ['1위', '2위', '3위']);
+    // contractTop 요약 텍스트 자동 동기화
+    const topSummary = parsed.plannerTop.map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
+    if (topSummary) document.getElementById('contractTop').value = topSummary;
+  }
+
+  if (parsed.plannerBottom.length > 0) {
+    renderPlannerList('plannerBottomList', parsed.plannerBottom, ['하위1', '하위2', '하위3']);
+    // contractBottom 요약 텍스트 자동 동기화
+    const bottomSummary = parsed.plannerBottom.map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
+    if (bottomSummary) document.getElementById('contractBottom').value = bottomSummary;
+  }
+
+  showToast('✨ 보고서 데이터가 지표에 성공적으로 자동 반영되었습니다!');
 }
 
 async function refreshAllData() {
@@ -1197,10 +1598,29 @@ async function refreshAllData() {
   if(m) {
     document.getElementById('contractsCount').value = m.contracts_count !== null && m.contracts_count !== undefined ? m.contracts_count : '';
     document.getElementById('cumulativeContractsCount').value = m.cumulative_contracts_count !== null && m.cumulative_contracts_count !== undefined ? m.cumulative_contracts_count : '';
-    document.getElementById('dbCount').value = m.db_count !== null && m.db_count !== undefined ? m.db_count : '';
+    document.getElementById('contractNote').value = m.contract_note || '';
+
+    document.getElementById('dbCount').value = m.db_count !== null && m.db_count !== undefined ? m.db_count : (m.db_total_applied !== null && m.db_total_applied !== undefined ? m.db_total_applied : '');
+    document.getElementById('dbTotalActual').value = m.db_total_actual !== null && m.db_total_actual !== undefined ? m.db_total_actual : '';
     document.getElementById('cumulativeDbCount').value = m.cumulative_db_count !== null && m.cumulative_db_count !== undefined ? m.cumulative_db_count : '';
+    document.getElementById('dbTotalNote').value = m.db_total_note || '';
+
+    // DB 경로별 상세 렌더링
+    renderDbChannels(m.db_channels);
+
+    // 방문예정
     document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
+    document.getElementById('saturdayNote').value = m.saturday_note || '';
     document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
+    document.getElementById('sundayNote').value = m.sunday_note || '';
+
+    // 플래너 TOP3 / BOTTOM3
+    renderPlannerList('plannerTopList', m.planner_top_list, ['1위', '2위', '3위']);
+    renderPlannerList('plannerBottomList', m.planner_bottom_list, ['하위1', '하위2', '하위3']);
+
+    // 스마트 파서 원문
+    const parserInput = document.getElementById('smartParserInput');
+    if (parserInput) parserInput.value = m.raw_report || '';
     
     // 신규 주말 상세 항목 바인딩 (텍스트 필드 바인딩 및 과거 데이터 호환성 보장)
     let satText = m.saturday_wedding_text || '';
@@ -1714,11 +2134,24 @@ async function saveMetrics() {
   const val = {
     contracts_count: document.getElementById('contractsCount').value,
     cumulative_contracts_count: document.getElementById('cumulativeContractsCount').value,
+    contract_note: document.getElementById('contractNote').value,
+
     db_count: document.getElementById('dbCount').value,
+    db_total_applied: document.getElementById('dbCount').value,
+    db_total_actual: document.getElementById('dbTotalActual').value,
     cumulative_db_count: document.getElementById('cumulativeDbCount').value,
+    db_total_note: document.getElementById('dbTotalNote').value,
+    db_channels: getDbChannelsFromUI(),
+
     saturday_visitors: document.getElementById('saturdayVisitors').value,
+    saturday_note: document.getElementById('saturdayNote').value,
     sunday_visitors: document.getElementById('sundayVisitors').value,
+    sunday_note: document.getElementById('sundayNote').value,
     
+    planner_top_list: getPlannerListFromUI('plannerTopList'),
+    planner_bottom_list: getPlannerListFromUI('plannerBottomList'),
+    raw_report: document.getElementById('smartParserInput') ? document.getElementById('smartParserInput').value : '',
+
     // 신규 텍스트 필드 데이터 저장 (파싱 없이 순수 텍스트)
     saturday_wedding_text: document.getElementById('saturdayWeddingText').value,
     sunday_wedding_text: document.getElementById('sundayWeddingText').value,

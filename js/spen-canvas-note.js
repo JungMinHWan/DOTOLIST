@@ -280,7 +280,7 @@
               <button class="spen-tab-btn" data-type="news">📰 신문</button>
             </div>
             <div class="spen-date-display" id="spen-date-display">
-              📅 <span>2026-08-31</span>
+              📅 <span></span>
             </div>
           </div>
           <div class="spen-toolbar">
@@ -304,6 +304,14 @@
         </div>
       </div>
     `;
+
+    // S-Pen 모달 내부 터치/포인터 이벤트가 메인 창의 스와이프 날짜 변경으로 버블링되지 않도록 차단
+    ['touchstart', 'touchend', 'touchmove'].forEach(evtName => {
+      overlay.addEventListener(evtName, (e) => {
+        e.stopPropagation();
+      }, { passive: false });
+    });
+
     document.body.appendChild(overlay);
 
     bindModalEvents();
@@ -854,6 +862,14 @@
 
   // 현재 화면에서 보고 있는 날짜(YYYY-MM-DD) 추출
   function getCurrentDateKey() {
+    // 0. 전역 활성 날짜 (currentMetricsDate 또는 selectedDate)
+    if (typeof currentMetricsDate !== 'undefined' && currentMetricsDate && /^\d{4}-\d{2}-\d{2}$/.test(currentMetricsDate)) {
+      return currentMetricsDate;
+    }
+    if (typeof selectedDate !== 'undefined' && selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)) {
+      return selectedDate;
+    }
+
     // 1. TODOLIST의 inputDueDate
     const dueDateInput = document.getElementById('inputDueDate');
     if (dueDateInput && dueDateInput.value && /^\d{4}-\d{2}-\d{2}$/.test(dueDateInput.value)) {

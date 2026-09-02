@@ -190,7 +190,17 @@ const api = {
         saturday_wedding_text: '',
         sunday_wedding_text: '',
         saturday_honsoo_text: '',
-        sunday_honsoo_text: ''
+        sunday_honsoo_text: '',
+        contract_note: '',
+        db_total_applied: '',
+        db_total_actual: '',
+        db_total_note: '',
+        db_channels: [],
+        saturday_note: '',
+        sunday_note: '',
+        planner_top_list: [],
+        planner_bottom_list: [],
+        raw_report: ''
       };
     } catch (e) {
       console.error(e);
@@ -233,7 +243,17 @@ const api = {
         saturday_wedding_text: '',
         sunday_wedding_text: '',
         saturday_honsoo_text: '',
-        sunday_honsoo_text: ''
+        sunday_honsoo_text: '',
+        contract_note: '',
+        db_total_applied: '',
+        db_total_actual: '',
+        db_total_note: '',
+        db_channels: [],
+        saturday_note: '',
+        sunday_note: '',
+        planner_top_list: [],
+        planner_bottom_list: [],
+        raw_report: ''
       };
     }
   },
@@ -279,10 +299,20 @@ const api = {
           contract_top: val.contract_top || '',
           contract_bottom: val.contract_bottom || '',
           insight: val.insight || '',
-           saturday_wedding_text: val.saturday_wedding_text || '',
+          saturday_wedding_text: val.saturday_wedding_text || '',
           sunday_wedding_text: val.sunday_wedding_text || '',
           saturday_honsoo_text: val.saturday_honsoo_text || '',
           sunday_honsoo_text: val.sunday_honsoo_text || '',
+          contract_note: val.contract_note || '',
+          db_total_applied: val.db_total_applied ? parseInt(val.db_total_applied) : null,
+          db_total_actual: val.db_total_actual ? parseInt(val.db_total_actual) : null,
+          db_total_note: val.db_total_note || '',
+          db_channels: Array.isArray(val.db_channels) ? val.db_channels : [],
+          saturday_note: val.saturday_note || '',
+          sunday_note: val.sunday_note || '',
+          planner_top_list: Array.isArray(val.planner_top_list) ? val.planner_top_list : [],
+          planner_bottom_list: Array.isArray(val.planner_bottom_list) ? val.planner_bottom_list : [],
+          raw_report: val.raw_report || '',
           updated_at: new Date().toISOString()
         });
 

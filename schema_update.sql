@@ -160,3 +160,17 @@ ADD COLUMN IF NOT EXISTS sunday_wedding_text TEXT DEFAULT '';
 ALTER TABLE daily_metrics 
 ADD COLUMN IF NOT EXISTS saturday_honsoo_text TEXT DEFAULT '',
 ADD COLUMN IF NOT EXISTS sunday_honsoo_text TEXT DEFAULT '';
+
+-- 일일 지표 신규 보고서 양식 컬럼 추가 (DB 유입 경로별, 플래너 TOP/BOTTOM, 방문예정 비고 등)
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS contract_note TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS db_total_applied INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS db_total_actual INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS db_total_note TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS db_channels JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS saturday_note TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS sunday_note TEXT DEFAULT '',
+ADD COLUMN IF NOT EXISTS planner_top_list JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS planner_bottom_list JSONB DEFAULT '[]'::jsonb,
+ADD COLUMN IF NOT EXISTS raw_report TEXT DEFAULT '';
+
