@@ -204,103 +204,6 @@ body {
 .metrics-body { display: block; margin-top: 8px; }
 .metrics-body.collapsed { display: none; }
 
-/* 빠른 텍스트 입력 버튼 */
-.btn-smart-parser {
-  background: var(--theme-light-bg);
-  color: var(--theme-primary-dark);
-  border: 1px solid var(--theme-primary);
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-smart-parser:hover {
-  background: var(--theme-primary);
-  color: white;
-}
-
-/* 스마트 파서 패널 */
-.smart-parser-panel {
-  background: #f8fafc;
-  border: 1.5px dashed var(--theme-primary);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  margin-bottom: 12px;
-  animation: fadeIn 0.2s ease;
-}
-.smart-parser-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 800;
-  color: var(--theme-primary-dark);
-  margin-bottom: 4px;
-}
-.btn-parser-close {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  color: var(--text-muted);
-  line-height: 1;
-}
-.btn-parser-close:hover { color: var(--text-main); }
-.smart-parser-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-.smart-parser-textarea {
-  width: 100%;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  padding: 8px;
-  font-size: 11px;
-  font-family: 'Consolas', 'Courier New', monospace;
-  color: var(--text-main);
-  background: white;
-  resize: vertical;
-  min-height: 84px;
-  line-height: 1.4;
-  outline: none;
-}
-.smart-parser-textarea:focus {
-  border-color: var(--theme-primary);
-  box-shadow: 0 0 0 2px var(--theme-light-bg);
-}
-.smart-parser-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 6px;
-}
-.btn-sample-data {
-  background: #e2e8f0;
-  color: #334155;
-  border: none;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.btn-sample-data:hover { background: #cbd5e1; }
-.btn-apply-parsed {
-  background: var(--theme-primary);
-  color: white;
-  border: none;
-  padding: 4px 12px;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 4px;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-.btn-apply-parsed:hover { background: var(--theme-primary-dark); }
-
 /* 지표 서브그룹 박스 */
 .metrics-subgroup {
   background: #fdfdfd;
@@ -322,16 +225,6 @@ body {
   font-weight: 700;
   color: var(--theme-primary-dark);
 }
-.btn-subgroup-toggle {
-  background: none;
-  border: none;
-  color: var(--theme-primary);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 2px 4px;
-}
-.btn-subgroup-toggle:hover { text-decoration: underline; }
 
 .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .metric-item { display: flex; flex-direction: column; gap: 2px; }
@@ -339,7 +232,7 @@ body {
 .metric-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 5px 8px; font-size: 13px; font-weight: 700; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; -webkit-appearance: none; appearance: none; }
 .metric-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
 
-/* 경로별 DB 유입 테이블 */
+/* 경로별 DB 유입 테이블 (11개 경로 기본 세팅) */
 .db-channels-container {
   margin-top: 8px;
   background: white;
@@ -352,12 +245,12 @@ body {
 }
 .db-channels-header {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 2fr 24px;
+  grid-template-columns: 2.2fr 1fr 1fr 2.5fr;
   gap: 4px;
   font-size: 10px;
   font-weight: 700;
   color: var(--text-muted);
-  padding: 2px 4px;
+  padding: 3px 6px;
   background: #f1f5f9;
   border-radius: 4px;
   text-align: center;
@@ -369,12 +262,24 @@ body {
 }
 .db-channel-row {
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 2fr 24px;
+  grid-template-columns: 2.2fr 1fr 1fr 2.5fr;
   gap: 4px;
   align-items: center;
 }
+.db-channel-row .ch-name-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .db-channel-row input {
-  padding: 4px 6px;
+  padding: 5px 6px;
   font-size: 11px;
   font-weight: 600;
 }

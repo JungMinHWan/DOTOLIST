@@ -472,64 +472,13 @@ document.addEventListener('DOMContentLoaded', async function() {
   const metricsBody = document.getElementById('metricsBody');
   const metricsToggleIcon = document.getElementById('metricsToggleIcon');
   
-  metricsHeader.onclick = (e) => {
-    // 내부 버튼 클릭 시 접힘 방지
-    if (e.target.closest('#btnToggleSmartParser')) return;
+  metricsHeader.onclick = () => {
     const isCollapsed = metricsBody.classList.toggle('collapsed');
     metricsToggleIcon.innerText = isCollapsed ? '▲' : '▼';
     localStorage.setItem('metricsCollapsed', isCollapsed ? 'true' : 'false');
   };
 
-  // 스마트 텍스트 파서 토글 및 이벤트 바인딩
-  const btnToggleSmartParser = document.getElementById('btnToggleSmartParser');
-  const smartParserPanel = document.getElementById('smartParserPanel');
-  const btnCloseSmartParser = document.getElementById('btnCloseSmartParser');
-  const btnSampleData = document.getElementById('btnSampleData');
-  const btnApplyParsed = document.getElementById('btnApplyParsed');
-  const smartParserInput = document.getElementById('smartParserInput');
-
-  if (btnToggleSmartParser && smartParserPanel) {
-    btnToggleSmartParser.onclick = (e) => {
-      e.stopPropagation();
-      const isHidden = smartParserPanel.classList.toggle('hidden');
-      if (!isHidden) smartParserInput.focus();
-    };
-  }
-  if (btnCloseSmartParser && smartParserPanel) {
-    btnCloseSmartParser.onclick = (e) => {
-      e.stopPropagation();
-      smartParserPanel.classList.add('hidden');
-    };
-  }
-  if (btnSampleData && smartParserInput) {
-    btnSampleData.onclick = () => {
-      smartParserInput.value = SAMPLE_DAILY_REPORT_TEXT;
-    };
-  }
-  if (btnApplyParsed && smartParserInput) {
-    btnApplyParsed.onclick = () => {
-      applyParsedReportText(smartParserInput.value);
-    };
-  }
-
-  // DB 경로별 상세 토글 바인딩
-  const btnToggleDbChannels = document.getElementById('btnToggleDbChannels');
-  const dbChannelsContainer = document.getElementById('dbChannelsContainer');
-  const dbChannelsToggleText = document.getElementById('dbChannelsToggleText');
-  if (btnToggleDbChannels && dbChannelsContainer) {
-    btnToggleDbChannels.onclick = () => {
-      const isHidden = dbChannelsContainer.classList.toggle('hidden');
-      dbChannelsToggleText.innerText = isHidden ? '경로별 상세 펼치기 ▼' : '경로별 상세 접기 ▲';
-    };
-  }
-
-  // DB 경로 추가 버튼 바인딩
-  const btnAddChannel = document.getElementById('btnAddChannel');
-  if (btnAddChannel) {
-    btnAddChannel.onclick = () => {
-      addDbChannelRow({ channel: '', applied: '', actual: '', note: '' });
-    };
-  }
+  // 플래너 입력 시 요약 텍스트 자동 동기화
 
   // 플래너 입력 시 요약 텍스트 자동 동기화
   const plannerTopContainer = document.getElementById('plannerTopList');
@@ -1238,68 +1187,52 @@ function changeDate(offset) {
   selectDateFromCalendar(newDateStr);
 }
 
-// 기본 경로별 DB 유입 목록
-const DEFAULT_DB_CHANNELS = [
-  { channel: '요즘웨딩어플/앱', applied: 32, actual: 36, note: '실회원 36명' },
-  { channel: '네이버카페', applied: 24, actual: 24, note: '실회원 24명' },
-  { channel: '인스타그램_웨딩홀', applied: 24, actual: 24, note: '실회원 24명' },
-  { channel: '홈페이지_웨딩홀', applied: 14, actual: 14, note: '실회원 14명' },
-  { channel: '홈페이지_드레스랜드', applied: 11, actual: 11, note: '실회원 11명' },
-  { channel: '홈페이지_웨딩페스타', applied: 11, actual: 11, note: '실회원 11명' },
-  { channel: '홈페이지_상담신청', applied: 6, actual: 6, note: '실회원 6명' },
-  { channel: '친구추천/업체추천', applied: 3, actual: 3, note: '실회원 3명' },
-  { channel: '채널톡', applied: 3, actual: 3, note: '실회원 3명' },
-  { channel: '웹앱_웨딩페스타', applied: 2, actual: 2, note: '실회원 2명' },
-  { channel: '매니저SNS', applied: 1, actual: 1, note: '실회원 1명' }
+// 고정된 11개 경로명
+const FIXED_DB_CHANNELS = [
+  '요즘웨딩어플/앱',
+  '네이버카페',
+  '인스타그램_웨딩홀',
+  '홈페이지_웨딩홀',
+  '홈페이지_드레스랜드',
+  '홈페이지_웨딩페스타',
+  '홈페이지_상담신청',
+  '친구추천/업체추천',
+  '채널톡',
+  '웹앱_웨딩페스타',
+  '매니저SNS'
 ];
 
-const SAMPLE_DAILY_REPORT_TEXT = `■ 계약\t계약건수\t4\t4\t당해 2168건 / 당월금액 9,680,000
-■ DB유입\t── 전체 합계 ──\t131\t135\t당월 실회원 135명
-  · 경로별\t요즘웨딩어플/앱\t32\t36\t실회원 36명
-  · 경로별\t네이버카페\t24\t24\t실회원 24명
-  · 경로별\t인스타그램_웨딩홀\t24\t24\t실회원 24명
-  · 경로별\t홈페이지_웨딩홀\t14\t14\t실회원 14명
-  · 경로별\t홈페이지_드레스랜드\t11\t11\t실회원 11명
-  · 경로별\t홈페이지_웨딩페스타\t11\t11\t실회원 11명
-  · 경로별\t홈페이지_상담신청\t6\t6\t실회원 6명
-  · 경로별\t친구추천/업체추천\t3\t3\t실회원 3명
-  · 경로별\t채널톡\t3\t3\t실회원 3명
-  · 경로별\t웹앱_웨딩페스타\t2\t2\t실회원 2명
-  · 경로별\t매니저SNS\t1\t1\t실회원 1명
-■ 방문예정\t이번주 토요일\t37\t-\t09-05 스드메상담
-■ 방문예정\t이번주 일요일\t24\t-\t09-06 스드메상담
-▲ 플래너 TOP3\t1위  김시율\t2건\t-\t당월 5,650,000원
-▲ 플래너 TOP3\t2위  장한별\t1건\t-\t당월 2,260,000원
-▲ 플래너 TOP3\t3위  정유나\t1건\t-\t당월 1,770,000원
-▼ 플래너 BOTTOM3\t하위1  정유나\t1건\t-\t당월 1,770,000원
-▼ 플래너 BOTTOM3\t하위2  장한별\t1건\t-\t당월 2,260,000원
-▼ 플래너 BOTTOM3\t하위3  김시율\t2건\t-\t당월 5,650,000원`;
-
-// DB 경로 목록 렌더링
-function renderDbChannels(channels) {
+// DB 경로 목록 렌더링 (11개 경로 상시 세팅)
+function renderDbChannels(savedChannels = []) {
   const container = document.getElementById('dbChannelsList');
   if (!container) return;
   container.innerHTML = '';
-  const list = Array.isArray(channels) && channels.length > 0 ? channels : DEFAULT_DB_CHANNELS;
-  list.forEach((item, idx) => {
-    addDbChannelRow(item);
-  });
-}
+  
+  // 저장된 채널 목록을 맵으로 변환 (경로명 기준)
+  const savedMap = {};
+  if (Array.isArray(savedChannels)) {
+    savedChannels.forEach(c => {
+      if (c && c.channel) savedMap[c.channel] = c;
+    });
+  }
 
-function addDbChannelRow(item = { channel: '', applied: '', actual: '', note: '' }) {
-  const container = document.getElementById('dbChannelsList');
-  if (!container) return;
-  const row = document.createElement('div');
-  row.className = 'db-channel-row';
-  row.innerHTML = `
-    <input type="text" class="metric-input ch-name" placeholder="경로명" value="${item.channel || ''}">
-    <input type="number" class="metric-input ch-applied" placeholder="0" value="${item.applied !== null && item.applied !== undefined ? item.applied : ''}">
-    <input type="number" class="metric-input ch-actual" placeholder="0" value="${item.actual !== null && item.actual !== undefined ? item.actual : ''}">
-    <input type="text" class="metric-input ch-note" placeholder="비고" value="${item.note || ''}">
-    <button type="button" class="btn-del-channel" title="삭제">×</button>
-  `;
-  row.querySelector('.btn-del-channel').onclick = () => row.remove();
-  container.appendChild(row);
+  FIXED_DB_CHANNELS.forEach(channelName => {
+    const data = savedMap[channelName] || {};
+    const appliedVal = data.applied !== null && data.applied !== undefined ? data.applied : '';
+    const actualVal = data.actual !== null && data.actual !== undefined ? data.actual : '';
+    const noteVal = data.note || '';
+
+    const row = document.createElement('div');
+    row.className = 'db-channel-row';
+    row.dataset.channel = channelName;
+    row.innerHTML = `
+      <div class="ch-name-label" title="${channelName}">${channelName}</div>
+      <input type="number" class="metric-input ch-applied" placeholder="0" value="${appliedVal}">
+      <input type="number" class="metric-input ch-actual" placeholder="0" value="${actualVal}">
+      <input type="text" class="metric-input ch-note" placeholder="비고 입력" value="${noteVal}">
+    `;
+    container.appendChild(row);
+  });
 }
 
 function getDbChannelsFromUI() {
@@ -1308,18 +1241,16 @@ function getDbChannelsFromUI() {
   const rows = container.querySelectorAll('.db-channel-row');
   const result = [];
   rows.forEach(r => {
-    const channel = r.querySelector('.ch-name').value.trim();
+    const channel = r.dataset.channel || r.querySelector('.ch-name-label')?.innerText?.trim() || '';
     const applied = r.querySelector('.ch-applied').value;
     const actual = r.querySelector('.ch-actual').value;
     const note = r.querySelector('.ch-note').value.trim();
-    if (channel || applied || actual || note) {
-      result.push({
-        channel,
-        applied: applied ? parseInt(applied) : null,
-        actual: actual ? parseInt(actual) : null,
-        note
-      });
-    }
+    result.push({
+      channel,
+      applied: applied !== '' ? parseInt(applied) : null,
+      actual: actual !== '' ? parseInt(actual) : null,
+      note
+    });
   });
   return result;
 }
@@ -1359,205 +1290,6 @@ function getPlannerListFromUI(containerId) {
     }
   });
   return result;
-}
-
-// 스마트 텍스트 파서
-function parseDailyReportText(raw) {
-  if (!raw || typeof raw !== 'string') return null;
-  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const result = {
-    contractsCount: '',
-    cumulativeContractsCount: '',
-    contractNote: '',
-    dbTotalApplied: '',
-    dbTotalActual: '',
-    dbTotalNote: '',
-    dbChannels: [],
-    saturdayVisitors: '',
-    saturdayNote: '',
-    sundayVisitors: '',
-    sundayNote: '',
-    plannerTop: [],
-    plannerBottom: [],
-    contractTop: '',
-    contractBottom: '',
-    rawReport: raw
-  };
-
-  lines.forEach(line => {
-    // 1. 계약
-    if (line.includes('계약') && !line.includes('플래너') && !line.includes('혼수') && !line.includes('스드메')) {
-      const tokens = line.split(/\s+/).filter(Boolean);
-      const numbers = [];
-      tokens.forEach(tok => {
-        const num = tok.replace(/,/g, '');
-        if (/^\d+$/.test(num)) numbers.push(parseInt(num));
-      });
-      if (numbers.length > 0) result.contractsCount = numbers[0];
-      const cumMatch = line.match(/당해\s*(\d+)건/);
-      if (cumMatch) result.cumulativeContractsCount = cumMatch[1];
-      const noteMatch = line.match(/(당해.*$|당월.*$)/);
-      if (noteMatch) {
-        result.contractNote = noteMatch[0].trim();
-      }
-    }
-
-    // 2. DB유입 - 전체 합계
-    if (line.includes('DB유입') || line.includes('전체 합계') || line.includes('전체합계')) {
-      const tokens = line.split(/\s+/).filter(Boolean);
-      const numbers = [];
-      tokens.forEach(tok => {
-        const num = tok.replace(/,/g, '');
-        if (/^\d+$/.test(num)) numbers.push(parseInt(num));
-      });
-      if (numbers.length >= 2) {
-        result.dbTotalApplied = numbers[0];
-        result.dbTotalActual = numbers[1];
-      } else if (numbers.length === 1) {
-        result.dbTotalApplied = numbers[0];
-      }
-      const noteMatch = line.match(/(당월\s*실회원.*$|실회원.*$)/);
-      if (noteMatch) result.dbTotalNote = noteMatch[0].trim();
-    }
-
-    // 3. 경로별 DB유입
-    if (line.includes('경로별') || line.startsWith('·')) {
-      let clean = line.replace(/^[·\s\*\-]+/, '').replace(/^경로별\s*/, '').trim();
-      const tokens = clean.split(/\s+/).filter(Boolean);
-      if (tokens.length >= 2) {
-        const channelName = tokens[0];
-        let applied = '';
-        let actual = '';
-        let noteTokens = [];
-        let numCount = 0;
-
-        for (let i = 1; i < tokens.length; i++) {
-          const tok = tokens[i];
-          const cleanNum = tok.replace(/,/g, '');
-          if (/^\d+$/.test(cleanNum) && numCount < 2) {
-            if (numCount === 0) applied = parseInt(cleanNum);
-            else if (numCount === 1) actual = parseInt(cleanNum);
-            numCount++;
-          } else if (tok === '-' && numCount < 2) {
-            numCount++;
-          } else {
-            noteTokens.push(tok);
-          }
-        }
-
-        if (applied !== '' && actual === '') {
-          actual = applied;
-        }
-
-        result.dbChannels.push({
-          channel: channelName,
-          applied: applied,
-          actual: actual,
-          note: noteTokens.join(' ')
-        });
-      }
-    }
-
-    // 4. 방문예정
-    if (line.includes('방문예정') || line.includes('방문 예정') || line.includes('스드메상담')) {
-      if (line.includes('토요일') || line.includes('토')) {
-        const numMatch = line.match(/(?:토요일|토)[^\d]*(\d+)/);
-        if (numMatch) result.saturdayVisitors = parseInt(numMatch[1]);
-        const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
-        if (noteMatch) result.saturdayNote = noteMatch[0].trim();
-      } else if (line.includes('일요일') || line.includes('일')) {
-        const numMatch = line.match(/(?:일요일|일)[^\d]*(\d+)/);
-        if (numMatch) result.sundayVisitors = parseInt(numMatch[1]);
-        const noteMatch = line.match(/(\d{2}-\d{2}[^$]*|스드메상담[^$]*)/);
-        if (noteMatch) result.sundayNote = noteMatch[0].trim();
-      }
-    }
-
-    // 5. 플래너 TOP3 / BOTTOM3
-    if (line.includes('플래너') || line.includes('TOP') || line.includes('BOTTOM') || line.includes('▲') || line.includes('▼') || line.includes('1위') || line.includes('2위') || line.includes('3위') || line.includes('하위')) {
-      const isBottom = line.includes('BOTTOM') || line.includes('▼') || line.includes('하위');
-      let rank = '';
-      let rankMatch = line.match(/(1위|2위|3위|하위\s*1|하위\s*2|하위\s*3)/);
-      if (rankMatch) rank = rankMatch[1].replace(/\s+/g, '');
-
-      let name = '';
-      let count = '';
-      let note = '';
-
-      const countMatch = line.match(/(\d+건)/);
-      if (countMatch) {
-        count = countMatch[1];
-      } else {
-        const numOnly = line.match(/\s+(\d+)\s+/);
-        if (numOnly) count = `${numOnly[1]}건`;
-      }
-      
-      const noteMatch = line.match(/(당월\s*[\d,]+원.*$|[\d,]+원.*$)/);
-      if (noteMatch) note = noteMatch[0].trim();
-
-      const nameMatch = line.match(/(?:1위|2위|3위|하위\s*\d)\s+([가-힣]{2,4})/);
-      if (nameMatch) name = nameMatch[1];
-
-      if (name || rank) {
-        const item = { rank: rank || (isBottom ? '하위' : '순위'), name, count, note };
-        if (isBottom || (rank && rank.includes('하위'))) {
-          result.plannerBottom.push(item);
-        } else {
-          result.plannerTop.push(item);
-        }
-      }
-    }
-  });
-
-  return result;
-}
-
-// 파싱 결과를 폼에 즉시 적용
-function applyParsedReportText(text) {
-  const parsed = parseDailyReportText(text);
-  if (!parsed) {
-    alert('파싱할 내용이 없습니다.');
-    return;
-  }
-
-  if (parsed.contractsCount !== '') document.getElementById('contractsCount').value = parsed.contractsCount;
-  if (parsed.cumulativeContractsCount !== '') document.getElementById('cumulativeContractsCount').value = parsed.cumulativeContractsCount;
-  if (parsed.contractNote !== '') document.getElementById('contractNote').value = parsed.contractNote;
-
-  if (parsed.dbTotalApplied !== '') {
-    document.getElementById('dbCount').value = parsed.dbTotalApplied;
-  }
-  if (parsed.dbTotalActual !== '') {
-    document.getElementById('dbTotalActual').value = parsed.dbTotalActual;
-  }
-  if (parsed.dbTotalNote !== '') {
-    document.getElementById('dbTotalNote').value = parsed.dbTotalNote;
-  }
-
-  if (parsed.dbChannels.length > 0) {
-    renderDbChannels(parsed.dbChannels);
-  }
-
-  if (parsed.saturdayVisitors !== '') document.getElementById('saturdayVisitors').value = parsed.saturdayVisitors;
-  if (parsed.saturdayNote !== '') document.getElementById('saturdayNote').value = parsed.saturdayNote;
-  if (parsed.sundayVisitors !== '') document.getElementById('sundayVisitors').value = parsed.sundayVisitors;
-  if (parsed.sundayNote !== '') document.getElementById('sundayNote').value = parsed.sundayNote;
-
-  if (parsed.plannerTop.length > 0) {
-    renderPlannerList('plannerTopList', parsed.plannerTop, ['1위', '2위', '3위']);
-    // contractTop 요약 텍스트 자동 동기화
-    const topSummary = parsed.plannerTop.map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
-    if (topSummary) document.getElementById('contractTop').value = topSummary;
-  }
-
-  if (parsed.plannerBottom.length > 0) {
-    renderPlannerList('plannerBottomList', parsed.plannerBottom, ['하위1', '하위2', '하위3']);
-    // contractBottom 요약 텍스트 자동 동기화
-    const bottomSummary = parsed.plannerBottom.map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
-    if (bottomSummary) document.getElementById('contractBottom').value = bottomSummary;
-  }
-
-  showToast('✨ 보고서 데이터가 지표에 성공적으로 자동 반영되었습니다!');
 }
 
 async function refreshAllData() {
