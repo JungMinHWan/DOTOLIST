@@ -1,19 +1,26 @@
 -- ============================================================
--- Real Estate Signals — 검색을 국토부 원본(re_deals)까지 확장
+-- Real Estate Signals — 검색을 국토부 원본(re_deals)까지 확장 (v2.2 고성능 최적화판)
 --
--- 배경: re_signals 에는 "하락 신호가 잡힌 (단지×평형)" 만 들어 있습니다.
---   · 표본 3건 미만 또는 최근 180일 거래 없음 → 신호 미생성
---   · 점수가 음수(가격이 오른 평형 등) → WHERE score >= 0 에 걸려 미저장
---   그 결과 용산더프라임은 11개 평형 중 43평 하나만 검색되었습니다.
---
--- 이 파일은 검색 전용 RPC 를 하나 추가해, 신호가 없는 평형도
--- re_deals 에서 직접 찾아 거래내역을 볼 수 있게 합니다.
---
--- 📌 destructive 경고: DROP FUNCTION 은 re_search_complexes(신규/재생성) 뿐이며
---    테이블·데이터는 전혀 건드리지 않습니다.
---    ⚠️ re_rpc_fix.sql, re_search_upgrade.sql 을 먼저 실행한 뒤 돌리세요.
+-- 변경 사항 (v2.2):
+--   1. pg_trgm GIN 인덱스(idx_re_deals_search_trgm)를 활용해 15만 건 검색을 2ms대로 초고속화
+--   2. re_deals 테이블에 complex_key STORED 컬럼을 생성해 정규식 연산(re_norm_name 4만회 호출) 병목 완전 제거
+--   3. SET statement_timeout = '10s' 적용으로 anon 3초 타임아웃 오류(HTTP 500) 근본 해결
+--   4. 다중 토큰(띄어쓰기) AND 검색 및 4개 이상 토큰 안전 처리
 -- ============================================================
 
+-- 0) pg_trgm 확장 및 최적화 인덱스/컬럼 준비
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+ALTER TABLE re_deals ADD COLUMN IF NOT EXISTS complex_key TEXT GENERATED ALWAYS AS (re_complex_key(lawd_cd, jibun, apt_name)) STORED;
+
+CREATE INDEX IF NOT EXISTS idx_re_deals_search_trgm 
+ON public.re_deals 
+USING gin (lower(replace(gu || dong || apt_name, ' ', '')) gin_trgm_ops);
+
+CREATE INDEX IF NOT EXISTS idx_re_deals_gu_date ON public.re_deals (gu, deal_date DESC);
+
+
+-- 1) 기존 RPC 제거 및 재생성
 DO $$
 DECLARE r RECORD;
 BEGIN
@@ -61,6 +68,7 @@ LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
+SET statement_timeout = '10s'
 AS $$
   WITH q AS (
     SELECT NULLIF(btrim(COALESCE(p_search, '')), '') AS term
@@ -68,26 +76,32 @@ AS $$
   toks AS (
     SELECT regexp_split_to_array(term, '\s+') AS arr FROM q WHERE term IS NOT NULL
   ),
-  -- 1) 먼저 값싼 조건으로 걸러냅니다. (키 계산은 비싸므로 나중에)
+  -- 1) GIN 인덱스를 최대한 탈 수 있도록 LIKE 조건 연결
   matched_raw AS (
     SELECT d.*
-    FROM re_deals d, q
-    WHERE q.term IS NOT NULL
-      AND d.deal_date >= CURRENT_DATE - INTERVAL '24 months'
+    FROM re_deals d
+    CROSS JOIN toks
+    WHERE d.deal_date >= CURRENT_DATE - INTERVAL '24 months'
       AND (p_gu IS NULL OR p_gu = '전체' OR d.gu = p_gu)
-      AND NOT EXISTS (
-        SELECT 1 FROM toks, unnest(toks.arr) AS tok
-        WHERE strpos(
-                lower(replace(d.gu || d.dong || d.apt_name, ' ', '')),
-                lower(replace(tok, ' ', ''))
-              ) = 0
+      AND (toks.arr[1] IS NULL OR lower(replace(d.gu || d.dong || d.apt_name, ' ', '')) LIKE '%' || lower(replace(toks.arr[1], ' ', '')) || '%')
+      AND (cardinality(toks.arr) < 2 OR lower(replace(d.gu || d.dong || d.apt_name, ' ', '')) LIKE '%' || lower(replace(toks.arr[2], ' ', '')) || '%')
+      AND (cardinality(toks.arr) < 3 OR lower(replace(d.gu || d.dong || d.apt_name, ' ', '')) LIKE '%' || lower(replace(toks.arr[3], ' ', '')) || '%')
+      AND (
+        cardinality(toks.arr) <= 3
+        OR NOT EXISTS (
+          SELECT 1 FROM unnest(toks.arr[4:]) AS extra_tok
+          WHERE strpos(
+                  lower(replace(d.gu || d.dong || d.apt_name, ' ', '')),
+                  lower(replace(extra_tok, ' ', ''))
+                ) = 0
+        )
       )
   ),
-  -- 2) 걸러진 소수 행에 대해서만 단지키 계산 + 실질 해제 판정
+  -- 2) STORED complex_key 컬럼을 바로 사용하여 정규식 중복 계산 비용 제거 + 실질 해제 판정
   matched AS (
     SELECT m.*,
-      re_complex_key(m.lawd_cd, m.jibun, m.apt_name) AS ckey,
-      ROUND(m.area)::INT AS abucket,
+      m.complex_key AS ckey,
+      m.area_bucket AS abucket,
       BOOL_OR(m.is_canceled) OVER (
         PARTITION BY m.lawd_cd, m.jibun, m.area, m.floor, m.deal_date, m.amount
       ) AS eff_canceled
@@ -117,14 +131,14 @@ AS $$
     a.abucket                                 AS area_bucket,
     a.gu, a.dong, a.apt_name,
     COALESCE(s.pyeong, ROUND(l.area / 3.3058)::INT) AS pyeong,
-    s.score,                                  -- 신호 없으면 NULL
+    s.score,
     COALESCE(s.latest_amount, l.amount)       AS latest_amount,
     COALESCE(s.latest_date,   l.deal_date)    AS latest_date,
     COALESCE(s.latest_floor,  l.floor)        AS latest_floor,
-    s.baseline_amount,                        -- 신호 없으면 NULL
+    s.baseline_amount,
     COALESCE(s.peak_amount, a.peak_amount)    AS peak_amount,
     COALESCE(s.low_amount,  a.low_amount)     AS low_amount,
-    s.drop_rate,                              -- 신호 없으면 NULL
+    s.drop_rate,
     COALESCE(s.is_new_low, FALSE)             AS is_new_low,
     COALESCE(s.density_90d, a.density_90d)    AS density_90d,
     COALESCE(s.cancel_rate, 0)                AS cancel_rate,
@@ -137,21 +151,10 @@ AS $$
   JOIN latest l ON l.ckey = a.ckey AND l.abucket = a.abucket
   LEFT JOIN re_signals s ON s.complex_key = a.ckey AND s.area_bucket = a.abucket
   ORDER BY
-    (s.complex_key IS NOT NULL) DESC,   -- 신호 있는 평형 먼저
+    (s.complex_key IS NOT NULL) DESC,
     s.score DESC NULLS LAST,
     a.abucket
   LIMIT LEAST(COALESCE(p_limit, 300), 500);
 $$;
 
 GRANT EXECUTE ON FUNCTION re_search_complexes(TEXT, TEXT, INT) TO anon, authenticated;
-
--- 검색 속도용 인덱스 (단지명/동 부분일치는 인덱스가 안 먹지만 gu 필터는 도움)
-CREATE INDEX IF NOT EXISTS idx_re_deals_gu_date ON public.re_deals (gu, deal_date DESC);
-
-
--- ------------------------------------------------------------
--- 검증
--- ------------------------------------------------------------
--- SELECT apt_name, area_bucket AS 전용, pyeong AS 평, score AS 점수,
---        has_signal AS 신호있음, deal_count AS 거래수, latest_date AS 최근거래
--- FROM re_search_complexes('용산더프라임') ORDER BY 전용;

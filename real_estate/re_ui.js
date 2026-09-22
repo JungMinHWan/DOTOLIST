@@ -163,7 +163,7 @@
     const link = document.createElement('link');
     link.id = 're-styles-link';
     link.rel = 'stylesheet';
-    link.href = 'real_estate/re_styles.css?v=2.1';
+    link.href = 'real_estate/re_styles.css?v=2.5';
     document.head.appendChild(link);
   }
 
@@ -210,6 +210,7 @@
       this.minScore = 30; // re_config 의 min_score_threshold 와 일치 (0점은 대부분 노이즈)
       this.searchTerm = '';
       this.searchTimer = null;
+      this.searchAbortController = null;
       this.fetchSeq = 0;
       this.labelMap = {};        // complex_key|area_bucket -> [라벨...]
       this.labelCounts = [];     // 사용 중인 라벨 목록
@@ -935,7 +936,8 @@
               '관악구':'11620', '서초구':'11650', '강남구':'11680', '송파구':'11710',
               '강동구':'11740'
             };
-            let apiUrl = '/.netlify/functions/re_scheduled_collector?mode=fast';
+            const apiBase = IS_LOCAL_DEV ? 'https://todolistbymin.netlify.app' : '';
+            let apiUrl = `${apiBase}/.netlify/functions/re_scheduled_collector?mode=fast`;
             if (this.activeGu && this.activeGu !== '전체' && GU_MAP_CODES[this.activeGu]) {
               apiUrl += '&lawd_cd=' + GU_MAP_CODES[this.activeGu];
             }
@@ -954,6 +956,11 @@
             this.toast('최신 국토부 실거래가 수집 및 신호 갱신이 완료되었습니다!');
             
             await this.fetchSignals();
+            if (!this.signals || this.signals.length === 0) {
+              if (text) text.textContent = '신호 데이터 자동 동기화 중...';
+              await this.repairSignals();
+              await this.fetchSignals();
+            }
           } catch (err) {
             console.error('API 갱신 실패:', err);
             if (text) text.textContent = `${todayString()} 기준 (실패)`;
@@ -1040,16 +1047,18 @@
       const clearBtn = overlay.querySelector('#re-search-clear');
 
       const applySearch = () => {
-        this.searchTerm = searchInput.value.trim();
+        const next = searchInput.value.trim();
+        if (next === this.searchTerm) return;
+        this.searchTerm = next;
         clearBtn.style.display = this.searchTerm ? 'flex' : 'none';
         this.fetchSignals();
       };
 
-      // 타이핑마다 서버를 때리지 않도록 250ms 디바운스
+      // 타이핑마다 서버를 때리지 않도록 300ms 디바운스
       searchInput.addEventListener('input', () => {
         clearBtn.style.display = searchInput.value ? 'flex' : 'none';
         if (this.searchTimer) clearTimeout(this.searchTimer);
-        this.searchTimer = setTimeout(applySearch, 250);
+        this.searchTimer = setTimeout(applySearch, 300);
       });
 
       searchInput.addEventListener('keydown', (e) => {
@@ -1072,10 +1081,48 @@
       });
     }
 
+    async repairSignals() {
+      const GU_MAP_CODES = {
+        '종로구':'11110', '중구':'11140', '용산구':'11170', '성동구':'11200',
+        '광진구':'11215', '동대문구':'11230', '중랑구':'11260', '성북구':'11290',
+        '강북구':'11305', '도봉구':'11320', '노원구':'11350', '은평구':'11380',
+        '서대문구':'11410', '마포구':'11440', '양천구':'11470', '강서구':'11500',
+        '구로구':'11530', '금천구':'11545', '영등포구':'11560', '동작구':'11590',
+        '관악구':'11620', '서초구':'11650', '강남구':'11680', '송파구':'11710',
+        '강동구':'11740'
+      };
+      const allCodes = Object.values(GU_MAP_CODES);
+      const targetCodes = (this.activeGu && this.activeGu !== '전체' && GU_MAP_CODES[this.activeGu])
+        ? [GU_MAP_CODES[this.activeGu]]
+        : allCodes;
+
+      for (let i = 0; i < targetCodes.length; i += 5) {
+        const chunk = targetCodes.slice(i, i + 5);
+        await Promise.all(chunk.map(code =>
+          fetch(`${SUPABASE_URL}/rest/v1/rpc/re_recalculate_signals`, {
+            method: 'POST',
+            headers: {
+              'apikey': ANON_KEY,
+              'Authorization': `Bearer ${ANON_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ p_lawd_cd: code })
+          }).catch(e => console.warn('[실거래 신호 탐지] 자동 복구 오류:', code, e))
+        ));
+      }
+    }
+
     async fetchSignals() {
       // 빠르게 타이핑하면 요청이 겹치는데, 늦게 도착한 옛 응답이
       // 최신 결과를 덮어쓰지 않도록 순번으로 막습니다.
       const seq = ++this.fetchSeq;
+
+      // 이전 검색 네트워크 요청이 남아 있다면 취소
+      if (this.searchAbortController) {
+        try { this.searchAbortController.abort(); } catch (_) {}
+      }
+      this.searchAbortController = new AbortController();
+      const signal = this.searchAbortController.signal;
 
       const container = document.getElementById('re-signal-list-container');
       if (container) {
@@ -1119,7 +1166,8 @@
               'Authorization': `Bearer ${ANON_KEY}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal
           });
           const text = await res.text();
           return { ok: res.ok, status: res.status, text };
@@ -1127,20 +1175,30 @@
 
         let result;
         if (isSearch) {
-          result = await callRpc('re_search_complexes', {
-            p_search: this.searchTerm, p_gu: this.activeGu, p_limit: 300
-          });
-
-          // re_search_v2.sql 을 아직 실행하지 않았거나 PostgREST 스키마 캐시가
-          // 갱신되지 않은 경우(PGRST202) → 신호 목록 검색으로 자동 강등합니다.
-          // 기능이 통째로 죽는 것보다 "신호 있는 평형만이라도" 보이는 편이 낫습니다.
-          if (!result.ok && (result.status === 404 || result.text.includes('PGRST202'))) {
-            console.warn('[실거래 신호 탐지] re_search_complexes 미설치 → re_get_signals 로 대체합니다. real_estate/re_search_v2.sql 을 실행하세요.');
-            this.searchDegraded = true;
-            result = await callRpc('re_get_signals', {
-              p_gu: this.activeGu, p_min_score: this.minScore,
-              p_sort: this.activeSort, p_search: this.searchTerm
+          try {
+            result = await callRpc('re_search_complexes', {
+              p_search: this.searchTerm, p_gu: this.activeGu, p_limit: 300
             });
+          } catch (rpcErr) {
+            if (rpcErr.name === 'AbortError') return;
+            console.warn('[실거래 신호 탐지] re_search_complexes 네트워크 오류:', rpcErr);
+            result = { ok: false, status: 0, text: rpcErr.message };
+          }
+
+          // 404/PGRST202(미설치)뿐만 아니라 타임아웃(500/504) 등 어떤 이유로든 실패 시
+          // 서비스 중단 없이 초고속 신호 목록 검색(re_get_signals)으로 안전하게 자동 폴백합니다.
+          if (!result.ok) {
+            console.warn(`[실거래 신호 탐지] re_search_complexes 실패(HTTP ${result.status}) → re_get_signals 로 안전 폴백합니다.`);
+            this.searchDegraded = true;
+            try {
+              result = await callRpc('re_get_signals', {
+                p_gu: this.activeGu, p_min_score: this.minScore,
+                p_sort: this.activeSort, p_search: this.searchTerm
+              });
+            } catch (fbErr) {
+              if (fbErr.name === 'AbortError') return;
+              throw fbErr;
+            }
           } else {
             this.searchDegraded = false;
           }
@@ -1159,6 +1217,31 @@
         if (seq !== this.fetchSeq) return; // 더 최신 요청이 진행 중 → 이 응답은 버림
 
         this.signals = Array.isArray(fetchedData) ? fetchedData : [];
+
+        // 0건 감지 시 자동 복구(Self-Healing): 테이블이 비어 있으면 사용자 불편 없이 2~3초 내에 자동 재계산 후 복구
+        if (!isSearch && this.viewMode !== 'labeled' && this.signals.length === 0 && !this._selfHealingAttempted) {
+          this._selfHealingAttempted = true;
+          console.warn('[실거래 신호 탐지] 신호 목록이 0건이어서 자동 동기화(복구)를 실행합니다.');
+          if (container) {
+            container.innerHTML = `
+              <div class="re-empty-state">
+                <div class="re-empty-icon">⚡</div>
+                <div class="re-empty-text">실거래 신호 데이터를 최신 상태로 동기화하는 중입니다...</div>
+                <div class="re-empty-sub">잠시만 기다려 주세요 (약 2~3초 소요)</div>
+              </div>
+            `;
+          }
+          await this.repairSignals();
+          const retryRes = await callRpc('re_get_signals', {
+            p_gu: this.activeGu, p_min_score: this.minScore,
+            p_sort: this.activeSort, p_search: null
+          });
+          if (retryRes.ok) {
+            const retryData = JSON.parse(retryRes.text);
+            this.signals = Array.isArray(retryData) ? retryData : [];
+          }
+        }
+
         this.renderList();
         this.saveState();
 
@@ -1168,6 +1251,7 @@
           this._restoreScrollTop = 0;
         }
       } catch (err) {
+        if (err.name === 'AbortError') return;
         if (seq !== this.fetchSeq) return;
         console.error('[실거래 신호 탐지] 데이터 조회 오류:', err);
         if (container) {
@@ -1238,7 +1322,7 @@
         } else if (isSearching) {
           const sig = filtered.filter(x => x.has_signal !== false && x.score !== null && x.score !== undefined).length;
           const degraded = this.searchDegraded
-            ? ` <span class="re-meta-warn">⚠️ 신호 목록에서만 검색 중 — re_search_v2.sql 미실행</span>`
+            ? ` <span class="re-meta-warn">⚡ 신호 단지 우선 검색</span>`
             : '';
           metaEl.innerHTML = filtered.length
             ? `<strong>'${escapeHtml(this.searchTerm)}'</strong> 검색 결과 <strong>${filtered.length}건</strong> <span class="re-meta-dim">${this.searchDegraded ? '' : `(하락 신호 ${sig}건 · 신호 없는 평형 ${filtered.length - sig}건) · 국토부 원본 기준`}</span>${degraded}`

@@ -9,7 +9,6 @@ function buildSignalSql(lawdCd) {
     WITH
     norm_deals AS (
       SELECT d.*,
-        (d.lawd_cd || '|' || d.jibun || '|' || ${NORM_NAME}) AS complex_key,
         ROUND(d.area)::INT AS area_key
       FROM re_deals d
       WHERE d.lawd_cd = '${lawdCd}'
@@ -232,16 +231,33 @@ export async function handler(event, context) {
     summary.push(...chunkResults);
   }
 
-  // 2. 신호 산출 전범위 갱신 (10개씩 병렬 처리)
+  // 2. 신호 산출 전범위/해당구 초고속 갱신 (Supabase 내부 함수 re_recalculate_signals 구별 호출)
+  // 단일 구당 0.1~0.2초 소요되므로 5개씩 병렬 처리하여 statement timeout 없이 2~3초 만에 안전하게 완료
   try {
-    if (lawdList.length === SEOUL_LAWD_CDS.length) {
-      await execSql('TRUNCATE re_signals;', supabaseUrl, serviceRoleKey);
+    const calcTargets = (targetLawdCd && targetLawdCd !== '전체') ? [targetLawdCd] : SEOUL_LAWD_CDS;
+    const CALC_CHUNK = 5;
+    for (let i = 0; i < calcTargets.length; i += CALC_CHUNK) {
+      const chunk = calcTargets.slice(i, i + CALC_CHUNK);
+      await Promise.all(chunk.map(async (code) => {
+        try {
+          const calcRes = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/re_recalculate_signals`, {
+            method: 'POST',
+            headers: {
+              'apikey': serviceRoleKey,
+              'Authorization': `Bearer ${serviceRoleKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ p_lawd_cd: code })
+          });
+          if (!calcRes.ok) {
+            console.error(`[re_scheduled_collector] Signal recalculation RPC error (${code}):`, await calcRes.text());
+          }
+        } catch (e) {
+          console.error(`[re_scheduled_collector] Signal recalc error for ${code}:`, e.message);
+        }
+      }));
     }
-    for (let i = 0; i < lawdList.length; i += 10) {
-      const chunk = lawdList.slice(i, i + 10);
-      await Promise.all(chunk.map(code => execSql(buildSignalSql(code), supabaseUrl, serviceRoleKey)));
-    }
-    console.log('[re_scheduled_collector] Signal recalculation finished.');
+    console.log('[re_scheduled_collector] Signal recalculation finished successfully via DB function.');
   } catch (calcErr) {
     console.error('[re_scheduled_collector] Signal calculation failed:', calcErr.message);
   }

@@ -77,7 +77,6 @@ export function buildSignalSql(lawdCd) {
     WITH
     norm_deals AS (
       SELECT d.*,
-        (d.lawd_cd || '|' || d.jibun || '|' || ${NORM_NAME}) AS complex_key,
         ROUND(d.area)::INT AS area_key
       FROM re_deals d
       WHERE d.lawd_cd = '${lawdCd}'
