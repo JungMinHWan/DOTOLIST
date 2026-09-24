@@ -390,6 +390,7 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 .rdr-xp-float {
   position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 35;
   transform: translate(-50%, 0); opacity: 0; pointer-events: none; white-space: nowrap;
+  max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis;
   padding: 6px 12px; border-radius: 999px; background: var(--r-green); color: #fff;
   font-size: 13px; font-weight: 700; box-shadow: 0 6px 16px rgba(63, 125, 90, .28);
 }
@@ -418,3 +419,29 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 .rdr-xp-rule-xp { flex-shrink: 0; width: 44px; text-align: center; font-weight: 800; color: var(--r-green-dark); background: var(--r-green-soft); border-radius: 8px; padding: 4px 0; font-size: 13px; }
 .rdr-xp-rule b { display: block; font-size: 14px; }
 .rdr-xp-rule small { font-size: 12px; color: var(--r-ink-3); }
+
+/* ---------- v1.3: 바꿔 쓰기 ---------- */
+.rdr-seg-tabs { margin-left: auto; background: var(--r-beige); }
+.rdr-seg-tabs button { color: var(--r-ink-2) !important; }
+.rdr-seg-tabs button.on { color: var(--r-green-dark) !important; }
+.rdr-para-task { margin-bottom: 10px; padding: 12px 14px; background: var(--r-paper); border: 1px dashed var(--r-line); border-radius: 12px; }
+.rdr-para-loading { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--r-ink-3); }
+.rdr-para-loading .rdr-spinner-sm { margin-left: 0; }
+.rdr-para-task-top { display: flex; align-items: center; justify-content: space-between; }
+.rdr-para-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--r-green-soft); color: var(--r-green-dark); font-size: 11px; font-weight: 700; }
+.rdr-para-tag-blue { background: var(--r-blue-soft); color: var(--r-blue-dark); }
+.rdr-para-title { display: block; margin-top: 6px; font-size: 16px; color: var(--r-ink); }
+.rdr-para-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.rdr-para-example { margin-top: 10px; padding: 10px 12px; background: var(--r-blue-soft); border-radius: 10px; }
+.rdr-para-example p { margin: 6px 0 0; font-family: var(--r-serif); font-size: 15px; line-height: 1.6; }
+.rdr-para-feedback { margin-top: 12px; padding: 12px 14px; background: #FAFCF9; border: 1px solid var(--r-green-line); border-radius: 12px; }
+.rdr-para-fb-text { margin: 8px 0 0; font-size: 14px; line-height: 1.6; color: var(--r-ink); }
+.rdr-para-row { margin-top: 10px; }
+.rdr-para-row span { display: block; font-size: 11px; font-weight: 700; color: var(--r-ink-3); margin-bottom: 2px; }
+.rdr-para-row p { margin: 2px 0 0; font-family: var(--r-serif); font-size: 15px; line-height: 1.6; color: var(--r-ink); }
+.rdr-verdict { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.rdr-verdict-same { background: var(--r-green-soft); color: var(--r-green-dark); }
+.rdr-verdict-close { background: var(--r-blue-soft); color: var(--r-blue-dark); }
+.rdr-verdict-diff { background: #F6E1DA; color: var(--r-red); }
+.rdr-record-para { margin-top: 14px; }
+.rdr-record-para p { margin: 6px 0 8px; font-family: var(--r-serif); font-size: 15px; line-height: 1.6; padding: 10px 12px; background: #fff; border: 1px solid var(--r-line); border-radius: 10px; }

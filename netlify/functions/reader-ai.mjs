@@ -10,6 +10,8 @@
  *        { "action": "word", "word": "hesitated", "sentence": "..." }
  *        { "action": "words", "words": ["hesitated", "considerable"], "sentence": "..." }
  *        { "action": "translate", "sentence": "..." }
+ *        { "action": "paraphrase_task", "sentence": "...", "exclude": ["이미 받은 과제"] }
+ *        { "action": "paraphrase_check", "sentence": "...", "task": "...", "attempt": "..." }
  */
 
 /*
@@ -73,6 +75,45 @@ const WORDS_PROMPT = (words, sentence) => `당신은 영어 원서를 읽는 한
       "note": "문맥상 특이한 쓰임이 있을 때만 한 문장, 없으면 빈 문자열"
     }
   ]
+}`;
+
+const TASK_PROMPT = (sentence, exclude) => `당신은 영어 원서를 읽는 한국인 학습자의 영작 코치입니다.
+아래 영어 문장을 "같은 뜻, 다른 문장 구조"로 바꿔 쓰는 연습 과제를 하나 내 주세요.
+
+문장: ${sentence}
+${exclude.length ? `이미 낸 과제(겹치지 않게): ${JSON.stringify(exclude)}` : ''}
+
+규칙:
+- 이 문장에 실제로 적용할 수 있는 과제만 고르세요. (예: 수동태로 바꾸기, 능동태로 바꾸기, 두 문장으로 나누기, 한 문장으로 합치기,
+  쉬운 단어로 바꾸기, 접속사(because/although 등) 사용하기, 주어 바꾸기, 관계대명사 사용/제거하기, 강조 구문 사용하기, 어순 바꾸기)
+- 문장이 길면 핵심 절 하나만 대상으로 해도 됩니다.
+- 학습자가 직접 써 볼 수 있을 만큼 구체적으로 쓰세요.
+
+반드시 마크다운 없이 다음 JSON 한 개로만 답하세요:
+{
+  "task": "과제 한 줄 (한국어, 30자 이내)",
+  "hint": "어떻게 바꾸면 되는지 짧은 도움말 (한국어 한 문장)",
+  "example": "과제를 적용한 모범 예시 영어 문장"
+}`;
+
+const CHECK_PROMPT = (sentence, task, attempt) => `당신은 친절하지만 정확한 영작 코치입니다. 한국인 학습자가 원문을 과제에 맞게 바꿔 썼습니다.
+
+원문: ${sentence}
+과제: ${task || '같은 뜻을 다른 문장 구조로 쓰기'}
+학습자 문장: ${attempt}
+
+평가 기준:
+- meaning: 원문과 뜻이 같으면 "same", 대체로 같지만 빠지거나 달라진 부분이 있으면 "close", 뜻이 달라졌으면 "different"
+- 문법/어법 오류가 있으면 고친 문장을 corrected 에, 없으면 빈 문자열
+- 원문을 거의 그대로 베꼈다면 meaning 과 별개로 feedback 에서 구조를 바꿔 보라고 알려 주세요
+
+반드시 마크다운 없이 다음 JSON 한 개로만 답하세요:
+{
+  "meaning": "same" | "close" | "different",
+  "task_done": true | false,
+  "feedback": "잘한 점과 고칠 점을 한국어 1~2문장으로",
+  "corrected": "문법을 고친 학습자 문장 또는 빈 문자열",
+  "examples": ["자연스러운 다른 표현 예시 1", "예시 2"]
 }`;
 
 const TRANSLATE_PROMPT = (sentence) => `당신은 영어 소설을 한국어로 옮기는 번역가입니다.
@@ -232,6 +273,31 @@ export default async (req) => {
           note: str(d.note, 300)
         };
       })
+    });
+  }
+
+  if (action === 'paraphrase_task') {
+    const exclude = (Array.isArray(payload?.exclude) ? payload.exclude : []).map((t) => str(t, 60)).filter(Boolean).slice(0, 10);
+    const r = await callGemini(apiKey, TASK_PROMPT(sentence, exclude), QUALITY_MODELS);
+    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '과제를 만들지 못했습니다.' });
+    const d = r.data || {};
+    return json(200, { task: str(d.task, 80) || '같은 뜻을 다른 문장 구조로 쓰기', hint: str(d.hint, 200), example: str(d.example, 1500) });
+  }
+
+  if (action === 'paraphrase_check') {
+    const attempt = str(payload?.attempt, MAX_SENTENCE);
+    if (!attempt) return json(400, { error: '바꿔 쓴 문장을 입력해 주세요.' });
+    const task = str(payload?.task, 80);
+    const r = await callGemini(apiKey, CHECK_PROMPT(sentence, task, attempt), QUALITY_MODELS);
+    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '피드백을 받지 못했습니다.' });
+    const d = r.data || {};
+    const meaning = ['same', 'close', 'different'].includes(d.meaning) ? d.meaning : 'close';
+    return json(200, {
+      meaning,
+      task_done: d.task_done !== false,
+      feedback: str(d.feedback, 400),
+      corrected: str(d.corrected, 1500),
+      examples: (Array.isArray(d.examples) ? d.examples : []).map((e) => str(e, 1500)).filter(Boolean).slice(0, 3)
     });
   }
 

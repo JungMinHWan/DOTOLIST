@@ -116,7 +116,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.2';
+      link.href = 'reader/reader.css?v=1.3';
       document.head.appendChild(link);
     }
 
@@ -435,6 +435,8 @@
       [R.sentence, '막힌 문장을 학습하고 완료'],
       [R.typed, '문장을 끝까지 따라 쓰면 추가'],
       [R.selfRead, '해석을 열지 않고 완료하면 추가'],
+      [R.paraphrase, '과제에 맞게 바꿔 쓰고 확인받기'],
+      [R.paraphraseSame, '바꿔 쓴 문장이 원문과 같은 뜻이면 추가'],
       [R.review, '학습한 문장을 다시 학습'],
       [R.chapter, '챕터를 끝까지 읽기'],
       [R.book, '책 한 권 완독']
@@ -1308,6 +1310,11 @@
         <div class="rdr-label">이전에 확인한 단어</div>
         ${words.map((w) => `<div class="rdr-record-word"><b>${esc(w.lemma || w.surface)}</b><span>${esc(w.dict_meaning || '')}</span>${w.context_meaning ? `<em>이 문장에서: ${esc(w.context_meaning)}</em>` : ''}</div>`).join('')}
       </div>` : ''}
+      ${rec.paraphrase_text ? `<div class="rdr-record-para">
+        <div class="rdr-label">내가 바꿔 쓴 문장${rec.paraphrase_task ? ` · ${esc(rec.paraphrase_task)}` : ''}</div>
+        <p>${esc(rec.paraphrase_text)}</p>
+        ${rec.paraphrase_feedback && VERDICT[rec.paraphrase_feedback.meaning] ? `<span class="rdr-verdict ${VERDICT[rec.paraphrase_feedback.meaning].cls}">${VERDICT[rec.paraphrase_feedback.meaning].label}</span>` : ''}
+      </div>` : ''}
       ${rec.translation ? `<div class="rdr-record-trans">
         <button class="rdr-link-btn" data-r="trans">해석 보기</button>
         <p class="rdr-hidden" data-r-trans>${esc(rec.translation)}</p>
@@ -1372,6 +1379,18 @@
       words: (existing && existing.words ? existing.words : (initialWords || [])).map((w) => ({ ...w, status: 'done' })),
       typed: '',
       typingOpen: T.wordCount(target.text) <= LONG_SENTENCE_WORDS,
+      writeTab: 'copy',
+      para: {
+        task: existing && existing.paraphrase_task ? existing.paraphrase_task : null,
+        hint: '', example: '',
+        tasks: existing && existing.paraphrase_task ? [existing.paraphrase_task] : [],
+        loadingTask: false, taskError: null,
+        text: (existing && existing.paraphrase_text) || '',
+        checking: false,
+        feedback: (existing && existing.paraphrase_feedback) || null,
+        checkedNow: false,
+        exampleShown: false
+      },
       translation: existing ? existing.translation : null,
       translationViewed: false,
       translationLoading: false,
@@ -1416,17 +1435,7 @@
         </div>` : '<p class="rdr-hint">이 브라우저는 음성 읽기를 지원하지 않습니다.</p>'}
       </div>
 
-      <div class="rdr-card">
-        <div class="rdr-card-head">
-          <span class="rdr-label">따라 쓰기</span>
-          ${st.typingOpen ? '' : '<button class="rdr-link-btn" id="rdrTypeOpen">직접 써보기</button>'}
-        </div>
-        ${st.typingOpen ? `
-          <div class="rdr-type-feedback" id="rdrTypeFeedback"></div>
-          <textarea class="rdr-input rdr-textarea" id="rdrTypeInput" rows="3" placeholder="위 문장을 천천히 따라 써 보세요" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">${esc(st.typed)}</textarea>
-          <div class="rdr-type-status" id="rdrTypeStatus"></div>`
-        : '<p class="rdr-hint">긴 문장이라 접어 두었어요. 필요할 때만 써 보세요.</p>'}
-      </div>
+      <div class="rdr-card" id="rdrWriteCard"></div>
 
       <div class="rdr-card">
         <div class="rdr-card-head"><span class="rdr-label">모르는 단어</span></div>
@@ -1473,13 +1482,7 @@
         };
       });
     }
-    const openBtn = $('#rdrTypeOpen');
-    if (openBtn) openBtn.onclick = () => { st.typingOpen = true; renderStudy(); setTimeout(() => { const i = $('#rdrTypeInput'); if (i) i.focus(); }, 30); };
-    const input = $('#rdrTypeInput');
-    if (input) {
-      input.addEventListener('input', () => { st.typed = input.value; st.dirty = true; renderTyping(); });
-      renderTyping();
-    }
+    renderWriteCard();
     $('#rdrWordForm').onsubmit = (e) => {
       e.preventDefault();
       const v = $('#rdrWordInput').value.trim();
@@ -1495,6 +1498,142 @@
     renderChips();
     const tb = $('#rdrTransBtn');
     if (tb) tb.onclick = showTranslation;
+  }
+
+  // ---------------- 직접 써보기: 따라 쓰기 / 바꿔 쓰기 ----------------
+  const VERDICT = {
+    same: { label: '같은 뜻', cls: 'rdr-verdict-same' },
+    close: { label: '조금 달라요', cls: 'rdr-verdict-close' },
+    different: { label: '뜻이 달라졌어요', cls: 'rdr-verdict-diff' }
+  };
+
+  function renderWriteCard() {
+    const st = S.study;
+    const card = $('#rdrWriteCard');
+    if (!st || !card) return;
+    const tabs = `
+      <div class="rdr-seg rdr-seg-tabs" role="tablist" aria-label="쓰기 방식">
+        <button role="tab" class="${st.writeTab === 'copy' ? 'on' : ''}" data-wtab="copy">따라 쓰기</button>
+        <button role="tab" class="${st.writeTab === 'para' ? 'on' : ''}" data-wtab="para">바꿔 쓰기</button>
+      </div>`;
+    if (!st.typingOpen) {
+      card.innerHTML = `
+        <div class="rdr-card-head"><span class="rdr-label">직접 써보기</span><button class="rdr-link-btn" id="rdrTypeOpen">펼치기</button></div>
+        <p class="rdr-hint">긴 문장이라 접어 두었어요. 따라 쓰기와 바꿔 쓰기는 필요할 때만 해 보세요.</p>`;
+      $('#rdrTypeOpen').onclick = () => { st.typingOpen = true; renderWriteCard(); };
+      return;
+    }
+    card.innerHTML = `
+      <div class="rdr-card-head"><span class="rdr-label">직접 써보기</span>${tabs}</div>
+      <div id="rdrWriteBody"></div>`;
+    card.querySelectorAll('[data-wtab]').forEach((b) => {
+      b.onclick = () => {
+        st.writeTab = b.dataset.wtab;
+        renderWriteCard();
+        if (st.writeTab === 'para' && !st.para.task && !st.para.loadingTask) requestParaTask();
+      };
+    });
+    if (st.writeTab === 'copy') renderCopyBody();
+    else renderParaBody();
+  }
+
+  function renderCopyBody() {
+    const st = S.study;
+    $('#rdrWriteBody').innerHTML = `
+      <div class="rdr-type-feedback" id="rdrTypeFeedback"></div>
+      <textarea class="rdr-input rdr-textarea" id="rdrTypeInput" rows="3" placeholder="위 문장을 천천히 따라 써 보세요" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">${esc(st.typed)}</textarea>
+      <div class="rdr-type-status" id="rdrTypeStatus"></div>`;
+    const input = $('#rdrTypeInput');
+    input.addEventListener('input', () => { st.typed = input.value; st.dirty = true; renderTyping(); });
+    renderTyping();
+  }
+
+  function renderParaBody() {
+    const st = S.study;
+    const p = st.para;
+    let taskHtml;
+    if (p.loadingTask) {
+      taskHtml = '<div class="rdr-para-task rdr-para-loading"><span class="rdr-spinner rdr-spinner-sm"></span><span>이 문장에 맞는 과제를 고르는 중</span></div>';
+    } else if (p.taskError) {
+      taskHtml = `<div class="rdr-para-task"><span class="rdr-err-text">${esc(p.taskError)}</span><button class="rdr-link-btn" id="rdrParaNext">다시 시도</button></div>`;
+    } else if (p.task) {
+      taskHtml = `<div class="rdr-para-task">
+          <div class="rdr-para-task-top"><span class="rdr-para-tag">과제</span><button class="rdr-link-btn" id="rdrParaNext">다른 과제</button></div>
+          <b class="rdr-para-title">${esc(p.task)}</b>
+          ${p.hint ? `<p class="rdr-hint">${esc(p.hint)}</p>` : ''}
+        </div>`;
+    } else {
+      taskHtml = '';
+    }
+    const f = p.feedback;
+    const v = f ? (VERDICT[f.meaning] || VERDICT.close) : null;
+    $('#rdrWriteBody').innerHTML = `
+      ${taskHtml}
+      <textarea class="rdr-input rdr-textarea" id="rdrParaInput" rows="3" placeholder="같은 뜻을 과제에 맞게 영어로 써 보세요" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">${esc(p.text)}</textarea>
+      <div class="rdr-para-actions">
+        ${p.example ? `<button class="rdr-link-btn" id="rdrParaExample">${p.exampleShown ? '예시 숨기기' : '예시 보기'}</button>` : '<span></span>'}
+        <button class="rdr-btn rdr-btn-green-soft rdr-btn-sm" id="rdrParaCheck" ${p.checking ? 'disabled' : ''}>${p.checking ? '확인하는 중' : (f ? '다시 확인' : '확인')}</button>
+      </div>
+      ${p.exampleShown && p.example ? `<div class="rdr-para-example"><span class="rdr-para-tag rdr-para-tag-blue">예시</span><p>${esc(p.example)}</p></div>` : ''}
+      ${f ? `<div class="rdr-para-feedback">
+        <span class="rdr-verdict ${v.cls}">${v.label}</span>
+        ${f.feedback ? `<p class="rdr-para-fb-text">${esc(f.feedback)}</p>` : ''}
+        ${f.corrected ? `<div class="rdr-para-row"><span>고친 문장</span><p>${esc(f.corrected)}</p></div>` : ''}
+        ${f.examples && f.examples.length ? `<div class="rdr-para-row"><span>이렇게도 쓸 수 있어요</span>${f.examples.map((e) => `<p>${esc(e)}</p>`).join('')}</div>` : ''}
+      </div>` : ''}`;
+    const input = $('#rdrParaInput');
+    input.addEventListener('input', () => { p.text = input.value; st.dirty = true; });
+    const next = $('#rdrParaNext');
+    if (next) next.onclick = () => requestParaTask();
+    const ex = $('#rdrParaExample');
+    if (ex) ex.onclick = () => { p.exampleShown = !p.exampleShown; renderParaBody(); };
+    $('#rdrParaCheck').onclick = checkParaphrase;
+  }
+
+  async function requestParaTask() {
+    const st = S.study;
+    const p = st.para;
+    if (p.loadingTask) return;
+    p.loadingTask = true;
+    p.taskError = null;
+    if (st.writeTab === 'para') renderParaBody();
+    try {
+      const d = await API.ai('paraphrase_task', { sentence: st.text, exclude: p.tasks });
+      if (S.study !== st) return;
+      p.task = d.task; p.hint = d.hint; p.example = d.example;
+      p.tasks.push(d.task);
+      p.exampleShown = false;
+    } catch (e) {
+      if (S.study !== st) return;
+      p.taskError = userMessage(e, '과제를 만들지 못했습니다.');
+    } finally {
+      if (S.study === st) {
+        p.loadingTask = false;
+        if (st.writeTab === 'para') renderParaBody();
+      }
+    }
+  }
+
+  async function checkParaphrase() {
+    const st = S.study;
+    const p = st.para;
+    const input = $('#rdrParaInput');
+    if (input) p.text = input.value;
+    if (!p.text.trim()) { toast('바꿔 쓴 문장을 먼저 입력해 주세요.'); return; }
+    if (p.checking) return;
+    p.checking = true;
+    renderParaBody();
+    try {
+      const d = await API.ai('paraphrase_check', { sentence: st.text, task: p.task || '', attempt: p.text.trim() });
+      if (S.study !== st) return;
+      p.feedback = d;
+      p.checkedNow = true;
+      p.exampleShown = false;
+    } catch (e) {
+      if (S.study === st) toast(userMessage(e, '피드백을 받지 못했습니다.'));
+    } finally {
+      if (S.study === st) { p.checking = false; renderParaBody(); }
+    }
   }
 
   function renderTyping() {
@@ -1726,6 +1865,12 @@
       review_count: ex ? (ex.review_count || 0) + 1 : 0,
       last_reviewed_at: ex ? now : null
     };
+    const para = st.para;
+    if (para && para.text.trim()) {
+      record.paraphrase_task = para.task || null;
+      record.paraphrase_text = para.text.trim();
+      record.paraphrase_feedback = para.feedback || null;
+    }
     const words = st.words
       .filter((w) => w.status === 'done' || w.status === 'error')
       .map((w) => ({
@@ -1751,14 +1896,19 @@
         const parts = [ex ? XP.RULES.review : XP.RULES.sentence];
         if (typedDone) parts.push(XP.RULES.typed);
         if (selfRead) parts.push(XP.RULES.selfRead);
+        if (para && para.checkedNow && para.feedback) {
+          if (para.feedback.task_done !== false) parts.push(XP.RULES.paraphrase);
+          if (para.feedback.meaning === 'same') parts.push(XP.RULES.paraphraseSame);
+        }
         gained = parts.reduce((a, r) => a + r.xp, 0);
-        XP.award({ xp: gained, label: parts.map((r) => r.label).join(' · ') });
+        XP.award({ xp: gained, label: parts.length > 1 ? `${parts[0].label} 외 ${parts.length - 1}개` : parts[0].label });
       }
       S.study = null;
       clearPending(true);
       showView('reader');
       applyHighlights();
       toast((ex ? '복습을 기록했어요' : '학습한 문장을 표시했어요') + (gained ? `  +${gained} XP` : ''));
+      if (saved.paraphraseSkipped) setTimeout(() => toast('바꿔 쓴 문장은 저장하지 못했어요. 안내드린 SQL을 실행해 주세요.', 4000), 2800);
     } catch (e) {
       toast(userMessage(e), 4000);
     } finally {
@@ -1796,7 +1946,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.2';
+      link.href = 'reader/reader.css?v=1.3';
       document.head.appendChild(link);
     }
     return true;

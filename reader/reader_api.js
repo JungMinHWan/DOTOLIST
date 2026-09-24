@@ -292,11 +292,20 @@
         updated_at: now
       };
       if (record.id) row.id = record.id;
-      const { data, error } = await client()
-        .from('reader_sentences')
-        .upsert(row, { onConflict: 'book_id,cfi_range' })
-        .select()
-        .single();
+      if (record.paraphrase_text) {
+        row.paraphrase_task = record.paraphrase_task || null;
+        row.paraphrase_text = record.paraphrase_text;
+        row.paraphrase_feedback = record.paraphrase_feedback || null;
+      }
+      const upsert = (r) => client().from('reader_sentences').upsert(r, { onConflict: 'book_id,cfi_range' }).select().single();
+      let { data, error } = await upsert(row);
+      let paraphraseSkipped = false;
+      // 바꿔 쓰기 칸(SQL)이 아직 없으면 그 부분만 빼고 저장
+      if (error && row.paraphrase_text && /paraphrase/i.test(String(error.message || ''))) {
+        delete row.paraphrase_task; delete row.paraphrase_text; delete row.paraphrase_feedback;
+        ({ data, error } = await upsert(row));
+        paraphraseSkipped = true;
+      }
       if (error) throw error;
 
       const del = await client().from('reader_words').delete().eq('sentence_id', data.id);
@@ -317,7 +326,7 @@
         if (ins.error) throw ins.error;
         savedWords = ins.data || rows;
       }
-      return { ...data, words: savedWords };
+      return { ...data, words: savedWords, paraphraseSkipped };
     } catch (e) {
       throw wrap('학습 내용을 저장하지 못했습니다.', e);
     }

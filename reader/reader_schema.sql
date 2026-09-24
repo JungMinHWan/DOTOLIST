@@ -135,3 +135,9 @@ ALTER TABLE public.reader_words
   ADD COLUMN IF NOT EXISTS cfi_range TEXT,
   ADD COLUMN IF NOT EXISTS chapter_href TEXT,
   ADD COLUMN IF NOT EXISTS sentence_text TEXT;
+
+-- ---------- v1.3: 바꿔 쓰기 ----------
+ALTER TABLE public.reader_sentences
+  ADD COLUMN IF NOT EXISTS paraphrase_task TEXT,
+  ADD COLUMN IF NOT EXISTS paraphrase_text TEXT,
+  ADD COLUMN IF NOT EXISTS paraphrase_feedback JSONB;
