@@ -116,7 +116,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.4';
+      link.href = 'reader/reader.css?v=1.5';
       document.head.appendChild(link);
     }
 
@@ -134,6 +134,7 @@
         </header>
         <div class="rdr-scroll">
           <button class="rdr-xp-card rdr-hidden" id="rdrXpCard" data-act="xp"></button>
+          <button class="rdr-listen-card rdr-hidden" id="rdrListenCard" data-act="listen"></button>
           <p class="rdr-lib-summary" id="rdrLibSummary"></p>
           <div class="rdr-shelf" id="rdrShelf"></div>
         </div>
@@ -172,6 +173,15 @@
             <button class="rdr-btn rdr-btn-blue rdr-btn-sm rdr-hidden" data-act="sel-word" id="rdrSelWord">뜻 보기</button>
           </div>
         </div>
+      </section>
+
+      <section class="rdr-view rdr-listen" data-view="listen">
+        <header class="rdr-bar">
+          <button class="rdr-icon-btn" data-act="listen-back" aria-label="서재로">${icon('back')}</button>
+          <div class="rdr-bar-title">문장 듣기</div>
+        </header>
+        <div class="rdr-scroll rdr-listen-body" id="rdrListenBody"></div>
+        <footer class="rdr-listen-foot" id="rdrListenFoot"></footer>
       </section>
 
       <section class="rdr-view rdr-study" data-view="study">
@@ -220,6 +230,7 @@
     window.addEventListener('resize', debounce(onResize, 250));
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') { flushProgress(); flushLog(); if (XP) XP.flush(); }
+      else if (L.playing) keepAwake(true); // 화면 켜짐 유지는 탭이 다시 보이면 새로 요청해야 한다
     });
     renderFontDots();
     if (XP) XP.onChange(onXpChange);
@@ -237,9 +248,12 @@
       play: '<path d="M8 5v14l11-7z"/>',
       pause: '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>',
       replay: '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/>',
-      x: '<path d="M7 7l10 10M17 7L7 17"/>'
+      x: '<path d="M7 7l10 10M17 7L7 17"/>',
+      skipPrev: '<path d="M6 5h2v14H6zM20 5v14L9 12z"/>',
+      skipNext: '<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>',
+      headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'
     };
-    const filled = name === 'play' || name === 'pause' || name === 'more';
+    const filled = ['play', 'pause', 'more', 'skipPrev', 'skipNext'].includes(name);
     return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" ${filled ? 'fill="currentColor" stroke="none"' : 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"'}>${paths[name] || ''}</svg>`;
   }
 
@@ -322,6 +336,7 @@
   async function close() {
     if (root.dataset.view === 'study' && !(await leaveStudyOk())) return;
     await closeBook();
+    stopListen();
     if (TTS) TTS.stop();
     closeSheet();
     if (XP) XP.flush();
@@ -335,6 +350,7 @@
     if (e.key === 'Escape') {
       if (!$('#rdrSheet').classList.contains('rdr-hidden')) { closeSheet(); return; }
       if (view === 'study') { backFromStudy(); return; }
+      if (view === 'listen') { stopListen(); showView('library'); loadLibrary(); return; }
       if (view === 'reader') { backToLibrary(); return; }
       close();
       return;
@@ -365,6 +381,8 @@
       'sel-study': () => startStudyFromPending(),
       'sel-word': () => lookupVocabFromPending(),
       'study-back': () => backFromStudy(),
+      listen: () => openListen(),
+      'listen-back': () => { stopListen(); showView('library'); loadLibrary(); },
       'study-done': () => completeStudy(),
       xp: () => openXpSheet(),
       'levelup-close': () => $('#rdrLevelUp').classList.add('rdr-hidden')
@@ -440,6 +458,7 @@
       [R.paraphrase, '과제에 맞게 바꿔 쓰고 확인받기'],
       [R.paraphraseSame, '바꿔 쓴 문장이 원문과 같은 뜻이면 추가'],
       [R.review, '학습한 문장을 다시 학습'],
+      [R.listen, '학습한 문장을 끝까지 듣기 (하루 한 번)'],
       [R.chapter, '챕터를 끝까지 읽기'],
       [R.book, '책 한 권 완독']
     ];
@@ -471,6 +490,285 @@
     } catch (e) { /* noop */ }
   }
 
+  // ---------------- 오늘의 문장 듣기 ----------------
+  const LISTEN_RANGES = [
+    { key: 'today', label: '오늘' },
+    { key: 'week', label: '최근 7일' },
+    { key: 'all', label: '전체' }
+  ];
+  const L = {
+    range: 'today', items: [], idx: 0, playing: false, token: 0, heard: new Set(),
+    loading: false, error: null, wake: null,
+    opts: Object.assign({ repeat: 1, trans: false, words: false }, (() => {
+      try { return JSON.parse(localStorage.getItem('rdr-listen-opts') || '{}'); } catch (e) { return {}; }
+    })())
+  };
+
+  function sinceFor(range) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    if (range === 'today') return d.toISOString();
+    if (range === 'week') { d.setDate(d.getDate() - 6); return d.toISOString(); }
+    return null;
+  }
+
+  async function renderListenCard() {
+    const card = $('#rdrListenCard');
+    if (!card) return;
+    if (!S.books.length) { card.classList.add('rdr-hidden'); return; }
+    let today = 0;
+    let any = 0;
+    try {
+      today = (await API.listRecentSentences(sinceFor('today'), 60)).length;
+      any = today || (await API.listRecentSentences(null, 1)).length;
+    } catch (e) { card.classList.add('rdr-hidden'); return; }
+    if (!any) { card.classList.add('rdr-hidden'); return; }
+    card.classList.remove('rdr-hidden');
+    card.innerHTML = `
+      <span class="rdr-listen-card-icon">${icon('headphones')}</span>
+      <span class="rdr-listen-card-text">
+        <b>오늘의 문장 듣기</b>
+        <small>${today ? `오늘 학습한 문장 ${today}개 · 이동 중에 들어 보세요` : '오늘은 아직 학습한 문장이 없어요 · 최근 문장 듣기'}</small>
+      </span>
+      <span class="rdr-listen-card-go">${icon('play')}</span>`;
+    card.dataset.today = String(today);
+  }
+
+  async function openListen(range) {
+    const card = $('#rdrListenCard');
+    const r = range || (card && card.dataset.today !== '0' ? 'today' : 'week');
+    showView('listen');
+    await loadListen(r);
+  }
+
+  async function loadListen(range) {
+    stopListen();
+    L.range = range;
+    L.loading = true;
+    L.error = null;
+    L.items = [];
+    L.idx = 0;
+    L.heard = new Set();
+    renderListen();
+    try {
+      L.items = await API.listRecentSentences(sinceFor(range), 60);
+    } catch (e) {
+      L.error = userMessage(e);
+    }
+    L.loading = false;
+    renderListen();
+  }
+
+  function bookTitle(id) {
+    const b = S.books.find((x) => x.id === id);
+    return b ? b.title : '';
+  }
+
+  function estimateMinutes() {
+    const words = L.items.reduce((n, it) => n + T.wordCount(it.sentence_text), 0) * L.opts.repeat;
+    const extra = L.items.length * 2 + (L.opts.trans ? L.items.length * 4 : 0) +
+      (L.opts.words ? L.items.reduce((n, it) => n + it.words.length * 3, 0) : 0);
+    const sec = words / (2.4 * S.rate) + extra;
+    return Math.max(1, Math.round(sec / 60));
+  }
+
+  function renderListen() {
+    const body = $('#rdrListenBody');
+    const foot = $('#rdrListenFoot');
+    if (!body) return;
+    const ttsOk = TTS && TTS.isSupported();
+    const hasKo = ttsOk && TTS.hasKorean();
+    const tabs = `<div class="rdr-seg rdr-listen-tabs" role="tablist">${LISTEN_RANGES.map((r) =>
+      `<button class="${r.key === L.range ? 'on' : ''}" data-lrange="${r.key}">${r.label}</button>`).join('')}</div>`;
+
+    if (L.loading) {
+      body.innerHTML = `${tabs}<div class="rdr-shelf-loading"><div class="rdr-spinner"></div></div>`;
+      foot.innerHTML = '';
+      bindListenTabs();
+      return;
+    }
+    if (L.error || !L.items.length) {
+      const next = L.range === 'today' ? 'week' : L.range === 'week' ? 'all' : null;
+      body.innerHTML = `${tabs}
+        <div class="rdr-empty">
+          <p class="rdr-empty-title">${L.error ? esc(L.error) : (L.range === 'today' ? '오늘 학습한 문장이 없어요' : '이 기간에 학습한 문장이 없어요')}</p>
+          <p class="rdr-empty-sub">책을 읽다가 막힌 문장을 학습하면 여기에 모여요.</p>
+          ${next ? `<button class="rdr-btn rdr-btn-ghost" data-lrange="${next}">${next === 'week' ? '최근 7일 문장 듣기' : '전체 문장 듣기'}</button>` : ''}
+        </div>`;
+      foot.innerHTML = '';
+      bindListenTabs();
+      return;
+    }
+
+    const cur = L.items[L.idx];
+    const wordSet = new Set((cur.words || []).map((w) => String(w.surface).toLowerCase()));
+    const sentenceHtml = T.tokenize(cur.sentence_text).map((tk) => tk.word && wordSet.has(tk.text.toLowerCase())
+      ? `<span class="rdr-listen-w">${esc(tk.text)}</span>` : esc(tk.text)).join('');
+    body.innerHTML = `
+      ${tabs}
+      <p class="rdr-listen-summary">문장 ${L.items.length}개 · 약 ${estimateMinutes()}분${L.heard.size ? ` · ${L.heard.size}개 들음` : ''}</p>
+      <div class="rdr-card rdr-listen-now">
+        <div class="rdr-listen-meta">${esc(bookTitle(cur.book_id))}${cur.chapter_label ? ` · ${esc(cur.chapter_label)}` : ''} · ${esc(fmtDate(cur.completed_at))}</div>
+        <p class="rdr-listen-sentence">${sentenceHtml}</p>
+        ${L.opts.trans && cur.translation ? `<p class="rdr-listen-trans">${esc(cur.translation)}</p>` : ''}
+        ${L.opts.words && cur.words.length ? `<div class="rdr-listen-words">${cur.words.map((w) =>
+          `<span><b>${esc(w.lemma || w.surface)}</b> ${esc(w.context_meaning || w.dict_meaning || '')}</span>`).join('')}</div>` : ''}
+      </div>
+      ${ttsOk ? `
+      <div class="rdr-card rdr-listen-opts">
+        <div class="rdr-listen-toggles">
+          <button class="rdr-toggle ${L.opts.repeat === 2 ? 'on' : ''}" data-lopt="repeat">문장마다 2번</button>
+          <button class="rdr-toggle ${L.opts.trans ? 'on' : ''}" data-lopt="trans" ${hasKo ? '' : 'disabled'}>해석도 듣기</button>
+          <button class="rdr-toggle ${L.opts.words ? 'on' : ''}" data-lopt="words" ${hasKo ? '' : 'disabled'}>단어 뜻도 듣기</button>
+        </div>
+        ${hasKo ? '' : '<p class="rdr-hint">이 기기에 한국어 음성이 없어 해석·단어 뜻은 들을 수 없어요.</p>'}
+        <div class="rdr-tts-opts">
+          <div class="rdr-seg" aria-label="읽기 속도">${RATES.map((r) => `<button class="${r === S.rate ? 'on' : ''}" data-lrate="${r}">${r.toFixed(1)}x</button>`).join('')}</div>
+          <div class="rdr-seg" aria-label="목소리">
+            <button class="${TTS.getGender() === 'female' ? 'on' : ''}" data-lvoice="female">여성</button>
+            <button class="${TTS.getGender() === 'male' ? 'on' : ''}" data-lvoice="male">남성</button>
+          </div>
+        </div>
+      </div>` : '<p class="rdr-hint">이 브라우저는 음성 읽기를 지원하지 않습니다.</p>'}
+      <div class="rdr-listen-list">
+        ${L.items.map((it, i) => `<button class="rdr-listen-item ${i === L.idx ? 'on' : ''} ${L.heard.has(i) ? 'heard' : ''}" data-litem="${i}">
+          <span class="rdr-listen-num">${i + 1}</span><span class="rdr-listen-text">${esc(it.sentence_text)}</span></button>`).join('')}
+      </div>`;
+    foot.innerHTML = ttsOk ? `
+      <div class="rdr-listen-controls">
+        <button class="rdr-icon-btn rdr-listen-skip" data-lctl="prev" aria-label="이전 문장" ${L.idx === 0 ? 'disabled' : ''}>${icon('skipPrev')}</button>
+        <button class="rdr-listen-play" data-lctl="play" aria-label="${L.playing ? '멈춤' : '재생'}">${icon(L.playing ? 'pause' : 'play')}</button>
+        <button class="rdr-icon-btn rdr-listen-skip" data-lctl="next" aria-label="다음 문장" ${L.idx >= L.items.length - 1 ? 'disabled' : ''}>${icon('skipNext')}</button>
+      </div>
+      <div class="rdr-listen-pos">${L.idx + 1} / ${L.items.length}</div>` : '';
+
+    bindListenTabs();
+    body.querySelectorAll('[data-lopt]').forEach((b) => {
+      b.onclick = () => {
+        const k = b.dataset.lopt;
+        if (k === 'repeat') L.opts.repeat = L.opts.repeat === 2 ? 1 : 2;
+        else L.opts[k] = !L.opts[k];
+        try { localStorage.setItem('rdr-listen-opts', JSON.stringify(L.opts)); } catch (e) { /* noop */ }
+        renderListen();
+      };
+    });
+    body.querySelectorAll('[data-lrate]').forEach((b) => {
+      b.onclick = () => { S.rate = Number(b.dataset.lrate); setPref('rdr-rate', S.rate); renderListen(); };
+    });
+    body.querySelectorAll('[data-lvoice]').forEach((b) => {
+      b.onclick = () => {
+        TTS.setGender(b.dataset.lvoice);
+        if (!TTS.hasGender(b.dataset.lvoice)) toast(`이 기기에는 ${b.dataset.lvoice === 'male' ? '남성' : '여성'} 영어 음성이 없어 톤을 바꿔 대신 읽어요.`, 3200);
+        renderListen();
+      };
+    });
+    body.querySelectorAll('[data-litem]').forEach((b) => {
+      b.onclick = () => { L.idx = Number(b.dataset.litem); playListen(); };
+    });
+    foot.querySelectorAll('[data-lctl]').forEach((b) => {
+      b.onclick = () => {
+        const c = b.dataset.lctl;
+        if (c === 'play') { if (L.playing) pauseListen(); else playListen(); }
+        if (c === 'prev' && L.idx > 0) { L.idx -= 1; L.playing ? playListen() : renderListen(); }
+        if (c === 'next' && L.idx < L.items.length - 1) { L.idx += 1; L.playing ? playListen() : renderListen(); }
+      };
+    });
+    const on = body.querySelector('.rdr-listen-item.on');
+    if (on && L.playing) on.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+
+  function bindListenTabs() {
+    root.querySelectorAll('#rdrListenBody [data-lrange]').forEach((b) => {
+      b.onclick = () => loadListen(b.dataset.lrange);
+    });
+  }
+
+  function stepsFor(it) {
+    const steps = [];
+    for (let r = 0; r < L.opts.repeat; r++) steps.push({ lang: 'en', text: it.sentence_text });
+    if (L.opts.words) {
+      (it.words || []).forEach((w) => {
+        const mean = w.context_meaning || w.dict_meaning;
+        if (!mean) return;
+        steps.push({ lang: 'en', text: w.lemma || w.surface });
+        steps.push({ lang: 'ko', text: mean });
+      });
+    }
+    if (L.opts.trans && it.translation) steps.push({ lang: 'ko', text: it.translation });
+    return steps;
+  }
+
+  async function keepAwake(on) {
+    try {
+      if (on && !L.wake && navigator.wakeLock) {
+        L.wake = await navigator.wakeLock.request('screen');
+        L.wake.addEventListener('release', () => { L.wake = null; });
+      } else if (!on && L.wake) {
+        await L.wake.release();
+        L.wake = null;
+      }
+    } catch (e) { L.wake = null; }
+  }
+
+  function playListen() {
+    if (!L.items.length || !TTS) return;
+    const token = ++L.token;
+    L.playing = true;
+    keepAwake(true);
+    renderListen();
+    const it = L.items[L.idx];
+    const steps = stepsFor(it);
+    let k = 0;
+    const nextStep = () => {
+      if (token !== L.token) return;
+      if (k >= steps.length) { setTimeout(() => finishItem(token), 1400); return; }
+      const st = steps[k++];
+      TTS.speak(st.text, {
+        rate: st.lang === 'ko' ? 1.0 : S.rate,
+        lang: st.lang,
+        onend: () => { if (token === L.token) setTimeout(nextStep, st.lang === 'en' ? 700 : 500); },
+        onerror: () => { if (token === L.token) { pauseListen(); toast('음성을 재생하지 못했습니다.'); } }
+      });
+    };
+    nextStep();
+  }
+
+  function finishItem(token) {
+    if (token !== L.token) return;
+    L.heard.add(L.idx);
+    if (L.idx < L.items.length - 1) {
+      L.idx += 1;
+      playListen();
+      return;
+    }
+    // 끝까지 들음 → 다시 누르면 처음부터
+    L.playing = false;
+    L.token++;
+    L.idx = 0;
+    keepAwake(false);
+    renderListen();
+    if (XP && XP.available() && L.heard.size >= Math.min(3, L.items.length) && XP.once(`listen-${API.today()}`)) {
+      XP.award('listen');
+    }
+    toast(`문장 ${L.items.length}개를 다 들었어요`);
+  }
+
+  function pauseListen() {
+    L.token++;
+    L.playing = false;
+    if (TTS) TTS.stop();
+    keepAwake(false);
+    renderListen();
+  }
+
+  function stopListen() {
+    if (!L.playing) return;
+    L.token++;
+    L.playing = false;
+    if (TTS) TTS.stop();
+    keepAwake(false);
+  }
+
   // ---------------- 서재 ----------------
   async function loadLibrary() {
     const shelf = $('#rdrShelf');
@@ -480,6 +778,7 @@
       S.books = await API.listBooks();
       const urls = await API.coverUrls(S.books.map((b) => b.cover_path));
       renderShelf(urls);
+      renderListenCard();
     } catch (e) {
       shelf.innerHTML = `<div class="rdr-empty"><p>${esc(userMessage(e))}</p>
         <button class="rdr-btn rdr-btn-ghost" id="rdrRetryLib">다시 시도</button></div>`;
@@ -2029,7 +2328,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.4';
+      link.href = 'reader/reader.css?v=1.5';
       document.head.appendChild(link);
     }
     return true;

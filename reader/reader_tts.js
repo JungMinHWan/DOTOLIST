@@ -15,6 +15,7 @@
 (function () {
   const synth = window.speechSynthesis;
   let voices = [];
+  let koVoices = [];
   let gender = 'female';
   try { gender = localStorage.getItem('rdr-voice') === 'male' ? 'male' : 'female'; } catch (e) { /* noop */ }
   let queueToken = 0;
@@ -50,7 +51,9 @@
 
   function loadVoices() {
     if (!synth) return;
-    voices = (synth.getVoices() || []).filter(isEnglish);
+    const all = synth.getVoices() || [];
+    voices = all.filter(isEnglish);
+    koVoices = all.filter((v) => /^ko([-_]|$)/i.test(v.lang || ''));
   }
 
   function best(list) {
@@ -103,15 +106,25 @@
       synth.cancel();
       const pieces = chunk(text);
       if (!pieces.length) { opts.onend && opts.onend(); return; }
-      const { voice, approx } = pick(gender);
-      // 원하는 성별 음성이 없을 때: 톤을 조절해 가깝게 들리도록
-      const pitch = approx ? (gender === 'male' ? 0.7 : 1.15) : 1.0;
+      if (!voices.length && !koVoices.length) loadVoices();
+      let voice;
+      let pitch = 1.0;
+      if (opts.lang === 'ko') {
+        // 한글(해석·단어 뜻)은 한국어 음성으로
+        voice = koVoices.slice().sort((a, b) => (b.localService === false) - (a.localService === false))[0] || null;
+      } else {
+        const picked = pick(gender);
+        voice = picked.voice;
+        // 원하는 성별 음성이 없을 때: 톤을 조절해 가깝게 들리도록
+        pitch = picked.approx ? (gender === 'male' ? 0.7 : 1.15) : 1.0;
+      }
+      const fallbackLang = opts.lang === 'ko' ? 'ko-KR' : 'en-US';
       let i = 0;
       const next = () => {
         if (token !== queueToken) return;
         if (i >= pieces.length) { opts.onend && opts.onend(); return; }
         const u = new SpeechSynthesisUtterance(pieces[i++]);
-        u.lang = voice ? voice.lang : 'en-US';
+        u.lang = voice ? voice.lang : fallbackLang;
         if (voice) u.voice = voice;
         u.rate = opts.rate || 1.0;
         u.pitch = pitch;
@@ -145,6 +158,7 @@
     },
     /** 이 기기에 해당 성별의 영어 음성이 실제로 있는지 */
     hasGender: (g) => !pick(g).approx,
+    hasKorean: () => { if (!koVoices.length) loadVoices(); return koVoices.length > 0; },
     voiceName: () => { const p = pick(gender); return p.voice ? p.voice.name : ''; },
     // 향후 AI TTS 제공자 교체용: { name, isSupported, speak(text, opts), stop() }
     setProvider(p) { if (p && p.speak && p.stop) { provider.stop(); provider = p; } },

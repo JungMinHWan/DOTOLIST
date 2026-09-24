@@ -16,6 +16,7 @@
     selfRead: { xp: 2, label: '해석 없이 이해' },
     paraphrase: { xp: 3, label: '바꿔 쓰기' },
     paraphraseSame: { xp: 2, label: '뜻 그대로 바꿔 쓰기' },
+    listen: { xp: 3, label: '오늘의 문장 듣기' },
     chapter: { xp: 10, label: '챕터 완독' },
     book: { xp: 50, label: '책 완독' }
   };

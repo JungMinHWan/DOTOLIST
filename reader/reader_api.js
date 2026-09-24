@@ -337,6 +337,47 @@
     if (error) throw wrap('학습 기록을 삭제하지 못했습니다.', error);
   }
 
+  /**
+   * 오늘의 문장 듣기: 기간 안에 학습(또는 복습)한 문장을 모든 책에서 모은다.
+   * since 가 null 이면 최근 limit 개.
+   */
+  async function listRecentSentences(since, limit = 60) {
+    try {
+      const base = () => client().from('reader_sentences').select('*');
+      let rows;
+      if (since) {
+        const [a, b] = await Promise.all([
+          base().gte('completed_at', since),
+          base().gte('last_reviewed_at', since)
+        ]);
+        if (a.error) throw a.error;
+        if (b.error) throw b.error;
+        const map = new Map();
+        [...(a.data || []), ...(b.data || [])].forEach((r) => map.set(r.id, r));
+        rows = [...map.values()];
+      } else {
+        const r = await base().order('completed_at', { ascending: false }).limit(limit);
+        if (r.error) throw r.error;
+        rows = r.data || [];
+      }
+      const at = (r) => new Date(r.last_reviewed_at && r.last_reviewed_at > (r.completed_at || '') ? r.last_reviewed_at : r.completed_at || 0).getTime();
+      rows.sort((x, y) => at(x) - at(y)); // 학습한 순서대로
+      rows = rows.slice(-limit);
+      const ids = rows.map((r) => r.id);
+      let words = [];
+      if (ids.length) {
+        const w = await client().from('reader_words').select('*').in('sentence_id', ids);
+        if (w.error) throw w.error;
+        words = w.data || [];
+      }
+      const by = {};
+      words.forEach((w) => { (by[w.sentence_id] = by[w.sentence_id] || []).push(w); });
+      return rows.map((r) => ({ ...r, words: by[r.id] || [] }));
+    } catch (e) {
+      throw wrap('학습한 문장을 불러오지 못했습니다.', e);
+    }
+  }
+
   // ---------------- 리더에서 바로 찾아본 어휘 (문장 학습과 별개) ----------------
   async function listVocab(bookId) {
     try {
@@ -537,7 +578,7 @@
     ReaderError,
     listBooks, coverUrls, findByHash, uploadBook, getBook, loadEpub,
     saveProgress, saveLocations, deleteBook,
-    listSentences, saveSentence, deleteSentence,
+    listSentences, saveSentence, deleteSentence, listRecentSentences,
     listVocab, saveVocab, deleteVocab, updateVocab, dictLookup,
     getDailyLog, saveDailyLog, today,
     ai, aiBusyMessage
