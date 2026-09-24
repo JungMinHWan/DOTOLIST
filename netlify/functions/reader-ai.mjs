@@ -8,6 +8,7 @@
  * 요청:  POST /.netlify/functions/reader-ai
  *        Authorization: Bearer <supabase access token>
  *        { "action": "word", "word": "hesitated", "sentence": "..." }
+ *        { "action": "words", "words": ["hesitated", "considerable"], "sentence": "..." }
  *        { "action": "translate", "sentence": "..." }
  */
 
@@ -21,6 +22,7 @@ const SUPABASE_ANON_KEY =
 
 const MAX_WORD = 60;
 const MAX_SENTENCE = 1500;
+const MAX_WORDS = 10;
 
 const WORD_PROMPT = (word, sentence) => `당신은 영어 원서를 읽는 한국인 독자를 돕는 영어 사전입니다.
 아래 문장 속 단어(또는 구)의 뜻을 알려주세요.
@@ -36,6 +38,26 @@ const WORD_PROMPT = (word, sentence) => `당신은 영어 원서를 읽는 한�
   "dict_meaning": "대표 사전 뜻 1~3개, 쉼표로 구분 (예: 망설이다, 주저하다)",
   "context_meaning": "이 문장에서의 뜻을 문장 흐름에 맞는 한국어 표현으로 짧게 (예: 망설였다)",
   "note": "문맥상 특이한 쓰임이 있을 때만 한 문장, 없으면 빈 문자열"
+}`;
+
+const WORDS_PROMPT = (words, sentence) => `당신은 영어 원서를 읽는 한국인 독자를 돕는 영어 사전입니다.
+아래 문장 속 여러 단어(또는 구)의 뜻을 각각 알려주세요. 순서를 지키세요.
+
+단어 목록: ${JSON.stringify(words)}
+문장: ${sentence}
+
+반드시 마크다운 없이 다음 JSON 한 개로만 답하세요. items 는 단어 목록과 같은 순서, 같은 개수입니다:
+{
+  "items": [
+    {
+      "surface": "문장에 나온 형태 그대로",
+      "lemma": "사전 표제어(원형). 구동사/숙어면 그 형태",
+      "pos": "품사를 한국어로",
+      "dict_meaning": "대표 사전 뜻 1~3개, 쉼표로 구분",
+      "context_meaning": "이 문장에서의 뜻을 문장 흐름에 맞는 한국어 표현으로 짧게",
+      "note": "문맥상 특이한 쓰임이 있을 때만 한 문장, 없으면 빈 문자열"
+    }
+  ]
 }`;
 
 const TRANSLATE_PROMPT = (sentence) => `당신은 영어 소설을 한국어로 옮기는 번역가입니다.
@@ -148,6 +170,31 @@ export default async (req) => {
       dict_meaning: str(d.dict_meaning, 200),
       context_meaning: str(d.context_meaning, 200),
       note: str(d.note, 300)
+    });
+  }
+
+  if (action === 'words') {
+    const list = (Array.isArray(payload?.words) ? payload.words : [])
+      .map((w) => str(w, MAX_WORD)).filter(Boolean).slice(0, MAX_WORDS);
+    if (!list.length) return json(400, { error: '단어를 입력해 주세요.' });
+    const r = await callGemini(apiKey, WORDS_PROMPT(list, sentence));
+    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '단어 뜻을 가져오지 못했습니다.' });
+    const items = Array.isArray(r.data?.items) ? r.data.items : (Array.isArray(r.data) ? r.data : []);
+    return json(200, {
+      items: list.map((word, i) => {
+        // 순서가 어긋난 경우를 대비해 surface/lemma 로도 찾는다
+        const lw = word.toLowerCase();
+        const d = items.find((it) => String(it?.surface || '').toLowerCase() === lw) ||
+          items.find((it) => String(it?.lemma || '').toLowerCase() === lw) || items[i] || {};
+        return {
+          surface: word,
+          lemma: str(d.lemma, 80) || word,
+          pos: str(d.pos, 30),
+          dict_meaning: str(d.dict_meaning, 200),
+          context_meaning: str(d.context_meaning, 200),
+          note: str(d.note, 300)
+        };
+      })
     });
   }
 

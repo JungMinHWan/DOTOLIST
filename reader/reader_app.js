@@ -27,6 +27,7 @@
     rendition: null,
     toc: [],
     sentences: [],      // 학습 기록 (words 포함)
+    vocab: [],          // 리더에서 바로 찾아본 어휘 (파란 하이라이트)
     location: null,
     fontIdx: pref('rdr-font-idx', 1),
     rate: pref('rdr-rate', 1.0),
@@ -114,7 +115,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.0';
+      link.href = 'reader/reader.css?v=1.1';
       document.head.appendChild(link);
     }
 
@@ -161,10 +162,11 @@
         </footer>
         <div class="rdr-progress"><div class="rdr-progress-fill" id="rdrProgressFill"></div></div>
         <div class="rdr-selbar rdr-hidden" id="rdrSelbar">
-          <p class="rdr-selbar-text" id="rdrSelText"></p>
+          <div class="rdr-selbar-text" id="rdrSelText"></div>
           <div class="rdr-selbar-actions">
             <button class="rdr-btn rdr-btn-ghost rdr-btn-sm" data-act="sel-cancel">취소</button>
             <button class="rdr-btn rdr-btn-primary rdr-btn-sm" data-act="sel-study" id="rdrSelStudy">학습하기</button>
+            <button class="rdr-btn rdr-btn-blue rdr-btn-sm rdr-hidden" data-act="sel-word" id="rdrSelWord">뜻 보기</button>
           </div>
         </div>
       </section>
@@ -343,6 +345,7 @@
       next: () => next(),
       'sel-cancel': () => clearPending(true),
       'sel-study': () => startStudyFromPending(),
+      'sel-word': () => lookupVocabFromPending(),
       'study-back': () => backFromStudy(),
       'study-done': () => completeStudy()
     };
@@ -564,12 +567,14 @@
       S.row = row;
       $('#rdrBookTitle').textContent = row.title;
 
-      const [buffer, sentences] = await Promise.all([
+      const [buffer, sentences, vocab] = await Promise.all([
         API.loadEpub(row, (msg) => loading(msg)),
-        API.listSentences(id).catch((e) => { toast(userMessage(e)); return []; })
+        API.listSentences(id).catch((e) => { toast(userMessage(e)); return []; }),
+        API.listVocab(id).catch(() => [])
       ]);
       if (token !== S.openToken) return;
       S.sentences = sentences;
+      S.vocab = vocab;
       loading('책을 여는 중입니다');
 
       const book = window.ePub(buffer);
@@ -646,6 +651,7 @@
     S.row = null;
     S.location = null;
     S.sentences = [];
+    S.vocab = [];
     S.page = null;
     S.log = null;
     if (root) $('#rdrViewer').innerHTML = '';
@@ -868,8 +874,10 @@
       if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       if (e.target && e.target.closest && e.target.closest('a[href]')) return;
 
-      // 1) 학습한 문장을 탭했는지
-      const rec = hitSentence(contents, e.clientX, e.clientY);
+      // 1) 찾아본 어휘 → 학습한 문장 순서로 탭 여부 확인 (어휘가 더 작은 대상)
+      const voc = hitRange(contents, S.vocab, e.clientX, e.clientY);
+      if (voc) { openVocab(voc); return; }
+      const rec = hitRange(contents, S.sentences, e.clientX, e.clientY);
       if (rec) { openRecord(rec); return; }
 
       // 2) 좌우 가장자리 탭 = 페이지 이동, 가운데 = 메뉴 표시/숨김
@@ -895,9 +903,9 @@
     return { href: '', index: contents.sectionIndex };
   }
 
-  function hitSentence(contents, x, y) {
+  function hitRange(contents, list, x, y) {
     const href = sectionOf(contents).href;
-    for (const rec of S.sentences) {
+    for (const rec of list) {
       if (href && rec.chapter_href && hrefBase(rec.chapter_href) !== hrefBase(href)) continue;
       let range = null;
       try { range = contents.range(rec.cfi_range); } catch (e) { range = null; }
@@ -914,44 +922,70 @@
     if (root.dataset.view !== 'reader') return;
     const sel = contents.window.getSelection();
     if (!sel || sel.isCollapsed || !sel.rangeCount || !sel.toString().trim()) {
-      // 선택이 풀린 경우: 학습하기 버튼을 누르기 전이면 바 유지 (모바일에서 버튼 탭 시 선택이 풀림)
+      // 선택이 풀린 경우: 버튼을 누르기 전이면 바 유지 (모바일에서 버튼 탭 시 선택이 풀림)
       return;
     }
+    const range = sel.getRangeAt(0);
     let expanded = null;
-    try { expanded = T.expandToSentence(sel.getRangeAt(0)); } catch (e) { expanded = null; }
+    try { expanded = T.expandToSentence(range); } catch (e) { expanded = null; }
     if (!expanded) return;
     const text = T.normalizeSentence(expanded.toString());
     if (!text || !/[A-Za-z]/.test(text)) return;
     let cfi;
     try { cfi = contents.cfiFromRange(expanded); } catch (e) { cfi = null; }
     if (!cfi) return;
+
+    // 1~3 단어만 골랐다면 '어휘' 모드: 뜻 보기 + 문장 학습 둘 다 제공
+    let vocab = null;
+    if (T.isVocabSelection(sel.toString())) {
+      try {
+        const wr = T.expandToWords(range);
+        const wt = wr ? T.normalizeSentence(wr.toString()) : '';
+        if (wr && wt && T.isVocabSelection(wt)) vocab = { cfi: contents.cfiFromRange(wr), text: wt };
+      } catch (e) { vocab = null; }
+    }
     const section = sectionOf(contents);
-    setPending({ cfi, text, href: section.href, spineIndex: section.index });
+    setPending({ cfi, text, href: section.href, spineIndex: section.index, vocab });
   }
 
   const PENDING_STYLE = { fill: '#3E6FA3', 'fill-opacity': '0.16', 'mix-blend-mode': 'multiply' };
   const DONE_STYLE = { fill: '#5E9E74', 'fill-opacity': '0.28', 'mix-blend-mode': 'multiply' };
+  const VOCAB_STYLE = { fill: '#3E6FA3', 'fill-opacity': '0.24', 'mix-blend-mode': 'multiply' };
+
+  function markCfi(p) { return p.vocab ? p.vocab.cfi : p.cfi; }
 
   function setPending(p) {
-    if (S.pending && S.pending.cfi === p.cfi) return;
+    if (S.pending && markCfi(S.pending) === markCfi(p) && S.pending.cfi === p.cfi) return;
     removePendingMark();
     S.pending = p;
     const existing = findRecord(p);
     const tooLong = p.text.length > 1500;
-    $('#rdrSelText').textContent = p.text;
-    const btn = $('#rdrSelStudy');
-    btn.textContent = existing ? '학습 기록 보기' : '학습하기';
-    btn.disabled = tooLong;
-    if (tooLong) $('#rdrSelText').textContent = '선택한 부분이 너무 깁니다. 한 문장만 선택해 주세요.';
+    const box = $('#rdrSelText');
+    const studyBtn = $('#rdrSelStudy');
+    const wordBtn = $('#rdrSelWord');
+    if (p.vocab) {
+      const known = findVocab(p.vocab.cfi);
+      box.innerHTML = `<b class="rdr-sel-word">${esc(p.vocab.text)}</b><span class="rdr-sel-ctx">${esc(p.text)}</span>`;
+      wordBtn.textContent = known ? '저장한 뜻 보기' : '뜻 보기';
+      wordBtn.classList.remove('rdr-hidden');
+      studyBtn.textContent = existing ? '문장 기록' : '문장 학습';
+      studyBtn.className = 'rdr-btn rdr-btn-ghost rdr-btn-sm';
+    } else {
+      box.textContent = tooLong ? '선택한 부분이 너무 깁니다. 한 문장만 선택해 주세요.' : p.text;
+      wordBtn.classList.add('rdr-hidden');
+      studyBtn.textContent = existing ? '학습 기록 보기' : '학습하기';
+      studyBtn.className = 'rdr-btn rdr-btn-primary rdr-btn-sm';
+    }
+    studyBtn.disabled = tooLong;
     $('#rdrSelbar').classList.remove('rdr-hidden');
-    try { S.rendition.annotations.highlight(p.cfi, {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
+    try { S.rendition.annotations.highlight(markCfi(p), {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
   }
 
   function removePendingMark() {
     if (S.pending && S.rendition) {
-      try { S.rendition.annotations.remove(S.pending.cfi, 'highlight'); } catch (e) { /* noop */ }
-      // 같은 CFI 에 학습 하이라이트가 있었다면 다시 그린다
-      if (findRecord(S.pending)) applyHighlights();
+      try { S.rendition.annotations.remove(markCfi(S.pending), 'highlight'); } catch (e) { /* noop */ }
+      // 같은 CFI 에 저장된 하이라이트가 있었다면 다시 그린다
+      if (findRecord(S.pending) || (S.pending.vocab && findVocab(S.pending.vocab.cfi))) applyHighlights();
     }
   }
 
@@ -969,15 +1003,123 @@
       S.sentences.find((r) => r.sentence_text === p.text && hrefBase(r.chapter_href) === hrefBase(p.href)) || null;
   }
 
+  function findVocab(cfi) {
+    return S.vocab.find((v) => v.cfi_range === cfi) || null;
+  }
+
   function applyHighlights() {
     const r = S.rendition;
     if (!r) return;
-    S.sentences.forEach((rec) => {
-      try { r.annotations.remove(rec.cfi_range, 'highlight'); } catch (e) { /* noop */ }
-      try { r.annotations.highlight(rec.cfi_range, { id: rec.id }, null, 'rdr-hl', DONE_STYLE); } catch (e) {
-        console.warn('[reader] 하이라이트 실패', rec.cfi_range, e);
+    const draw = (cfi, data, cls, style) => {
+      try { r.annotations.remove(cfi, 'highlight'); } catch (e) { /* noop */ }
+      try { r.annotations.highlight(cfi, data, null, cls, style); } catch (e) {
+        console.warn('[reader] 하이라이트 실패', cfi, e);
       }
-    });
+    };
+    S.sentences.forEach((rec) => draw(rec.cfi_range, { id: rec.id }, 'rdr-hl', DONE_STYLE));
+    S.vocab.forEach((v) => draw(v.cfi_range, { id: v.id }, 'rdr-hl-word', VOCAB_STYLE));
+  }
+
+  // ---------------- 리더에서 바로 찾아보는 어휘 ----------------
+  async function lookupVocabFromPending() {
+    const p = S.pending;
+    if (!p || !p.vocab || !S.row) return;
+    const known = findVocab(p.vocab.cfi);
+    if (known) { openVocab(known); return; }
+    const target = { ...p, vocab: { ...p.vocab } };
+    clearPending(true);
+    const sheet = openSheet(`
+      <div class="rdr-vocab-head"><b class="rdr-vocab-word">${esc(target.vocab.text)}</b></div>
+      <div class="rdr-vocab-loading"><span class="rdr-spinner rdr-spinner-sm"></span><span>뜻을 찾는 중</span></div>`);
+    // 선택한 부분을 바로 표시해 두어 어디를 찾는지 보이게 한다
+    try { S.rendition.annotations.highlight(target.vocab.cfi, {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
+    try {
+      const d = await API.ai('words', { words: [target.vocab.text], sentence: target.text });
+      const item = (d.items && d.items[0]) || {};
+      if (!item.dict_meaning && !item.context_meaning) throw new API.ReaderError('뜻을 찾지 못했습니다. 다른 단어로 다시 선택해 주세요.');
+      const saved = await API.saveVocab({
+        book_id: S.row.id,
+        cfi_range: target.vocab.cfi,
+        chapter_href: target.href,
+        sentence_text: target.text,
+        surface: target.vocab.text,
+        lemma: item.lemma, pos: item.pos,
+        dict_meaning: item.dict_meaning, context_meaning: item.context_meaning
+      });
+      saved.note = item.note;
+      saved._target = target;
+      S.vocab.push(saved);
+      try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (e) { /* noop */ }
+      applyHighlights();
+      if (S.log) { S.log.words_looked_up += 1; scheduleLog(); }
+      if (!sheet.classList.contains('rdr-hidden')) openVocab(saved);
+    } catch (e) {
+      try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (x) { /* noop */ }
+      if (!sheet.classList.contains('rdr-hidden')) {
+        sheet.querySelector('.rdr-vocab-loading').outerHTML = `<p class="rdr-err-text">${esc(userMessage(e, '뜻을 가져오지 못했습니다.'))}</p>`;
+      } else {
+        toast(userMessage(e, '뜻을 가져오지 못했습니다.'));
+      }
+    }
+  }
+
+  function openVocab(v) {
+    clearPending(true);
+    const head = v.lemma && v.lemma.toLowerCase() !== String(v.surface).toLowerCase()
+      ? `${esc(v.lemma)} <small>${esc(v.surface)}</small>` : esc(v.lemma || v.surface);
+    const sheet = openSheet(`
+      <div class="rdr-vocab-head">
+        <b class="rdr-vocab-word">${head}</b>
+        ${v.pos ? `<span class="rdr-pos">${esc(v.pos)}</span>` : ''}
+        <button class="rdr-icon-btn rdr-icon-btn-sm rdr-vocab-say" data-v="say" aria-label="발음 듣기">${icon('play')}</button>
+      </div>
+      ${v.dict_meaning ? `<p class="rdr-vocab-dict">${esc(v.dict_meaning)}</p>` : ''}
+      ${v.context_meaning ? `<div class="rdr-word-ctx rdr-vocab-ctx"><span>이 문장에서</span>${esc(v.context_meaning)}</div>` : ''}
+      ${v.note ? `<p class="rdr-hint">${esc(v.note)}</p>` : ''}
+      ${v.sentence_text ? `<p class="rdr-vocab-sentence">${esc(v.sentence_text)}</p>` : ''}
+      <div class="rdr-sheet-actions">
+        <button class="rdr-btn rdr-btn-ghost rdr-danger-text" data-v="delete">하이라이트 삭제</button>
+        <button class="rdr-btn rdr-btn-primary" data-v="study">이 문장 학습</button>
+      </div>`);
+    sheet.querySelector('[data-v="say"]').onclick = () => {
+      if (!TTS || !TTS.isSupported()) { toast('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return; }
+      TTS.speak(v.surface, { rate: S.rate });
+    };
+    sheet.querySelector('[data-v="delete"]').onclick = async () => {
+      try {
+        await API.deleteVocab(v.id);
+        try { S.rendition.annotations.remove(v.cfi_range, 'highlight'); } catch (e) { /* noop */ }
+        S.vocab = S.vocab.filter((x) => x.id !== v.id);
+        closeSheet();
+        applyHighlights();
+        toast('어휘 하이라이트를 삭제했습니다');
+      } catch (e) { toast(userMessage(e)); }
+    };
+    sheet.querySelector('[data-v="study"]').onclick = () => {
+      closeSheet();
+      const sentenceRec = S.sentences.find((r) => r.sentence_text === v.sentence_text && hrefBase(r.chapter_href) === hrefBase(v.chapter_href));
+      if (sentenceRec) { openRecord(sentenceRec); return; }
+      const cfi = sentenceCfiFor(v);
+      if (!cfi) { toast('이 문장의 위치를 찾지 못했습니다. 문장을 직접 선택해 주세요.'); return; }
+      openStudy({ cfi, text: v.sentence_text, href: v.chapter_href, spineIndex: undefined, chapter: chapterFor(v.chapter_href) }, null,
+        [{ surface: v.surface, lemma: v.lemma, pos: v.pos, dict_meaning: v.dict_meaning, context_meaning: v.context_meaning, status: 'done' }]);
+    };
+  }
+
+  /** 저장된 어휘 위치에서 그 어휘가 속한 문장의 CFI 를 다시 계산 */
+  function sentenceCfiFor(v) {
+    if (v._target && v._target.cfi) return v._target.cfi;
+    try {
+      const contents = S.rendition.getContents();
+      for (const c of contents) {
+        let range = null;
+        try { range = c.range(v.cfi_range); } catch (e) { range = null; }
+        if (!range) continue;
+        const exp = T.expandToSentence(range);
+        if (exp) return c.cfiFromRange(exp);
+      }
+    } catch (e) { /* noop */ }
+    return null;
   }
 
   // ---------------- 목차 ----------------
@@ -1065,16 +1207,20 @@
     openStudy({ ...p, chapter: chapterFor(p.href) }, null);
   }
 
-  function openStudy(target, existing) {
+  function openStudy(target, existing, initialWords) {
     if (TTS) TTS.stop();
+    let spineIndex = target.spineIndex;
+    if (spineIndex === undefined && S.book && target.href) {
+      try { const sec = S.book.spine.get(target.href); if (sec) spineIndex = sec.index; } catch (e) { /* noop */ }
+    }
     S.study = {
       existing,
       cfi: target.cfi,
       text: target.text,
       href: target.href,
-      spineIndex: target.spineIndex,
+      spineIndex,
       chapter: target.chapter || chapterFor(target.href) || '',
-      words: (existing && existing.words ? existing.words : []).map((w) => ({ ...w, status: 'done' })),
+      words: (existing && existing.words ? existing.words : (initialWords || [])).map((w) => ({ ...w, status: 'done' })),
       typed: '',
       typingOpen: T.wordCount(target.text) <= LONG_SENTENCE_WORDS,
       translation: existing ? existing.translation : null,
@@ -1104,13 +1250,19 @@
     body.innerHTML = `
       <div class="rdr-card rdr-sentence-card">
         <p class="rdr-sentence" id="rdrSentence">${tokens}</p>
-        <p class="rdr-hint">모르는 단어를 탭하면 아래 목록에 추가돼요</p>
+        <p class="rdr-hint">모르는 단어를 여러 개 탭한 뒤 아래에서 한 번에 뜻을 확인하세요</p>
         ${ttsOk ? `
         <div class="rdr-tts">
           <button class="rdr-btn rdr-btn-blue rdr-btn-sm" id="rdrTtsPlay">${icon(st.playing ? 'pause' : 'play')}<span>${st.playing ? '멈춤' : '듣기'}</span></button>
           <button class="rdr-btn rdr-btn-ghost rdr-btn-sm" id="rdrTtsReplay">${icon('replay')}<span>다시 듣기</span></button>
+        </div>
+        <div class="rdr-tts-opts">
           <div class="rdr-seg" role="group" aria-label="읽기 속도">
             ${RATES.map((r) => `<button class="${r === S.rate ? 'on' : ''}" data-rate="${r}">${r.toFixed(1)}x</button>`).join('')}
+          </div>
+          <div class="rdr-seg" role="group" aria-label="목소리">
+            <button class="${TTS.getGender() === 'female' ? 'on' : ''}" data-voice="female">여성</button>
+            <button class="${TTS.getGender() === 'male' ? 'on' : ''}" data-voice="male">남성</button>
           </div>
         </div>` : '<p class="rdr-hint">이 브라우저는 음성 읽기를 지원하지 않습니다.</p>'}
       </div>
@@ -1130,9 +1282,10 @@
       <div class="rdr-card">
         <div class="rdr-card-head"><span class="rdr-label">모르는 단어</span></div>
         <form class="rdr-word-form" id="rdrWordForm" autocomplete="off">
-          <input class="rdr-input" id="rdrWordInput" placeholder="예: hesitated" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="60">
-          <button class="rdr-btn rdr-btn-green-soft" type="submit">뜻 확인</button>
+          <input class="rdr-input" id="rdrWordInput" placeholder="예: hesitated, considerable" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="300">
+          <button class="rdr-btn rdr-btn-green-soft" type="submit" id="rdrLookupBtn">뜻 확인</button>
         </form>
+        <div class="rdr-chips" id="rdrChips"></div>
         <div class="rdr-words" id="rdrWords">${renderWords()}</div>
       </div>
 
@@ -1159,6 +1312,17 @@
           if (st.playing) playTts();
         };
       });
+      body.querySelectorAll('[data-voice]').forEach((b) => {
+        b.onclick = () => {
+          const g = b.dataset.voice;
+          TTS.setGender(g);
+          body.querySelectorAll('[data-voice]').forEach((x) => x.classList.toggle('on', x === b));
+          if (!TTS.hasGender(g)) {
+            toast(`이 기기에는 ${g === 'male' ? '남성' : '여성'} 영어 음성이 없어 톤을 바꿔 대신 읽어요.`, 3200);
+          }
+          playTts();
+        };
+      });
     }
     const openBtn = $('#rdrTypeOpen');
     if (openBtn) openBtn.onclick = () => { st.typingOpen = true; renderStudy(); setTimeout(() => { const i = $('#rdrTypeInput'); if (i) i.focus(); }, 30); };
@@ -1170,11 +1334,16 @@
     $('#rdrWordForm').onsubmit = (e) => {
       e.preventDefault();
       const v = $('#rdrWordInput').value.trim();
-      if (!v) return;
       $('#rdrWordInput').value = '';
-      addWord(v);
+      if (v) T.splitWords(v).forEach((w) => addPending(w, true));
+      if (!st.words.some((w) => w.status === 'pending')) {
+        if (!v) toast('문장에서 단어를 탭하거나 입력해 주세요.');
+        return;
+      }
+      lookupPending();
     };
     bindWordCards();
+    renderChips();
     const tb = $('#rdrTransBtn');
     if (tb) tb.onclick = showTranslation;
   }
@@ -1197,8 +1366,9 @@
 
   function renderWords() {
     const st = S.study;
-    if (!st.words.length) return '';
-    return st.words.map((w, i) => {
+    const list = st.words.map((w, i) => ({ w, i })).filter(({ w }) => w.status !== 'pending');
+    if (!list.length) return '';
+    return list.map(({ w, i }) => {
       if (w.status === 'loading') {
         return `<div class="rdr-word rdr-word-loading"><div class="rdr-word-top"><b>${esc(w.surface)}</b><span class="rdr-spinner rdr-spinner-sm"></span></div><span class="rdr-hint">뜻을 찾는 중</span></div>`;
       }
@@ -1219,64 +1389,93 @@
     }).join('');
   }
 
+  /** 아직 뜻을 확인하지 않은(대기 중) 단어 칩 */
+  function renderChips() {
+    const st = S.study;
+    const box = $('#rdrChips');
+    const btn = $('#rdrLookupBtn');
+    if (!box || !st) return;
+    const pending = st.words.map((w, i) => ({ w, i })).filter(({ w }) => w.status === 'pending');
+    box.innerHTML = pending.map(({ w, i }) =>
+      `<span class="rdr-chip-word">${esc(w.surface)}<button data-wdel="${i}" aria-label="${esc(w.surface)} 빼기">${icon('x')}</button></span>`).join('');
+    if (btn) btn.textContent = pending.length ? `뜻 확인 ${pending.length}` : '뜻 확인';
+    box.querySelectorAll('[data-wdel]').forEach((b) => {
+      b.onclick = () => { st.words.splice(Number(b.dataset.wdel), 1); refreshWords(); };
+    });
+  }
+
   function refreshWords() {
     const box = $('#rdrWords');
     if (!box) return;
     box.innerHTML = renderWords();
     bindWordCards();
+    renderChips();
     const chosen = new Set(S.study.words.map((w) => String(w.surface).toLowerCase()));
     root.querySelectorAll('.rdr-w').forEach((el) => el.classList.toggle('rdr-w-on', chosen.has(el.textContent.toLowerCase())));
   }
 
   function bindWordCards() {
-    root.querySelectorAll('[data-wdel]').forEach((b) => {
+    $('#rdrWords').querySelectorAll('[data-wdel]').forEach((b) => {
       b.onclick = () => { S.study.words.splice(Number(b.dataset.wdel), 1); S.study.dirty = true; refreshWords(); };
     });
-    root.querySelectorAll('[data-wretry]').forEach((b) => {
-      b.onclick = () => lookup(S.study.words[Number(b.dataset.wretry)]);
+    $('#rdrWords').querySelectorAll('[data-wretry]').forEach((b) => {
+      b.onclick = () => { const w = S.study.words[Number(b.dataset.wretry)]; if (w) { w.status = 'pending'; lookupPending(); } };
     });
   }
 
+  // 문장의 단어를 탭하면 '대기' 목록에 넣고 빼기만 한다. 뜻은 '뜻 확인'으로 한 번에 찾는다.
   function toggleWord(surface) {
     const st = S.study;
     const key = surface.toLowerCase();
     const idx = st.words.findIndex((w) => String(w.surface).toLowerCase() === key);
     if (idx >= 0) { st.words.splice(idx, 1); st.dirty = true; refreshWords(); return; }
-    addWord(surface);
+    addPending(surface, false);
   }
 
-  function addWord(raw) {
+  function addPending(raw, quiet) {
     const st = S.study;
-    const surface = raw.replace(/^[^A-Za-zÀ-ɏ]+|[^A-Za-zÀ-ɏ]+$/g, '').slice(0, 60);
-    if (!surface) { toast('영어 단어를 입력해 주세요.'); return; }
+    const surface = String(raw).replace(/^[^A-Za-zÀ-ɏ]+|[^A-Za-zÀ-ɏ]+$/g, '').slice(0, 60);
+    if (!surface) { if (!quiet) toast('영어 단어를 입력해 주세요.'); return; }
     if (st.words.some((w) => String(w.surface).toLowerCase() === surface.toLowerCase())) {
-      toast('이미 추가한 단어입니다.');
+      if (!quiet) toast('이미 추가한 단어입니다.');
       return;
     }
-    const w = { surface, status: 'loading', isNew: true };
-    st.words.push(w);
+    st.words.push({ surface, status: 'pending', isNew: true });
     st.dirty = true;
     refreshWords();
-    lookup(w);
   }
 
-  async function lookup(w) {
+  /** 대기 중인 단어를 모아 한 번의 요청으로 뜻을 가져온다 (10개씩) */
+  async function lookupPending() {
     const st = S.study;
-    w.status = 'loading';
+    const batch = st.words.filter((w) => w.status === 'pending');
+    if (!batch.length) return;
+    batch.forEach((w) => { w.status = 'loading'; });
     refreshWords();
-    try {
-      const d = await API.ai('word', { word: w.surface, sentence: st.text });
-      if (S.study !== st) return;
-      Object.assign(w, {
-        lemma: d.lemma, pos: d.pos, dict_meaning: d.dict_meaning,
-        context_meaning: d.context_meaning, note: d.note, status: 'done'
-      });
-    } catch (e) {
-      if (S.study !== st) return;
-      w.status = 'error';
-      w.error = userMessage(e, '뜻을 가져오지 못했습니다.');
+    for (let i = 0; i < batch.length; i += 10) {
+      const part = batch.slice(i, i + 10);
+      try {
+        const d = await API.ai('words', { words: part.map((w) => w.surface), sentence: st.text });
+        if (S.study !== st) return;
+        const items = d.items || [];
+        part.forEach((w, j) => {
+          const it = items[j] || {};
+          if (!it.dict_meaning && !it.context_meaning) {
+            w.status = 'error';
+            w.error = '뜻을 찾지 못했습니다. 철자를 확인해 주세요.';
+            return;
+          }
+          Object.assign(w, {
+            lemma: it.lemma, pos: it.pos, dict_meaning: it.dict_meaning,
+            context_meaning: it.context_meaning, note: it.note, status: 'done'
+          });
+        });
+      } catch (e) {
+        if (S.study !== st) return;
+        part.forEach((w) => { w.status = 'error'; w.error = userMessage(e, '뜻을 가져오지 못했습니다.'); });
+      }
+      refreshWords();
     }
-    refreshWords();
   }
 
   async function showTranslation() {
@@ -1343,6 +1542,11 @@
   async function completeStudy() {
     const st = S.study;
     if (!st || st.saving || !S.row) return;
+    if (st.words.some((w) => w.status === 'pending')) {
+      toast('남은 단어의 뜻을 확인한 뒤 저장합니다');
+      await lookupPending();
+      if (S.study !== st) return;
+    }
     if (st.words.some((w) => w.status === 'loading')) {
       toast('단어 뜻을 불러오는 중입니다. 잠시만 기다려 주세요.');
       return;
@@ -1374,7 +1578,7 @@
       last_reviewed_at: ex ? now : null
     };
     const words = st.words
-      .filter((w) => w.status !== 'loading')
+      .filter((w) => w.status === 'done' || w.status === 'error')
       .map((w) => ({
         surface: w.surface, lemma: w.lemma, pos: w.pos,
         dict_meaning: w.dict_meaning, context_meaning: w.context_meaning, created_at: w.created_at
@@ -1432,7 +1636,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.0';
+      link.href = 'reader/reader.css?v=1.1';
       document.head.appendChild(link);
     }
     return true;

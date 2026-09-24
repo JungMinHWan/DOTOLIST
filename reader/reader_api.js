@@ -258,6 +258,7 @@
       if (w.error) throw w.error;
       const bySentence = {};
       (w.data || []).forEach((row) => {
+        if (!row.sentence_id) return; // 리더에서 따로 찾아본 어휘는 listVocab 에서 다룬다
         (bySentence[row.sentence_id] = bySentence[row.sentence_id] || []).push(row);
       });
       return (s.data || []).map((row) => ({
@@ -327,6 +328,48 @@
     if (error) throw wrap('학습 기록을 삭제하지 못했습니다.', error);
   }
 
+  // ---------------- 리더에서 바로 찾아본 어휘 (문장 학습과 별개) ----------------
+  async function listVocab(bookId) {
+    try {
+      const { data, error } = await client().from('reader_words').select('*').eq('book_id', bookId);
+      if (error) throw error;
+      return (data || []).filter((r) => !r.sentence_id && r.cfi_range);
+    } catch (e) {
+      throw wrap('찾아본 어휘를 불러오지 못했습니다.', e);
+    }
+  }
+
+  async function saveVocab(v) {
+    try {
+      const row = {
+        book_id: v.book_id,
+        sentence_id: null,
+        cfi_range: v.cfi_range,
+        chapter_href: v.chapter_href || null,
+        sentence_text: v.sentence_text || null,
+        surface: v.surface,
+        lemma: v.lemma || null,
+        pos: v.pos || null,
+        dict_meaning: v.dict_meaning || null,
+        context_meaning: v.context_meaning || null
+      };
+      const { data, error } = await client().from('reader_words').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      const raw = String((e && e.message) || '');
+      if (/cfi_range|chapter_href|sentence_text|sentence_id.*null|not-null/i.test(raw)) {
+        throw new ReaderError('어휘 저장용 칸이 아직 없습니다. 안내드린 Supabase SQL(어휘 하이라이트용)을 실행해 주세요.', e);
+      }
+      throw wrap('어휘를 저장하지 못했습니다.', e);
+    }
+  }
+
+  async function deleteVocab(id) {
+    const { error } = await client().from('reader_words').delete().eq('id', id);
+    if (error) throw wrap('어휘를 삭제하지 못했습니다.', error);
+  }
+
   // ---------------- 일별 로그 ----------------
   function today() {
     const d = new Date();
@@ -379,6 +422,7 @@
     listBooks, coverUrls, findByHash, uploadBook, getBook, loadEpub,
     saveProgress, saveLocations, deleteBook,
     listSentences, saveSentence, deleteSentence,
+    listVocab, saveVocab, deleteVocab,
     getDailyLog, saveDailyLog, today,
     ai
   };

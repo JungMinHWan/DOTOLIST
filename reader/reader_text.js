@@ -123,6 +123,54 @@
     return out;
   }
 
+  const WORD_CHAR = /[A-Za-z\u00C0-\u024F'\u2019\-]/;
+
+  /**
+   * 선택 범위를 단어 경계까지 넓힌다 (hesi|tated → hesitated).
+   * 한 문단 안의 선택만 다루며, 여러 문단에 걸치면 null.
+   */
+  function expandToWords(range) {
+    if (!range) return null;
+    const block = blockOf(range.startContainer);
+    if (!block || block !== blockOf(range.endContainer)) return null;
+    const text = block.textContent;
+    let s = offsetIn(block, range.startContainer, range.startOffset);
+    let e = offsetIn(block, range.endContainer, range.endOffset);
+    // 앞뒤 공백/문장부호는 걷어낸다
+    while (s < e && !/[A-Za-z\u00C0-\u024F]/.test(text[s])) s++;
+    while (e > s && !/[A-Za-z\u00C0-\u024F]/.test(text[e - 1])) e--;
+    if (e <= s) return null;
+    while (s > 0 && WORD_CHAR.test(text[s - 1])) s--;
+    while (e < text.length && WORD_CHAR.test(text[e])) e++;
+    // 단어 끝의 아포스트로피/하이픈 정리 (dogs' → dogs)
+    while (e > s && /['\u2019\-]/.test(text[e - 1])) e--;
+    while (s < e && /['\u2019\-]/.test(text[s])) s++;
+    const a = domPoint(block, s, false);
+    const b = domPoint(block, e, true);
+    const out = block.ownerDocument.createRange();
+    out.setStart(a.node, a.offset);
+    out.setEnd(b.node, b.offset);
+    return out.collapsed ? null : out;
+  }
+
+  /** 선택이 '어휘'(1~3 단어, 문장부호로 끝나지 않음) 인지 */
+  function isVocabSelection(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!t || t.length > 40) return false;
+    if (/[.!?;:,\u2026"\u201c\u201d]/.test(t)) return false;
+    const words = t.split(' ').filter(Boolean);
+    return words.length >= 1 && words.length <= 3;
+  }
+
+  /** 입력창 문자열을 여러 단어로 나눈다 (쉼표·줄바꿈·공백) */
+  function splitWords(input) {
+    return String(input || '')
+      .split(/[,\n;/]+|\s+/)
+      .map((w) => w.replace(/^[^A-Za-z\u00C0-\u024F]+|[^A-Za-z\u00C0-\u024F]+$/g, ''))
+      .filter(Boolean)
+      .map((w) => w.slice(0, 60));
+  }
+
   function normalizeSentence(text) {
     return String(text || '').replace(/­/g, '').replace(/\s+/g, ' ').trim();
   }
@@ -178,7 +226,7 @@
   }
 
   window.ReaderText = {
-    sentenceSpans, countSentences, expandToSentence, normalizeSentence,
+    sentenceSpans, countSentences, expandToSentence, expandToWords, isVocabSelection, splitWords, normalizeSentence,
     tokenize, wordCount, compareTyping, normalizeForTyping
   };
 })();

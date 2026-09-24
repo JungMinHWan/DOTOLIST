@@ -320,3 +320,40 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 #featureSelectionModal .rdr-feature-card .feature-card-desc { color: #5F574B; }
 #featureSelectionModal .rdr-feature-card:hover,
 #featureSelectionModal .rdr-feature-card:active { background: #EFE6D6; border-color: #3E6FA3; border-left-color: #3F7D5A; }
+
+/* ---------- v1.1: 목소리 선택 · 단어 여러 개 · 어휘 하이라이트 ---------- */
+.rdr-tts-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.rdr-tts-opts .rdr-seg { margin-left: 0; }
+.rdr-tts .rdr-seg { margin-left: auto; }
+
+.rdr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rdr-chips:empty { display: none; }
+.rdr-chip-word {
+  display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 4px 0 12px;
+  background: var(--r-green-soft); border: 1px solid var(--r-green-line); border-radius: 999px;
+  font-family: var(--r-serif); font-size: 15px; color: var(--r-green-dark);
+}
+.rdr-chip-word button {
+  width: 24px; height: 24px; border: none; background: none; border-radius: 50%; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--r-green-dark) !important;
+}
+.rdr-chip-word button svg { width: 14px; height: 14px; }
+.rdr-chip-word button:hover { background: rgba(63, 125, 90, .12); }
+
+.rdr-selbar-text .rdr-sel-word { display: block; font-size: 19px; color: var(--r-blue-dark); margin-bottom: 2px; }
+.rdr-selbar-text .rdr-sel-ctx { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 13px; color: var(--r-ink-3); }
+.rdr-selbar-text { display: block; }
+.rdr-selbar-actions { flex-wrap: wrap; }
+
+.rdr-vocab-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rdr-vocab-word { font-family: var(--r-serif); font-size: 24px; color: var(--r-ink); }
+.rdr-vocab-word small { font-family: var(--r-ui); font-weight: 400; font-size: 13px; color: var(--r-ink-3); margin-left: 6px; }
+.rdr-vocab-say { margin-left: auto; background: var(--r-blue-soft) !important; color: var(--r-blue) !important; border-radius: 50%; width: 36px; height: 36px; }
+.rdr-vocab-dict { margin: 10px 0 0; font-size: 16px; color: var(--r-ink-2); }
+.rdr-vocab-ctx { margin-top: 8px; font-size: 16px; }
+.rdr-vocab-sentence {
+  margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid var(--r-blue); background: #fff; border-radius: 0 8px 8px 0;
+  font-family: var(--r-serif); font-size: 15px; line-height: 1.6; color: var(--r-ink-2);
+}
+.rdr-vocab-loading { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; font-size: 14px; color: var(--r-ink-3); }
+.rdr-vocab-loading .rdr-spinner-sm { margin-left: 0; }

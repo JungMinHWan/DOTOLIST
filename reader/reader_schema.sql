@@ -128,3 +128,10 @@ CREATE POLICY "epubs update own" ON storage.objects FOR UPDATE TO authenticated
 DROP POLICY IF EXISTS "epubs delete own" ON storage.objects;
 CREATE POLICY "epubs delete own" ON storage.objects FOR DELETE TO authenticated
   USING (bucket_id = 'epubs' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------- v1.1: 리더에서 바로 찾아본 어휘 (문장 학습과 별개, 파란 하이라이트) ----------
+ALTER TABLE public.reader_words
+  ALTER COLUMN sentence_id DROP NOT NULL,
+  ADD COLUMN IF NOT EXISTS cfi_range TEXT,
+  ADD COLUMN IF NOT EXISTS chapter_href TEXT,
+  ADD COLUMN IF NOT EXISTS sentence_text TEXT;
