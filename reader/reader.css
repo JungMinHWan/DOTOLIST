@@ -357,3 +357,64 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 }
 .rdr-vocab-loading { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px; font-size: 14px; color: var(--r-ink-3); }
 .rdr-vocab-loading .rdr-spinner-sm { margin-left: 0; }
+
+/* ---------- v1.2: 경험치(XP) ---------- */
+.rdr-reader-bottom { align-items: center; }
+.rdr-bottom-side { flex: 1; min-width: 0; }
+.rdr-bottom-right { text-align: right; }
+.rdr-xp {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 24px; padding: 0 10px; border: 1px solid var(--r-green-line); border-radius: 999px;
+  background: var(--r-green-soft); cursor: pointer; font-size: 11px; color: var(--r-green-dark) !important;
+}
+.rdr-xp b { font-weight: 800; }
+.rdr-xp .rdr-xp-bar { width: 44px; }
+.rdr-xp-bar { display: inline-block; height: 5px; border-radius: 5px; background: rgba(63, 125, 90, .18); overflow: hidden; vertical-align: middle; }
+.rdr-xp-bar i { display: block; height: 100%; background: var(--r-green); border-radius: 5px; transition: width .5s ease; }
+.rdr-xp-bar-lg { display: block; width: 100%; height: 8px; margin-top: 8px; }
+.rdr-xp-pulse { animation: rdr-pulse .6s ease; }
+@keyframes rdr-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+.rdr-xp-card {
+  display: block; width: 100%; max-width: 880px; margin: 0 auto 14px; padding: 14px 16px; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid var(--r-line); border-left: 4px solid var(--r-green); border-radius: var(--r-radius);
+  font-family: inherit;
+}
+.rdr-xp-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.rdr-xp-level { font-size: 18px; font-weight: 800; color: var(--r-green-dark); }
+.rdr-xp-level-lg { font-size: 26px; }
+.rdr-xp-num { font-size: 12px; color: var(--r-ink-3); }
+.rdr-xp-today { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; color: var(--r-ink-2); }
+.rdr-xp-more { color: var(--r-blue); font-weight: 600; }
+
+.rdr-xp-float {
+  position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); z-index: 35;
+  transform: translate(-50%, 0); opacity: 0; pointer-events: none; white-space: nowrap;
+  padding: 6px 12px; border-radius: 999px; background: var(--r-green); color: #fff;
+  font-size: 13px; font-weight: 700; box-shadow: 0 6px 16px rgba(63, 125, 90, .28);
+}
+.rdr-xp-float.rdr-show { animation: rdr-xp-rise 1.6s ease forwards; }
+@keyframes rdr-xp-rise {
+  0% { opacity: 0; transform: translate(-50%, 8px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  75% { opacity: 1; transform: translate(-50%, -14px); }
+  100% { opacity: 0; transform: translate(-50%, -24px); }
+}
+
+.rdr-levelup { position: absolute; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(46, 42, 36, .32); animation: rdr-fade .2s ease; }
+.rdr-levelup-card {
+  width: 100%; max-width: 320px; padding: 28px 24px 20px; text-align: center;
+  background: var(--r-paper); border: 1px solid var(--r-line); border-radius: 22px;
+  box-shadow: 0 20px 50px rgba(46, 42, 36, .25); animation: rdr-pop .35s cubic-bezier(.2, 1.4, .4, 1);
+}
+.rdr-levelup-kicker { font-size: 12px; font-weight: 800; letter-spacing: .2em; color: var(--r-blue); }
+.rdr-levelup-level { margin: 6px 0 4px; font-size: 44px; font-weight: 800; color: var(--r-green-dark); }
+.rdr-levelup-text { margin: 0 0 18px; font-size: 14px; color: var(--r-ink-2); }
+@keyframes rdr-pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.rdr-xp-sheet-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rdr-xp-rules { display: flex; flex-direction: column; margin-top: 6px; }
+.rdr-xp-rule { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--r-line); }
+.rdr-xp-rule-xp { flex-shrink: 0; width: 44px; text-align: center; font-weight: 800; color: var(--r-green-dark); background: var(--r-green-soft); border-radius: 8px; padding: 4px 0; font-size: 13px; }
+.rdr-xp-rule b { display: block; font-size: 14px; }
+.rdr-xp-rule small { font-size: 12px; color: var(--r-ink-3); }

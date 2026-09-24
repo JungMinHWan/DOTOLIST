@@ -8,6 +8,7 @@
   const API = window.ReaderAPI;
   const T = window.ReaderText;
   const TTS = window.ReaderTTS;
+  const XP = window.ReaderXP;
 
   const LIBS = [
     { test: () => window.JSZip, src: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js' },
@@ -115,7 +116,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.1';
+      link.href = 'reader/reader.css?v=1.2';
       document.head.appendChild(link);
     }
 
@@ -132,6 +133,7 @@
           <button class="rdr-btn rdr-btn-primary rdr-btn-sm" data-act="add">EPUB 추가</button>
         </header>
         <div class="rdr-scroll">
+          <button class="rdr-xp-card rdr-hidden" id="rdrXpCard" data-act="xp"></button>
           <p class="rdr-lib-summary" id="rdrLibSummary"></p>
           <div class="rdr-shelf" id="rdrShelf"></div>
         </div>
@@ -157,8 +159,9 @@
           <div class="rdr-loading rdr-hidden" id="rdrLoading"><div class="rdr-spinner"></div><span id="rdrLoadingText">책을 여는 중입니다</span></div>
         </div>
         <footer class="rdr-reader-bottom">
-          <span class="rdr-ellipsis" id="rdrChapter"></span>
-          <span id="rdrPct"></span>
+          <span class="rdr-ellipsis rdr-bottom-side" id="rdrChapter"></span>
+          <button class="rdr-xp rdr-hidden" id="rdrXp" data-act="xp" aria-label="경험치 보기"></button>
+          <span class="rdr-bottom-side rdr-bottom-right" id="rdrPct"></span>
         </footer>
         <div class="rdr-progress"><div class="rdr-progress-fill" id="rdrProgressFill"></div></div>
         <div class="rdr-selbar rdr-hidden" id="rdrSelbar">
@@ -187,6 +190,15 @@
       <div class="rdr-sheet rdr-hidden" id="rdrSheet" role="dialog"></div>
       <div class="rdr-busy rdr-hidden" id="rdrBusy"><div class="rdr-busy-card"><div class="rdr-spinner"></div><span id="rdrBusyText"></span></div></div>
       <div class="rdr-toast" id="rdrToast" role="status" aria-live="polite"></div>
+      <div class="rdr-xp-float" id="rdrXpFloat" aria-hidden="true"></div>
+      <div class="rdr-levelup rdr-hidden" id="rdrLevelUp" role="dialog" aria-label="레벨 업">
+        <div class="rdr-levelup-card">
+          <div class="rdr-levelup-kicker">LEVEL UP</div>
+          <div class="rdr-levelup-level" id="rdrLevelUpNum"></div>
+          <p class="rdr-levelup-text">원서를 읽으며 한 단계 올랐어요</p>
+          <button class="rdr-btn rdr-btn-primary rdr-btn-block" data-act="levelup-close">계속 읽기</button>
+        </div>
+      </div>
     `;
     document.body.appendChild(root);
 
@@ -203,12 +215,14 @@
       if (f) handleFile(f);
     });
     $('#rdrSheetBackdrop').addEventListener('click', closeSheet);
+    $('#rdrLevelUp').addEventListener('click', (e) => { if (e.target.id === 'rdrLevelUp') e.currentTarget.classList.add('rdr-hidden'); });
     document.addEventListener('keydown', onKeyDown);
     window.addEventListener('resize', debounce(onResize, 250));
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') { flushProgress(); flushLog(); }
+      if (document.visibilityState === 'hidden') { flushProgress(); flushLog(); if (XP) XP.flush(); }
     });
     renderFontDots();
+    if (XP) XP.onChange(onXpChange);
   }
 
   function icon(name) {
@@ -300,6 +314,7 @@
     document.documentElement.classList.add('rdr-lock');
     showView('library');
     loadLibrary();
+    if (XP && XP.available()) XP.init();
   }
 
   async function close() {
@@ -307,6 +322,7 @@
     await closeBook();
     if (TTS) TTS.stop();
     closeSheet();
+    if (XP) XP.flush();
     root.classList.add('rdr-hidden');
     document.documentElement.classList.remove('rdr-lock');
   }
@@ -347,9 +363,108 @@
       'sel-study': () => startStudyFromPending(),
       'sel-word': () => lookupVocabFromPending(),
       'study-back': () => backFromStudy(),
-      'study-done': () => completeStudy()
+      'study-done': () => completeStudy(),
+      xp: () => openXpSheet(),
+      'levelup-close': () => $('#rdrLevelUp').classList.add('rdr-hidden')
     };
     if (handlers[act]) { e.preventDefault(); handlers[act](); }
+  }
+
+  // ---------------- 경험치(XP) ----------------
+  function onXpChange(evt, v) {
+    renderXp(v);
+    if (evt && evt.amount) floatXp(evt);
+    if (evt && evt.leveled) showLevelUp(evt.level);
+  }
+
+  function renderXp(v) {
+    if (!root) return;
+    const pill = $('#rdrXp');
+    const card = $('#rdrXpCard');
+    if (!v) { pill.classList.add('rdr-hidden'); card.classList.add('rdr-hidden'); return; }
+    const pct = Math.min(100, Math.round((v.xp / v.need) * 100));
+    pill.classList.remove('rdr-hidden');
+    pill.innerHTML = `<b>Lv.${v.level}</b><span class="rdr-xp-bar"><i style="width:${pct}%"></i></span>`;
+    card.classList.remove('rdr-hidden');
+    const t = XP.todayXp();
+    card.innerHTML = `
+      <div class="rdr-xp-card-top">
+        <span class="rdr-xp-level">Lv.${v.level}</span>
+        <span class="rdr-xp-num">${v.xp} / ${v.need} XP</span>
+      </div>
+      <span class="rdr-xp-bar rdr-xp-bar-lg"><i style="width:${pct}%"></i></span>
+      <span class="rdr-xp-today">${t ? `오늘 원서로 +${t} XP` : '오늘 첫 페이지를 넘겨 보세요'}<span class="rdr-xp-more">자세히</span></span>`;
+  }
+
+  function floatXp(evt) {
+    const el = $('#rdrXpFloat');
+    if (!el) return;
+    el.textContent = evt.amount > 1 || evt.label !== XP.RULES.page.label ? `+${evt.amount} XP · ${evt.label}` : `+${evt.amount} XP`;
+    el.classList.remove('rdr-show');
+    void el.offsetWidth; // 애니메이션 재시작
+    el.classList.add('rdr-show');
+    const pill = $('#rdrXp');
+    if (pill) { pill.classList.remove('rdr-xp-pulse'); void pill.offsetWidth; pill.classList.add('rdr-xp-pulse'); }
+  }
+
+  function showLevelUp(level) {
+    const box = $('#rdrLevelUp');
+    $('#rdrLevelUpNum').textContent = `Lv. ${level}`;
+    box.classList.remove('rdr-hidden');
+    if (navigator.vibrate) { try { navigator.vibrate([60, 40, 60]); } catch (e) { /* noop */ } }
+    if (typeof window.confetti === 'function') {
+      const colors = ['#3F7D5A', '#3E6FA3', '#E8DDCA', '#5E9E74', '#F3ECDF'];
+      const end = Date.now() + 1400;
+      (function frame() {
+        window.confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0, y: 0.75 }, colors, zIndex: 6000 });
+        window.confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1, y: 0.75 }, colors, zIndex: 6000 });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+    }
+    clearTimeout(showLevelUp._t);
+    showLevelUp._t = setTimeout(() => box.classList.add('rdr-hidden'), 4500);
+  }
+
+  function openXpSheet() {
+    const v = XP && XP.view();
+    if (!v) { toast('레벨 정보를 불러오는 중입니다.'); return; }
+    const R = XP.RULES;
+    const rows = [
+      [R.page, `하루 ${XP.PAGE_DAILY_CAP} XP까지 · 5초 이상 읽은 페이지`],
+      [R.vocab, '책에서 단어를 골라 뜻 보기'],
+      [R.sentence, '막힌 문장을 학습하고 완료'],
+      [R.typed, '문장을 끝까지 따라 쓰면 추가'],
+      [R.selfRead, '해석을 열지 않고 완료하면 추가'],
+      [R.review, '학습한 문장을 다시 학습'],
+      [R.chapter, '챕터를 끝까지 읽기'],
+      [R.book, '책 한 권 완독']
+    ];
+    const pct = Math.min(100, Math.round((v.xp / v.need) * 100));
+    openSheet(`
+      <div class="rdr-xp-sheet-head">
+        <span class="rdr-xp-level rdr-xp-level-lg">Lv.${v.level}</span>
+        <span class="rdr-xp-num">${v.xp} / ${v.need} XP · 다음 레벨까지 ${v.need - v.xp} XP</span>
+      </div>
+      <span class="rdr-xp-bar rdr-xp-bar-lg"><i style="width:${pct}%"></i></span>
+      <p class="rdr-sheet-text" style="margin-top:12px">원서에서 얻은 경험치는 Grow Quest 레벨에 함께 쌓여요. 오늘 원서로 <b>+${XP.todayXp()} XP</b></p>
+      <div class="rdr-xp-rules">
+        ${rows.map(([r, d]) => `<div class="rdr-xp-rule"><span class="rdr-xp-rule-xp">+${r.xp}</span><span><b>${esc(r.label)}</b><small>${esc(d)}</small></span></div>`).join('')}
+      </div>`);
+  }
+
+  /** 챕터 완독 / 책 완독 보상 (같은 책·챕터에 한 번씩) */
+  function awardProgress(prev, loc) {
+    if (!XP || !S.row || !loc || !loc.start) return;
+    try {
+      if (prev && prev.end && prev.end.displayed && prev.start &&
+        loc.start.index === prev.start.index + 1 &&
+        prev.end.displayed.page >= prev.end.displayed.total && prev.end.displayed.total >= 2 &&
+        chapterFor(prev.start.href) &&
+        XP.once(`${S.row.id}-ch-${hrefBase(prev.start.href)}`)) {
+        XP.award('chapter', { label: `챕터 완독 · ${chapterFor(prev.start.href)}` });
+      }
+      if (loc.atEnd && XP.once(`${S.row.id}-book`)) XP.award('book');
+    } catch (e) { /* noop */ }
   }
 
   // ---------------- 서재 ----------------
@@ -752,7 +867,9 @@
   }
 
   function onRelocated(loc) {
+    const prevLoc = S.location;
     S.location = loc;
+    awardProgress(prevLoc, loc);
     finishPage();
     startPage(loc);
     updateProgressUi();
@@ -819,9 +936,11 @@
   function finishPage() {
     const page = S.page;
     S.page = null;
-    if (!page || !S.log) return;
+    if (!page) return;
     const dwell = Date.now() - page.since;
     if (dwell < PAGE_DWELL_MS) return;
+    if (XP && page.sentences > 0) XP.award('page');
+    if (!S.log) return;
     S.log.pages_viewed += 1;
     S.log.sentences_read_est += page.sentences;
     S.log.reading_seconds += Math.round(Math.min(dwell, 300000) / 1000);
@@ -979,6 +1098,7 @@
     studyBtn.disabled = tooLong;
     $('#rdrSelbar').classList.remove('rdr-hidden');
     try { S.rendition.annotations.highlight(markCfi(p), {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
+    schedulePrefetch(p);
   }
 
   function removePendingMark() {
@@ -1021,6 +1141,36 @@
   }
 
   // ---------------- 리더에서 바로 찾아보는 어휘 ----------------
+  // 단어를 선택해 두면 '뜻 보기'를 누르기 전에 미리 조회해 둔다 (누르면 바로 표시)
+  const vocabCache = new Map();
+  let prefetchTimer = null;
+
+  function fetchVocab(word, sentence) {
+    const key = `${word.toLowerCase()}|${sentence}`;
+    if (!vocabCache.has(key)) {
+      const p = API.ai('words', { words: [word], sentence }).then((d) => {
+        const item = (d.items && d.items[0]) || {};
+        if (!item.dict_meaning && !item.context_meaning) {
+          throw new API.ReaderError('뜻을 찾지 못했습니다. 다른 단어로 다시 선택해 주세요.');
+        }
+        return item;
+      });
+      p.catch(() => vocabCache.delete(key));
+      if (vocabCache.size > 100) vocabCache.clear();
+      vocabCache.set(key, p);
+    }
+    return vocabCache.get(key);
+  }
+
+  function schedulePrefetch(p) {
+    clearTimeout(prefetchTimer);
+    if (!p || !p.vocab || findVocab(p.vocab.cfi)) return;
+    // 선택 손잡이를 조정하는 동안에는 기다렸다가, 선택이 멈추면 조회
+    prefetchTimer = setTimeout(() => {
+      if (S.pending === p) fetchVocab(p.vocab.text, p.text).catch(() => {});
+    }, 500);
+  }
+
   async function lookupVocabFromPending() {
     const p = S.pending;
     if (!p || !p.vocab || !S.row) return;
@@ -1034,9 +1184,7 @@
     // 선택한 부분을 바로 표시해 두어 어디를 찾는지 보이게 한다
     try { S.rendition.annotations.highlight(target.vocab.cfi, {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
     try {
-      const d = await API.ai('words', { words: [target.vocab.text], sentence: target.text });
-      const item = (d.items && d.items[0]) || {};
-      if (!item.dict_meaning && !item.context_meaning) throw new API.ReaderError('뜻을 찾지 못했습니다. 다른 단어로 다시 선택해 주세요.');
+      const item = await fetchVocab(target.vocab.text, target.text);
       const saved = await API.saveVocab({
         book_id: S.row.id,
         cfi_range: target.vocab.cfi,
@@ -1052,6 +1200,7 @@
       try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (e) { /* noop */ }
       applyHighlights();
       if (S.log) { S.log.words_looked_up += 1; scheduleLog(); }
+      if (XP) XP.award('vocab');
       if (!sheet.classList.contains('rdr-hidden')) openVocab(saved);
     } catch (e) {
       try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (x) { /* noop */ }
@@ -1594,11 +1743,22 @@
         if (st.translationViewed && !(ex && ex.translation_viewed)) S.log.translations_viewed += 1;
         scheduleLog();
       }
+      // 경험치: 문장 학습 5 (복습 3) + 끝까지 따라 쓰기 2 + 해석 없이 이해 2
+      let gained = 0;
+      if (XP && XP.available()) {
+        const typedDone = T.compareTyping(st.text, st.typed).done;
+        const selfRead = !st.translationViewed && !(ex && ex.translation_viewed);
+        const parts = [ex ? XP.RULES.review : XP.RULES.sentence];
+        if (typedDone) parts.push(XP.RULES.typed);
+        if (selfRead) parts.push(XP.RULES.selfRead);
+        gained = parts.reduce((a, r) => a + r.xp, 0);
+        XP.award({ xp: gained, label: parts.map((r) => r.label).join(' · ') });
+      }
       S.study = null;
       clearPending(true);
       showView('reader');
       applyHighlights();
-      toast(ex ? '복습을 기록했어요' : '학습한 문장을 표시했어요');
+      toast((ex ? '복습을 기록했어요' : '학습한 문장을 표시했어요') + (gained ? `  +${gained} XP` : ''));
     } catch (e) {
       toast(userMessage(e), 4000);
     } finally {
@@ -1636,7 +1796,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.1';
+      link.href = 'reader/reader.css?v=1.2';
       document.head.appendChild(link);
     }
     return true;

@@ -12,7 +12,22 @@
  *        { "action": "translate", "sentence": "..." }
  */
 
-const MODELS = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
+/*
+ * 속도 설정
+ *  - 단어 뜻: 가장 빠른 flash-lite 먼저 (기본 사고 수준이 'minimal'), 실패 시 flash
+ *  - 번역:   품질을 위해 flash 먼저, 사고 수준을 'low' 로 낮춰 지연을 줄인다
+ *  - 모델당 제한 시간을 두고, 넘으면 다음 모델로 넘어간다 (Netlify 함수 10초 제한 안쪽)
+ */
+const FAST_MODELS = [
+  { model: 'gemini-flash-lite-latest', thinking: null },
+  { model: 'gemini-flash-latest', thinking: 'low' }
+];
+const QUALITY_MODELS = [
+  { model: 'gemini-flash-latest', thinking: 'low' },
+  { model: 'gemini-flash-lite-latest', thinking: null }
+];
+const TOTAL_BUDGET_MS = 9000;
+const PER_MODEL_MS = 6000;
 
 // 공개 값(클라이언트 코드에도 포함된 anon key). 환경변수가 있으면 우선 사용.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://xeawqnnugytabmaixrcv.supabase.co';
@@ -75,45 +90,66 @@ const json = (status, payload) =>
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }
   });
 
+// 같은 함수 인스턴스가 살아 있는 동안 확인된 토큰은 5분간 다시 확인하지 않는다 (요청마다 한 번의 왕복 절약)
+const verified = new Map();
+const VERIFY_TTL_MS = 5 * 60 * 1000;
+
 async function verifyUser(req) {
   const auth = req.headers.get('authorization') || '';
   const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
   if (!token) return false;
+  const hit = verified.get(token);
+  if (hit && hit > Date.now()) return true;
   try {
     const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` }
     });
     if (!res.ok) return false;
     const user = await res.json();
-    return Boolean(user && user.id);
+    const ok = Boolean(user && user.id);
+    if (ok) {
+      if (verified.size > 200) verified.clear();
+      verified.set(token, Date.now() + VERIFY_TTL_MS);
+    }
+    return ok;
   } catch {
     return false;
   }
 }
 
-async function callGemini(apiKey, prompt) {
-  const body = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.2, responseMimeType: 'application/json' }
-  };
+async function requestModel(apiKey, { model, thinking }, prompt, timeoutMs, withThinking = true) {
+  const generationConfig = { temperature: 0.2, responseMimeType: 'application/json', maxOutputTokens: 1024 };
+  if (thinking && withThinking) generationConfig.thinkingConfig = { thinkingLevel: thinking };
+  return fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig }),
+    signal: AbortSignal.timeout(timeoutMs)
+  });
+}
+
+async function callGemini(apiKey, prompt, models = FAST_MODELS) {
+  const started = Date.now();
   let lastErrorMsg = null;
   let lastStatus = 502;
 
-  for (const model of MODELS) {
+  for (const m of models) {
+    const left = TOTAL_BUDGET_MS - (Date.now() - started);
+    if (left < 1500) break;
     try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-          body: JSON.stringify(body)
+      let res = await requestModel(apiKey, m, prompt, Math.min(PER_MODEL_MS, left));
+      // 모델이 사고 수준 설정을 모르면 설정 없이 한 번 더
+      if (res.status === 400 && m.thinking) {
+        const err = await res.clone().json().catch(() => ({}));
+        if (/thinking/i.test(err.error?.message || '')) {
+          res = await requestModel(apiKey, m, prompt, Math.min(PER_MODEL_MS, TOTAL_BUDGET_MS - (Date.now() - started)), false);
         }
-      );
+      }
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         lastErrorMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
         lastStatus = res.status === 429 ? 429 : 502;
-        console.warn(`[reader-ai] ${model} 실패:`, lastErrorMsg);
+        console.warn(`[reader-ai] ${m.model} 실패:`, lastErrorMsg);
         continue;
       }
       const data = await res.json();
@@ -125,10 +161,11 @@ async function callGemini(apiKey, prompt) {
         .replace(/```/g, '')
         .trim();
       if (!text) throw new Error('AI 응답이 비어 있습니다.');
+      console.log(`[reader-ai] ${m.model} ${Date.now() - started}ms`);
       return { ok: true, data: JSON.parse(text) };
     } catch (err) {
-      lastErrorMsg = err.message;
-      console.warn(`[reader-ai] ${model} 처리 실패:`, err.message);
+      lastErrorMsg = err.name === 'TimeoutError' ? '응답 시간 초과' : err.message;
+      console.warn(`[reader-ai] ${m.model} 처리 실패:`, lastErrorMsg);
     }
   }
   return { ok: false, status: lastStatus, error: lastErrorMsg };
@@ -199,7 +236,7 @@ export default async (req) => {
   }
 
   if (action === 'translate') {
-    const r = await callGemini(apiKey, TRANSLATE_PROMPT(sentence));
+    const r = await callGemini(apiKey, TRANSLATE_PROMPT(sentence), QUALITY_MODELS);
     if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '번역을 가져오지 못했습니다.' });
     return json(200, { translation: str(r.data?.translation, 3000) });
   }
