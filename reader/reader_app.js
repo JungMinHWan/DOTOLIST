@@ -116,7 +116,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.3';
+      link.href = 'reader/reader.css?v=1.4';
       document.head.appendChild(link);
     }
 
@@ -276,6 +276,7 @@
   // ---------------- 시트 (목차 / 학습 기록 / 확인) ----------------
   function openSheet(html, cls = '') {
     const sheet = $('#rdrSheet');
+    delete sheet.dataset.vocabId;
     sheet.className = `rdr-sheet ${cls}`;
     sheet.innerHTML = `<div class="rdr-sheet-handle"></div>${html}`;
     $('#rdrSheetBackdrop').classList.remove('rdr-hidden');
@@ -285,6 +286,7 @@
 
   function closeSheet() {
     const sheet = $('#rdrSheet');
+    delete sheet.dataset.vocabId;
     sheet.classList.remove('rdr-open');
     sheet.classList.add('rdr-hidden');
     $('#rdrSheetBackdrop').classList.add('rdr-hidden');
@@ -1143,34 +1145,16 @@
   }
 
   // ---------------- 리더에서 바로 찾아보는 어휘 ----------------
-  // 단어를 선택해 두면 '뜻 보기'를 누르기 전에 미리 조회해 둔다 (누르면 바로 표시)
-  const vocabCache = new Map();
+  // 1) 사전 뜻은 AI 없이 바로 가져온다 (선택하는 순간 미리 조회, 기기에 캐시)
+  // 2) '이 문장에서의 뜻'만 AI 로 이어서 채운다. AI 가 막혀도 사전 뜻은 보인다.
   let prefetchTimer = null;
-
-  function fetchVocab(word, sentence) {
-    const key = `${word.toLowerCase()}|${sentence}`;
-    if (!vocabCache.has(key)) {
-      const p = API.ai('words', { words: [word], sentence }).then((d) => {
-        const item = (d.items && d.items[0]) || {};
-        if (!item.dict_meaning && !item.context_meaning) {
-          throw new API.ReaderError('뜻을 찾지 못했습니다. 다른 단어로 다시 선택해 주세요.');
-        }
-        return item;
-      });
-      p.catch(() => vocabCache.delete(key));
-      if (vocabCache.size > 100) vocabCache.clear();
-      vocabCache.set(key, p);
-    }
-    return vocabCache.get(key);
-  }
 
   function schedulePrefetch(p) {
     clearTimeout(prefetchTimer);
     if (!p || !p.vocab || findVocab(p.vocab.cfi)) return;
-    // 선택 손잡이를 조정하는 동안에는 기다렸다가, 선택이 멈추면 조회
     prefetchTimer = setTimeout(() => {
-      if (S.pending === p) fetchVocab(p.vocab.text, p.text).catch(() => {});
-    }, 500);
+      if (S.pending === p) API.dictLookup(p.vocab.text);
+    }, 300);
   }
 
   async function lookupVocabFromPending() {
@@ -1183,35 +1167,94 @@
     const sheet = openSheet(`
       <div class="rdr-vocab-head"><b class="rdr-vocab-word">${esc(target.vocab.text)}</b></div>
       <div class="rdr-vocab-loading"><span class="rdr-spinner rdr-spinner-sm"></span><span>뜻을 찾는 중</span></div>`);
-    // 선택한 부분을 바로 표시해 두어 어디를 찾는지 보이게 한다
     try { S.rendition.annotations.highlight(target.vocab.cfi, {}, null, 'rdr-pending', PENDING_STYLE); } catch (e) { /* noop */ }
+    const showError = (e) => {
+      try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (x) { /* noop */ }
+      const msg = userMessage(e, '뜻을 가져오지 못했습니다.');
+      const box = sheet.querySelector('.rdr-vocab-loading');
+      if (!sheet.classList.contains('rdr-hidden') && box) box.outerHTML = `<p class="rdr-err-text">${esc(msg)}</p>`;
+      else toast(msg);
+    };
+
+    let item = null;
+    const dict = await API.dictLookup(target.vocab.text);
+    if (dict) {
+      item = { ...dict, context_meaning: '' };
+    } else {
+      // 사전이 막힌 경우에만 AI 로 전체 뜻을 받는다
+      try {
+        const d = await API.ai('words', { words: [target.vocab.text], sentence: target.text });
+        item = (d.items && d.items[0]) || {};
+        if (!item.dict_meaning && !item.context_meaning) throw new API.ReaderError('뜻을 찾지 못했습니다. 다른 단어로 다시 선택해 주세요.');
+      } catch (e) { showError(e); return; }
+    }
+
+    let saved;
     try {
-      const item = await fetchVocab(target.vocab.text, target.text);
-      const saved = await API.saveVocab({
+      saved = await API.saveVocab({
         book_id: S.row.id,
         cfi_range: target.vocab.cfi,
         chapter_href: target.href,
         sentence_text: target.text,
         surface: target.vocab.text,
         lemma: item.lemma, pos: item.pos,
-        dict_meaning: item.dict_meaning, context_meaning: item.context_meaning
+        dict_meaning: item.dict_meaning, context_meaning: item.context_meaning || null
       });
-      saved.note = item.note;
-      saved._target = target;
-      S.vocab.push(saved);
-      try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (e) { /* noop */ }
-      applyHighlights();
-      if (S.log) { S.log.words_looked_up += 1; scheduleLog(); }
-      if (XP) XP.award('vocab');
-      if (!sheet.classList.contains('rdr-hidden')) openVocab(saved);
+    } catch (e) { showError(e); return; }
+    saved.note = item.note;
+    saved._target = target;
+    S.vocab.push(saved);
+    try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (e) { /* noop */ }
+    applyHighlights();
+    if (S.log) { S.log.words_looked_up += 1; scheduleLog(); }
+    if (XP) XP.award('vocab');
+    if (dict) saved._ctx = 'loading';
+    if (!sheet.classList.contains('rdr-hidden')) openVocab(saved);
+    if (dict) loadVocabContext(saved);
+  }
+
+  async function loadVocabContext(v) {
+    if (!v.sentence_text) return;
+    v._ctx = 'loading';
+    refreshVocabCtx(v);
+    try {
+      const d = await API.ai('words', { words: [v.surface], sentence: v.sentence_text });
+      const it = (d.items && d.items[0]) || {};
+      if (!it.context_meaning) throw new API.ReaderError('이 문장에서의 뜻을 찾지 못했습니다.');
+      v.context_meaning = it.context_meaning;
+      v.note = it.note;
+      if (!v.pos && it.pos) v.pos = it.pos;
+      v._ctx = undefined;
+      API.updateVocab(v.id, { context_meaning: v.context_meaning });
     } catch (e) {
-      try { S.rendition.annotations.remove(target.vocab.cfi, 'highlight'); } catch (x) { /* noop */ }
-      if (!sheet.classList.contains('rdr-hidden')) {
-        sheet.querySelector('.rdr-vocab-loading').outerHTML = `<p class="rdr-err-text">${esc(userMessage(e, '뜻을 가져오지 못했습니다.'))}</p>`;
-      } else {
-        toast(userMessage(e, '뜻을 가져오지 못했습니다.'));
-      }
+      v._ctx = 'error';
+      v._ctxError = userMessage(e, '이 문장에서의 뜻을 가져오지 못했습니다.');
     }
+    refreshVocabCtx(v);
+  }
+
+  function vocabCtxHtml(v) {
+    if (v.context_meaning) {
+      return `<div class="rdr-word-ctx rdr-vocab-ctx"><span>이 문장에서</span>${esc(v.context_meaning)}</div>${v.note ? `<p class="rdr-hint">${esc(v.note)}</p>` : ''}`;
+    }
+    if (v._ctx === 'loading') {
+      return '<div class="rdr-vocab-ctx-wait"><span class="rdr-spinner rdr-spinner-sm"></span><span>이 문장에서의 뜻을 찾는 중</span></div>';
+    }
+    if (v._ctx === 'error') {
+      return `<div class="rdr-vocab-ctx-wait"><span class="rdr-err-text">${esc(v._ctxError || '')}</span><button class="rdr-link-btn" data-v="ctx">다시 시도</button></div>`;
+    }
+    if (v.sentence_text) return '<div class="rdr-vocab-ctx-wait"><button class="rdr-link-btn" data-v="ctx">이 문장에서의 뜻 보기</button></div>';
+    return '';
+  }
+
+  function refreshVocabCtx(v) {
+    const sheet = $('#rdrSheet');
+    if (sheet.classList.contains('rdr-hidden') || sheet.dataset.vocabId !== String(v.id)) return;
+    const box = sheet.querySelector('[data-v-ctx]');
+    if (!box) return;
+    box.innerHTML = vocabCtxHtml(v);
+    const btn = box.querySelector('[data-v="ctx"]');
+    if (btn) btn.onclick = () => loadVocabContext(v);
   }
 
   function openVocab(v) {
@@ -1225,13 +1268,14 @@
         <button class="rdr-icon-btn rdr-icon-btn-sm rdr-vocab-say" data-v="say" aria-label="발음 듣기">${icon('play')}</button>
       </div>
       ${v.dict_meaning ? `<p class="rdr-vocab-dict">${esc(v.dict_meaning)}</p>` : ''}
-      ${v.context_meaning ? `<div class="rdr-word-ctx rdr-vocab-ctx"><span>이 문장에서</span>${esc(v.context_meaning)}</div>` : ''}
-      ${v.note ? `<p class="rdr-hint">${esc(v.note)}</p>` : ''}
+      <div data-v-ctx></div>
       ${v.sentence_text ? `<p class="rdr-vocab-sentence">${esc(v.sentence_text)}</p>` : ''}
       <div class="rdr-sheet-actions">
         <button class="rdr-btn rdr-btn-ghost rdr-danger-text" data-v="delete">하이라이트 삭제</button>
         <button class="rdr-btn rdr-btn-primary" data-v="study">이 문장 학습</button>
       </div>`);
+    sheet.dataset.vocabId = String(v.id);
+    refreshVocabCtx(v);
     sheet.querySelector('[data-v="say"]').onclick = () => {
       if (!TTS || !TTS.isSupported()) { toast('이 브라우저는 음성 읽기를 지원하지 않습니다.'); return; }
       TTS.speak(v.surface, { rate: S.rate });
@@ -1671,7 +1715,9 @@
         <div class="rdr-word-top"><b>${head}</b>${w.pos ? `<span class="rdr-pos">${esc(w.pos)}</span>` : ''}
           <button class="rdr-icon-btn rdr-icon-btn-sm" data-wdel="${i}" aria-label="삭제">${icon('x')}</button></div>
         ${w.dict_meaning ? `<div class="rdr-word-dict">${esc(w.dict_meaning)}</div>` : ''}
-        ${w.context_meaning ? `<div class="rdr-word-ctx"><span>이 문장에서</span>${esc(w.context_meaning)}</div>` : ''}
+        ${w.context_meaning ? `<div class="rdr-word-ctx"><span>이 문장에서</span>${esc(w.context_meaning)}</div>`
+          : w.ctx === 'loading' ? '<div class="rdr-word-ctx rdr-ctx-wait"><span>이 문장에서</span><i class="rdr-dots">찾는 중</i></div>'
+          : w.ctx === 'error' ? `<div class="rdr-ctx-err"><span>${esc(w.ctxError || '')}</span><button class="rdr-link-btn" data-wctx="${i}">다시 시도</button></div>` : ''}
         ${w.note ? `<div class="rdr-hint">${esc(w.note)}</div>` : ''}
       </div>`;
     }).join('');
@@ -1706,6 +1752,12 @@
     $('#rdrWords').querySelectorAll('[data-wdel]').forEach((b) => {
       b.onclick = () => { S.study.words.splice(Number(b.dataset.wdel), 1); S.study.dirty = true; refreshWords(); };
     });
+    $('#rdrWords').querySelectorAll('[data-wctx]').forEach((b) => {
+      b.onclick = () => {
+        const w = S.study.words[Number(b.dataset.wctx)];
+        if (w) fetchContexts([w]);
+      };
+    });
     $('#rdrWords').querySelectorAll('[data-wretry]').forEach((b) => {
       b.onclick = () => { const w = S.study.words[Number(b.dataset.wretry)]; if (w) { w.status = 'pending'; lookupPending(); } };
     });
@@ -1729,38 +1781,69 @@
       return;
     }
     st.words.push({ surface, status: 'pending', isNew: true });
+    API.dictLookup(surface); // 사전 뜻 미리 받아 두기 (AI 아님)
     st.dirty = true;
     refreshWords();
   }
 
   /** 대기 중인 단어를 모아 한 번의 요청으로 뜻을 가져온다 (10개씩) */
+  /**
+   * 대기 중인 단어의 뜻을 찾는다.
+   *  1) 사전 뜻: AI 없이 단어별로 바로 (거의 즉시)
+   *  2) 이 문장에서의 뜻: AI 한 번 요청으로 모아서 (10개씩)
+   */
   async function lookupPending() {
     const st = S.study;
     const batch = st.words.filter((w) => w.status === 'pending');
     if (!batch.length) return;
     batch.forEach((w) => { w.status = 'loading'; });
     refreshWords();
-    for (let i = 0; i < batch.length; i += 10) {
-      const part = batch.slice(i, i + 10);
+
+    const dicts = await Promise.all(batch.map((w) => API.dictLookup(w.surface)));
+    if (S.study !== st) return;
+    batch.forEach((w, i) => {
+      const d = dicts[i];
+      if (d) Object.assign(w, { lemma: d.lemma, pos: d.pos, dict_meaning: d.dict_meaning, status: 'done', ctx: 'loading' });
+    });
+    refreshWords();
+    await fetchContexts(batch);
+  }
+
+  async function fetchContexts(list) {
+    const st = S.study;
+    for (let i = 0; i < list.length; i += 10) {
+      const part = list.slice(i, i + 10);
+      part.forEach((w) => { if (w.status === 'done') w.ctx = 'loading'; });
+      refreshWords();
       try {
         const d = await API.ai('words', { words: part.map((w) => w.surface), sentence: st.text });
         if (S.study !== st) return;
         const items = d.items || [];
         part.forEach((w, j) => {
           const it = items[j] || {};
-          if (!it.dict_meaning && !it.context_meaning) {
+          if (w.status === 'done') {
+            w.context_meaning = it.context_meaning || '';
+            w.note = it.note;
+            if (!w.pos && it.pos) w.pos = it.pos;
+            w.ctx = it.context_meaning ? undefined : 'error';
+            if (!it.context_meaning) w.ctxError = '이 문장에서의 뜻을 찾지 못했습니다.';
+          } else if (it.dict_meaning || it.context_meaning) {
+            Object.assign(w, {
+              lemma: it.lemma, pos: it.pos, dict_meaning: it.dict_meaning,
+              context_meaning: it.context_meaning, note: it.note, status: 'done', ctx: undefined
+            });
+          } else {
             w.status = 'error';
             w.error = '뜻을 찾지 못했습니다. 철자를 확인해 주세요.';
-            return;
           }
-          Object.assign(w, {
-            lemma: it.lemma, pos: it.pos, dict_meaning: it.dict_meaning,
-            context_meaning: it.context_meaning, note: it.note, status: 'done'
-          });
         });
       } catch (e) {
         if (S.study !== st) return;
-        part.forEach((w) => { w.status = 'error'; w.error = userMessage(e, '뜻을 가져오지 못했습니다.'); });
+        const msg = userMessage(e, '뜻을 가져오지 못했습니다.');
+        part.forEach((w) => {
+          if (w.status === 'done') { w.ctx = 'error'; w.ctxError = msg; }
+          else { w.status = 'error'; w.error = msg; }
+        });
       }
       refreshWords();
     }
@@ -1835,7 +1918,7 @@
       await lookupPending();
       if (S.study !== st) return;
     }
-    if (st.words.some((w) => w.status === 'loading')) {
+    if (st.words.some((w) => w.status === 'loading' || w.ctx === 'loading')) {
       toast('단어 뜻을 불러오는 중입니다. 잠시만 기다려 주세요.');
       return;
     }
@@ -1946,7 +2029,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.3';
+      link.href = 'reader/reader.css?v=1.4';
       document.head.appendChild(link);
     }
     return true;

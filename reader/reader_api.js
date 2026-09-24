@@ -404,8 +404,103 @@
     if (error) console.warn('[reader] 로그 저장 실패', error);
   }
 
+  // ---------------- 빠른 사전 (AI 없이) ----------------
+  // 기존 영어학습(english.js)에서도 쓰는 Google 번역 사전 응답을 사용한다.
+  // 공식 API 가 아니어서 막히거나 바뀔 수 있으므로, 실패하면 AI 로 넘어간다.
+  const POS_KO = {
+    noun: '명사', verb: '동사', adjective: '형용사', adverb: '부사', preposition: '전치사',
+    conjunction: '접속사', pronoun: '대명사', interjection: '감탄사', article: '관사',
+    abbreviation: '약어', phrase: '구', prefix: '접두사', suffix: '접미사', 'auxiliary verb': '조동사'
+  };
+  const DICT_KEY = 'rdr-dict-cache-v1';
+  let dictMem = null;
+  function dictStore() {
+    if (dictMem) return dictMem;
+    try { dictMem = JSON.parse(localStorage.getItem(DICT_KEY) || '{}'); } catch (e) { dictMem = {}; }
+    return dictMem;
+  }
+  function dictSave() {
+    try {
+      const keys = Object.keys(dictMem);
+      if (keys.length > 800) keys.slice(0, keys.length - 600).forEach((k) => delete dictMem[k]);
+      localStorage.setItem(DICT_KEY, JSON.stringify(dictMem));
+    } catch (e) { /* noop */ }
+  }
+  const dictInflight = new Map();
+
+  /** return { lemma, pos, dict_meaning } | null (실패 시 null, 예외 없음) */
+  function dictLookup(word) {
+    const key = String(word || '').trim().toLowerCase();
+    if (!key) return Promise.resolve(null);
+    const store = dictStore();
+    if (store[key]) return Promise.resolve(store[key]);
+    if (dictInflight.has(key)) return dictInflight.get(key);
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&dt=bd&dj=1&q=' + encodeURIComponent(key);
+    const p = (async () => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
+        if (!res.ok) return null;
+        const d = await res.json();
+        const dict = Array.isArray(d.dict) ? d.dict : [];
+        const trans = (Array.isArray(d.sentences) ? d.sentences : []).map((x) => x.trans || '').join('').trim();
+        let meanings = [];
+        dict.slice(0, 2).forEach((e) => { (e.terms || []).slice(0, 3).forEach((t) => { if (t && !meanings.includes(t)) meanings.push(t); }); });
+        meanings = meanings.slice(0, 4);
+        if (!meanings.length && trans && trans.toLowerCase() !== key) meanings = [trans];
+        if (!meanings.length) return null;
+        const first = dict[0] || {};
+        const out = {
+          lemma: first.base_form || key,
+          pos: POS_KO[String(first.pos || '').toLowerCase()] || '',
+          dict_meaning: meanings.join(', ')
+        };
+        store[key] = out;
+        dictSave();
+        return out;
+      } catch (e) {
+        return null;
+      } finally {
+        dictInflight.delete(key);
+      }
+    })();
+    dictInflight.set(key, p);
+    return p;
+  }
+
+  async function updateVocab(id, patch) {
+    const { error } = await client().from('reader_words').update(patch).eq('id', id);
+    if (error) console.warn('[reader] 어휘 갱신 실패', error);
+  }
+
   // ---------------- AI ----------------
+  // 사용량 초과(429)를 받으면 잠시 AI 호출을 멈춰, 계속 기다리게 하지 않는다
+  let aiCooldownUntil = 0;
+  let aiCooldownMsg = '';
+
+  function pacificMidnightLocal() {
+    // Gemini 일일 무료 사용량은 태평양 시간 자정에 초기화된다
+    try {
+      const now = new Date();
+      for (let h = 1; h <= 25; h++) {
+        const t = new Date(now.getTime() + h * 3600000);
+        const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: 'numeric', hourCycle: 'h23' }).format(t));
+        if (hour === 0) {
+          t.setMinutes(0, 0, 0);
+          return `${t.getHours()}시`;
+        }
+      }
+    } catch (e) { /* noop */ }
+    return '';
+  }
+
+  function aiBusyMessage() {
+    if (Date.now() >= aiCooldownUntil) return '';
+    return aiCooldownMsg;
+  }
+
   async function ai(action, payload) {
+    const busy = aiBusyMessage();
+    if (busy) throw new ReaderError(busy);
     const s = await session();
     let res;
     try {
@@ -421,6 +516,18 @@
     try { data = await res.json(); } catch (e) { /* noop */ }
     if (!res.ok) {
       if (res.status === 404) throw new ReaderError('AI 기능은 배포된 사이트(Netlify)에서만 동작합니다.');
+      if (res.status === 429) {
+        if (data.quota === 'daily') {
+          const at = pacificMidnightLocal();
+          aiCooldownUntil = Date.now() + 10 * 60 * 1000;
+          aiCooldownMsg = `오늘 AI 무료 사용량을 다 썼어요.${at ? ` 매일 ${at}에 다시 채워져요.` : ''}`;
+        } else {
+          const sec = Math.min(90, Math.max(15, Number(data.retryAfter) || 60));
+          aiCooldownUntil = Date.now() + sec * 1000;
+          aiCooldownMsg = 'AI 요청이 잠시 몰렸어요. 조금 뒤 다시 시도해 주세요.';
+        }
+        throw new ReaderError(aiCooldownMsg);
+      }
       throw new ReaderError(data.error || 'AI 응답을 받지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     }
     return data;
@@ -431,8 +538,8 @@
     listBooks, coverUrls, findByHash, uploadBook, getBook, loadEpub,
     saveProgress, saveLocations, deleteBook,
     listSentences, saveSentence, deleteSentence,
-    listVocab, saveVocab, deleteVocab,
+    listVocab, saveVocab, deleteVocab, updateVocab, dictLookup,
     getDailyLog, saveDailyLog, today,
-    ai
+    ai, aiBusyMessage
   };
 })();

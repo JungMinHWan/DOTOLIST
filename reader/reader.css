@@ -445,3 +445,11 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 .rdr-verdict-diff { background: #F6E1DA; color: var(--r-red); }
 .rdr-record-para { margin-top: 14px; }
 .rdr-record-para p { margin: 6px 0 8px; font-family: var(--r-serif); font-size: 15px; line-height: 1.6; padding: 10px 12px; background: #fff; border: 1px solid var(--r-line); border-radius: 10px; }
+
+/* ---------- v1.4: 사전 먼저, 문맥 뜻은 이어서 ---------- */
+.rdr-vocab-ctx-wait { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--r-ink-3); }
+.rdr-vocab-ctx-wait .rdr-spinner-sm { margin-left: 0; }
+.rdr-ctx-wait i { font-style: normal; color: var(--r-ink-3); }
+.rdr-dots::after { content: ''; animation: rdr-dots 1.2s steps(4, end) infinite; }
+@keyframes rdr-dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+.rdr-ctx-err { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 13px; color: var(--r-red); }

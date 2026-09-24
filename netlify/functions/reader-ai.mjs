@@ -173,6 +173,7 @@ async function callGemini(apiKey, prompt, models = FAST_MODELS) {
   const started = Date.now();
   let lastErrorMsg = null;
   let lastStatus = 502;
+  const limits = []; // 429 를 받은 모델별 { daily, retryAfter }
 
   for (const m of models) {
     const left = TOTAL_BUDGET_MS - (Date.now() - started);
@@ -190,7 +191,16 @@ async function callGemini(apiKey, prompt, models = FAST_MODELS) {
         const errData = await res.json().catch(() => ({}));
         lastErrorMsg = errData.error?.message || `Gemini API 오류 (${res.status})`;
         lastStatus = res.status === 429 ? 429 : 502;
-        console.warn(`[reader-ai] ${m.model} 실패:`, lastErrorMsg);
+        if (res.status === 429) {
+          const details = errData.error?.details || [];
+          const ids = details.flatMap((d) => (d.violations || []).map((v) => v.quotaId || v.quotaMetric || ''));
+          const retry = details.map((d) => d.retryDelay).find(Boolean);
+          const daily = ids.some((id) => /PerDay/i.test(id)) || /per day|daily/i.test(lastErrorMsg);
+          limits.push({ daily, retryAfter: retry ? parseFloat(retry) : null });
+          console.warn(`[reader-ai] ${m.model} 사용량 초과 (${daily ? '일일' : '분당'}) ${ids.join(',')}`);
+        } else {
+          console.warn(`[reader-ai] ${m.model} 실패:`, lastErrorMsg);
+        }
         continue;
       }
       const data = await res.json();
@@ -209,7 +219,26 @@ async function callGemini(apiKey, prompt, models = FAST_MODELS) {
       console.warn(`[reader-ai] ${m.model} 처리 실패:`, lastErrorMsg);
     }
   }
-  return { ok: false, status: lastStatus, error: lastErrorMsg };
+  const allLimited = limits.length > 0 && limits.length === models.length;
+  return {
+    ok: false,
+    status: limits.length ? 429 : lastStatus,
+    error: lastErrorMsg,
+    quota: allLimited && limits.every((l) => l.daily) ? 'daily' : 'minute',
+    retryAfter: limits.map((l) => l.retryAfter).filter((n) => n).sort((a, b) => a - b)[0] || null
+  };
+}
+
+/** 실패 응답 공통: 사용량 초과면 종류와 재시도 시간을 함께 알려 준다 */
+function fail(r, message) {
+  if (r.status === 429) {
+    return json(429, {
+      error: r.quota === 'daily' ? '오늘 AI 무료 사용량을 다 썼어요.' : 'AI 요청이 잠시 몰렸어요. 조금 뒤 다시 시도해 주세요.',
+      quota: r.quota,
+      retryAfter: r.retryAfter
+    });
+  }
+  return json(r.status, { error: message });
 }
 
 const str = (v, max = 300) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -239,7 +268,7 @@ export default async (req) => {
     const word = str(payload?.word, MAX_WORD);
     if (!word) return json(400, { error: '단어를 입력해 주세요.' });
     const r = await callGemini(apiKey, WORD_PROMPT(word, sentence));
-    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '단어 뜻을 가져오지 못했습니다.' });
+    if (!r.ok) return fail(r, '단어 뜻을 가져오지 못했습니다.');
     const d = r.data || {};
     return json(200, {
       surface: str(d.surface, 80) || word,
@@ -256,7 +285,7 @@ export default async (req) => {
       .map((w) => str(w, MAX_WORD)).filter(Boolean).slice(0, MAX_WORDS);
     if (!list.length) return json(400, { error: '단어를 입력해 주세요.' });
     const r = await callGemini(apiKey, WORDS_PROMPT(list, sentence));
-    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '단어 뜻을 가져오지 못했습니다.' });
+    if (!r.ok) return fail(r, '단어 뜻을 가져오지 못했습니다.');
     const items = Array.isArray(r.data?.items) ? r.data.items : (Array.isArray(r.data) ? r.data : []);
     return json(200, {
       items: list.map((word, i) => {
@@ -279,7 +308,7 @@ export default async (req) => {
   if (action === 'paraphrase_task') {
     const exclude = (Array.isArray(payload?.exclude) ? payload.exclude : []).map((t) => str(t, 60)).filter(Boolean).slice(0, 10);
     const r = await callGemini(apiKey, TASK_PROMPT(sentence, exclude), QUALITY_MODELS);
-    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '과제를 만들지 못했습니다.' });
+    if (!r.ok) return fail(r, '과제를 만들지 못했습니다.');
     const d = r.data || {};
     return json(200, { task: str(d.task, 80) || '같은 뜻을 다른 문장 구조로 쓰기', hint: str(d.hint, 200), example: str(d.example, 1500) });
   }
@@ -289,7 +318,7 @@ export default async (req) => {
     if (!attempt) return json(400, { error: '바꿔 쓴 문장을 입력해 주세요.' });
     const task = str(payload?.task, 80);
     const r = await callGemini(apiKey, CHECK_PROMPT(sentence, task, attempt), QUALITY_MODELS);
-    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '피드백을 받지 못했습니다.' });
+    if (!r.ok) return fail(r, '피드백을 받지 못했습니다.');
     const d = r.data || {};
     const meaning = ['same', 'close', 'different'].includes(d.meaning) ? d.meaning : 'close';
     return json(200, {
@@ -303,7 +332,7 @@ export default async (req) => {
 
   if (action === 'translate') {
     const r = await callGemini(apiKey, TRANSLATE_PROMPT(sentence), QUALITY_MODELS);
-    if (!r.ok) return json(r.status, { error: r.status === 429 ? 'AI 사용량이 잠시 초과되었습니다. 1분 뒤 다시 시도해 주세요.' : '번역을 가져오지 못했습니다.' });
+    if (!r.ok) return fail(r, '번역을 가져오지 못했습니다.');
     return json(200, { translation: str(r.data?.translation, 3000) });
   }
 
