@@ -1000,6 +1000,7 @@
       await withTimeout(book.ready, 25000, '책을 열지 못했습니다. 파일이 손상되었을 수 있습니다.');
       if (token !== S.openToken) return;
       S.toc = flattenToc(book.navigation ? book.navigation.toc : []);
+      book.spine.hooks.content.register((doc) => sanitizeSection(doc));
 
       const wide = window.innerWidth >= 900;
       const rendition = book.renderTo($('#rdrViewer'), {
@@ -1008,7 +1009,8 @@
         flow: 'paginated',
         spread: wide ? 'auto' : 'none',
         minSpreadWidth: 900,
-        allowScriptedContent: false
+        // Safari 는 allow-scripts 가 없으면 부모가 붙인 이벤트도 막는다. 책 스크립트는 sanitizeSection 이 제거.
+        allowScriptedContent: true
       });
       S.rendition = rendition;
       applyTheme();
@@ -1265,56 +1267,112 @@
     const doc = contents.document;
     const win = contents.window;
     let touch = null;
-    let swiped = false;
+    let lastTouchTap = 0;
 
     doc.addEventListener('selectionchange', debounce(() => onSelection(contents), 350));
+
+    const hasSelection = () => {
+      const sel = win.getSelection();
+      return Boolean(sel && !sel.isCollapsed && sel.toString().trim());
+    };
+
+    // 탭 처리 (마우스 클릭 / 터치 탭 공통)
+    // return true 이면 탭을 리더가 처리한 것
+    const handleTap = (clientX, clientY, target) => {
+      if (hasSelection()) return false;
+      if (target && target.closest && target.closest('a[href]')) return false;
+      // 1) 찾아본 어휘 → 학습한 문장 순서로 탭 여부 확인 (어휘가 더 작은 대상)
+      const voc = hitRange(contents, S.vocab, clientX, clientY);
+      if (voc) { openVocab(voc); return true; }
+      const rec = hitRange(contents, S.sentences, clientX, clientY);
+      if (rec) { openRecord(rec); return true; }
+      // 2) 좌우 가장자리 탭 = 페이지 이동, 가운데 = 메뉴 표시/숨김
+      if (S.pending) { clearPending(true); return true; }
+      const frame = win.frameElement;
+      const viewer = $('#rdrViewer').getBoundingClientRect();
+      const fr = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
+      const ratio = (fr.left + clientX - viewer.left) / viewer.width;
+      if (ratio < 0.22) prev();
+      else if (ratio > 0.78) next();
+      else toggleChrome();
+      return true;
+    };
 
     doc.addEventListener('touchstart', (e) => {
       if (e.touches.length !== 1) { touch = null; return; }
       touch = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
-      swiped = false;
+    }, { passive: true });
+
+    doc.addEventListener('touchmove', (e) => {
+      if (touch && e.touches.length !== 1) touch = null;
     }, { passive: true });
 
     doc.addEventListener('touchend', (e) => {
       if (!touch) return;
-      const sel = win.getSelection();
-      const hasSel = sel && !sel.isCollapsed && sel.toString().trim();
-      const dx = e.changedTouches[0].clientX - touch.x;
-      const dy = e.changedTouches[0].clientY - touch.y;
-      const dt = Date.now() - touch.t;
+      const t0 = touch;
       touch = null;
-      if (hasSel) return;
+      if (hasSelection()) return; // 길게 눌러 선택한 경우
+      const p = e.changedTouches[0];
+      const dx = p.clientX - t0.x;
+      const dy = p.clientY - t0.y;
+      const dt = Date.now() - t0.t;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 800) {
-        swiped = true;
+        lastTouchTap = Date.now();
         if (dx < 0) next(); else prev();
+        return;
       }
-    }, { passive: true });
+      // iOS Safari 는 문서 전체에 건 click 이 오지 않는 경우가 있어, 짧은 터치를 직접 탭으로 처리한다
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 400) {
+        lastTouchTap = Date.now();
+        // 처리한 탭은 뒤따르는 가짜 클릭을 막는다 (막지 않으면 방금 연 시트의 배경을 눌러 바로 닫힘)
+        if (handleTap(p.clientX, p.clientY, e.target) && e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
 
     doc.addEventListener('click', (e) => {
-      if (swiped) { swiped = false; return; }
-      const sel = win.getSelection();
-      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
-      if (e.target && e.target.closest && e.target.closest('a[href]')) return;
-
-      // 1) 찾아본 어휘 → 학습한 문장 순서로 탭 여부 확인 (어휘가 더 작은 대상)
-      const voc = hitRange(contents, S.vocab, e.clientX, e.clientY);
-      if (voc) { openVocab(voc); return; }
-      const rec = hitRange(contents, S.sentences, e.clientX, e.clientY);
-      if (rec) { openRecord(rec); return; }
-
-      // 2) 좌우 가장자리 탭 = 페이지 이동, 가운데 = 메뉴 표시/숨김
-      if (S.pending) { clearPending(true); return; }
-      const frame = win.frameElement;
-      const viewer = $('#rdrViewer').getBoundingClientRect();
-      const fr = frame ? frame.getBoundingClientRect() : { left: 0, top: 0 };
-      const x = fr.left + e.clientX - viewer.left;
-      const ratio = x / viewer.width;
-      if (ratio < 0.22) prev();
-      else if (ratio > 0.78) next();
-      else toggleChrome();
+      if (Date.now() - lastTouchTap < 700) return; // 터치에서 이미 처리
+      handleTap(e.clientX, e.clientY, e.target);
     });
 
     doc.addEventListener('keydown', onKeyDown);
+  }
+
+  /**
+   * EPUB 안의 스크립트를 실행하지 않도록 정리한다.
+   * iPad/iPhone Safari 는 sandbox 에 allow-scripts 가 없으면 리더가 붙인 선택·탭 이벤트까지 막기 때문에
+   * allow-scripts 를 켜는 대신, 책 문서에서 스크립트 요소·이벤트 속성을 모두 제거하고 CSP 로 한 번 더 막는다.
+   */
+  function sanitizeSection(doc) {
+    try {
+      const all = (tag) => Array.from(doc.getElementsByTagNameNS('*', tag));
+      ['script', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'portal'].forEach((tag) => all(tag).forEach((el) => el.remove()));
+      all('meta').forEach((m) => { if (/refresh|content-security-policy/i.test(m.getAttribute('http-equiv') || '')) m.remove(); });
+      ['set', 'animate'].forEach((tag) => all(tag).forEach((el) => { if (/href/i.test(el.getAttribute('attributeName') || '')) el.remove(); }));
+      const walker = doc.createTreeWalker(doc.documentElement, 1 /* SHOW_ELEMENT */);
+      let el = walker.currentNode;
+      while (el) {
+        if (el.attributes) {
+          Array.from(el.attributes).forEach((at) => {
+            const name = at.name.toLowerCase();
+            const val = String(at.value || '').replace(/[\s\u0000-\u001f]/g, '').toLowerCase();
+            if (name.startsWith('on')) el.removeAttribute(at.name);
+            else if (/(^|:)(href|src|action|formaction|data)$/.test(name) && /^(javascript|vbscript):/.test(val)) el.removeAttribute(at.name);
+          });
+        }
+        el = walker.nextNode();
+      }
+      // 한 번 더: 책 문서 안에서는 어떤 스크립트도 실행되지 않게
+      const head = doc.getElementsByTagNameNS('*', 'head')[0];
+      if (head) {
+        const ns = doc.documentElement.namespaceURI || 'http://www.w3.org/1999/xhtml';
+        const meta = doc.createElementNS(ns, 'meta');
+        meta.setAttribute('http-equiv', 'Content-Security-Policy');
+        meta.setAttribute('content', "script-src 'none'; object-src 'none'; frame-src 'none'");
+        head.insertBefore(meta, head.firstChild);
+      }
+    } catch (e) {
+      console.warn('[reader] 문서 정리 실패', e);
+    }
   }
 
   function sectionOf(contents) {
