@@ -141,3 +141,11 @@ ALTER TABLE public.reader_sentences
   ADD COLUMN IF NOT EXISTS paraphrase_task TEXT,
   ADD COLUMN IF NOT EXISTS paraphrase_text TEXT,
   ADD COLUMN IF NOT EXISTS paraphrase_feedback JSONB;
+
+-- ---------- v1.7: 단어 쓰기 (복습 일정) ----------
+ALTER TABLE public.reader_words
+  ADD COLUMN IF NOT EXISTS review_stage INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS next_review_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS last_reviewed_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS correct_count INT DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS wrong_count INT DEFAULT 0;

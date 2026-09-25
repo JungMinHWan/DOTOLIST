@@ -308,6 +308,16 @@
       }
       if (error) throw error;
 
+      // 다시 학습해도 단어 쓰기 복습 기록은 이어지도록, 지우기 전에 보관
+      const REVIEW_KEYS = ['review_stage', 'next_review_at', 'last_reviewed_at', 'correct_count', 'wrong_count'];
+      const prev = await client().from('reader_words').select('*').eq('sentence_id', data.id);
+      const keep = {};
+      (prev.data || []).forEach((w) => {
+        const k = String(w.surface || '').toLowerCase();
+        const r = {};
+        REVIEW_KEYS.forEach((key) => { if (w[key] !== undefined && w[key] !== null) r[key] = w[key]; });
+        if (Object.keys(r).length) keep[k] = r;
+      });
       const del = await client().from('reader_words').delete().eq('sentence_id', data.id);
       if (del.error) throw del.error;
       let savedWords = [];
@@ -320,7 +330,8 @@
           pos: w.pos || null,
           dict_meaning: w.dict_meaning || null,
           context_meaning: w.context_meaning || null,
-          created_at: w.created_at || new Date(Date.now() + i).toISOString()
+          created_at: w.created_at || new Date(Date.now() + i).toISOString(),
+          ...(keep[String(w.surface || '').toLowerCase()] || {})
         }));
         const ins = await client().from('reader_words').insert(rows).select();
         if (ins.error) throw ins.error;
@@ -375,6 +386,88 @@
       return rows.map((r) => ({ ...r, words: by[r.id] || [] }));
     } catch (e) {
       throw wrap('학습한 문장을 불러오지 못했습니다.', e);
+    }
+  }
+
+  // ---------------- 단어 쓰기 (복습 카드) ----------------
+  const WORD_MASTERED_STAGE = 4;
+
+  function endOfToday() {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  }
+
+  /**
+   * 찾아본 단어를 원형 기준으로 묶어 복습 카드로 만든다.
+   * return { due: [card], total, mastered, nextDue }
+   */
+  async function listWordCards() {
+    try {
+      const w = await client().from('reader_words').select('*');
+      if (w.error) throw w.error;
+      const rows = (w.data || []).filter((r) => r.surface && (r.dict_meaning || r.context_meaning));
+      const sids = [...new Set(rows.map((r) => r.sentence_id).filter(Boolean))];
+      const sentences = {};
+      if (sids.length) {
+        const s = await client().from('reader_sentences').select('id,sentence_text').in('id', sids);
+        if (s.error) throw s.error;
+        (s.data || []).forEach((x) => { sentences[x.id] = x.sentence_text; });
+      }
+      const groups = new Map();
+      rows.forEach((r) => {
+        const key = String(r.lemma || r.surface).trim().toLowerCase();
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push({ ...r, _sentence: r.sentence_text || sentences[r.sentence_id] || '' });
+      });
+      const cards = [...groups.entries()].map(([key, list]) => {
+        list.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+        const rep = list.find((r) => r._sentence && r.context_meaning) || list.find((r) => r._sentence) || list[0];
+        const stage = Math.max(...list.map((r) => r.review_stage || 0));
+        const next = list.map((r) => r.next_review_at).filter(Boolean).sort()[0] || null;
+        return {
+          key,
+          ids: list.map((r) => r.id),
+          surface: rep.surface,
+          lemma: rep.lemma || rep.surface,
+          pos: rep.pos || '',
+          dict_meaning: rep.dict_meaning || '',
+          context_meaning: rep.context_meaning || '',
+          sentence: rep._sentence,
+          stage,
+          next_review_at: next,
+          correct_count: Math.max(...list.map((r) => r.correct_count || 0)),
+          wrong_count: Math.max(...list.map((r) => r.wrong_count || 0)),
+          created_at: list[0].created_at
+        };
+      });
+      const eod = endOfToday();
+      const active = cards.filter((c) => c.stage < WORD_MASTERED_STAGE);
+      // 새 단어(복습 날짜 없음) 또는 복습 날짜가 오늘까지인 단어. 틀린 단어는 내일로 미뤄져 있다.
+      const due = active.filter((c) => !c.next_review_at || new Date(c.next_review_at).getTime() <= eod);
+      const reviews = due.filter((c) => c.stage > 0).sort((a, b) => String(a.next_review_at).localeCompare(String(b.next_review_at)));
+      const fresh = due.filter((c) => c.stage === 0).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+      const later = active.filter((c) => !due.includes(c)).map((c) => c.next_review_at).filter(Boolean).sort();
+      return {
+        due: [...reviews.slice(0, 25), ...fresh.slice(0, 10)].slice(0, 30),
+        reviewCount: reviews.length,
+        newCount: fresh.length,
+        total: cards.length,
+        mastered: cards.length - active.length,
+        nextDue: later[0] || null
+      };
+    } catch (e) {
+      throw wrap('단어를 불러오지 못했습니다.', e);
+    }
+  }
+
+  async function saveWordReview(ids, patch) {
+    const { error } = await client().from('reader_words').update(patch).in('id', ids);
+    if (error) {
+      if (/review_stage|next_review_at|last_reviewed_at|correct_count|wrong_count/i.test(String(error.message || ''))) {
+        throw new ReaderError('단어 복습 기록 칸이 아직 없습니다. 안내드린 Supabase SQL을 실행해 주세요.', error);
+      }
+      throw wrap('단어 복습 기록을 저장하지 못했습니다.', error);
     }
   }
 
@@ -579,6 +672,7 @@
     listBooks, coverUrls, findByHash, uploadBook, getBook, loadEpub,
     saveProgress, saveLocations, deleteBook,
     listSentences, saveSentence, deleteSentence, listRecentSentences,
+    listWordCards, saveWordReview, WORD_MASTERED_STAGE,
     listVocab, saveVocab, deleteVocab, updateVocab, dictLookup,
     getDailyLog, saveDailyLog, today,
     ai, aiBusyMessage

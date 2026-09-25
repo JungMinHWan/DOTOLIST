@@ -513,3 +513,44 @@ html.rdr-lock, html.rdr-lock body { overflow: hidden !important; }
 .rdr[data-view="listen"] .rdr-toast { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
 .rdr[data-view="listen"] .rdr-xp-float { bottom: calc(200px + env(safe-area-inset-bottom, 0px)); }
 .rdr[data-view="study"] .rdr-toast { bottom: calc(90px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---------- v1.7: 단어 쓰기 ---------- */
+.rdr-words-card { background: var(--r-green-soft); border-color: var(--r-green-line); }
+.rdr-words-card .rdr-listen-card-icon { color: var(--r-green); }
+.rdr-words-card .rdr-listen-card-go { background: var(--r-green); }
+.rdr-wordpractice { background: var(--r-beige); }
+.rdr-wordpractice .rdr-bar { background: var(--r-beige); }
+.rdr-wp-progress { height: 3px; background: var(--r-beige-2); flex-shrink: 0; }
+.rdr-wp-progress div { height: 100%; width: 0; background: var(--r-green); transition: width .3s ease; }
+.rdr-wp-body { padding: 16px 16px 32px; }
+.rdr-wp-body > * { max-width: 560px; margin-left: auto; margin-right: auto; }
+.rdr-wp-card { padding: 20px 18px; }
+.rdr-wp-card.rdr-wp-ok { animation: rdr-wp-ok .45s ease; }
+.rdr-wp-card.rdr-wp-no { animation: rdr-wp-no .35s ease; }
+@keyframes rdr-wp-ok { 0% { box-shadow: 0 0 0 0 rgba(63, 125, 90, .0); } 40% { box-shadow: 0 0 0 6px rgba(63, 125, 90, .25); border-color: var(--r-green); } 100% { box-shadow: none; } }
+@keyframes rdr-wp-no { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.rdr-wp-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.rdr-wp-step { font-size: 13px; font-weight: 700; color: var(--r-blue); }
+.rdr-wp-word { font-family: var(--r-serif); font-size: 34px; font-weight: 700; color: var(--r-ink); letter-spacing: .01em; margin-bottom: 8px; word-break: break-word; }
+.rdr-wp-meaning { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 18px; color: var(--r-ink); }
+.rdr-wp-sentence { margin: 14px 0 0; padding: 12px 14px; background: var(--r-paper); border-radius: 10px; font-family: var(--r-serif); font-size: 16px; line-height: 1.7; color: var(--r-ink-2); }
+.rdr-wp-shown { color: var(--r-green-dark); box-shadow: inset 0 -2px 0 var(--r-green); }
+.rdr-wp-blank { color: var(--r-blue); letter-spacing: .08em; font-weight: 700; }
+.rdr-wp-fix { margin-top: 12px; padding: 10px 12px; background: #F6E1DA; border-radius: 10px; font-size: 14px; color: var(--r-red); }
+.rdr-wp-fix b { font-family: var(--r-serif); font-size: 16px; color: var(--r-ink); }
+.rdr-wp-form { display: flex; gap: 8px; margin-top: 16px; }
+.rdr-wp-input { height: 52px; font-family: var(--r-serif); font-size: 22px; letter-spacing: .02em; }
+.rdr-wp-live { min-height: 24px; margin-top: 8px; font-family: var(--r-serif); font-size: 18px; letter-spacing: .05em; }
+.rdr-wp-tools { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.rdr-wp-tools .rdr-link-btn { display: inline-flex; align-items: center; gap: 4px; }
+.rdr-wp-tools svg { width: 18px; height: 18px; }
+.rdr-wp-meaning-input { margin-top: 16px; font-family: var(--r-ui); font-size: 16px; }
+.rdr-wp-answer { margin-top: 16px; padding: 12px 14px; background: var(--r-green-soft); border-radius: 12px; }
+.rdr-wp-suggest { box-shadow: 0 0 0 3px rgba(63, 125, 90, .25); }
+.rdr-wp-summary { text-align: center; padding: 28px 20px; }
+.rdr-wp-sum-num { font-size: 44px; font-weight: 800; color: var(--r-green-dark); margin: 6px 0; }
+.rdr-wp-sum-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; margin: 12px 0; font-family: var(--r-serif); font-size: 16px; }
+.rdr-wp-summary .rdr-btn-block { margin-top: 18px; }
+.rdr-wp-form .rdr-btn { flex-shrink: 0; white-space: nowrap; height: 52px; }
+.rdr-wp-input { flex: 1; min-width: 0; }
+.rdr-wp-input::placeholder { font-family: var(--r-ui); font-size: 15px; letter-spacing: 0; color: var(--r-ink-3); }

@@ -116,7 +116,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.5';
+      link.href = 'reader/reader.css?v=1.7';
       document.head.appendChild(link);
     }
 
@@ -135,6 +135,7 @@
         <div class="rdr-scroll">
           <button class="rdr-xp-card rdr-hidden" id="rdrXpCard" data-act="xp"></button>
           <button class="rdr-listen-card rdr-hidden" id="rdrListenCard" data-act="listen"></button>
+          <button class="rdr-listen-card rdr-words-card rdr-hidden" id="rdrWordsCard" data-act="words"></button>
           <p class="rdr-lib-summary" id="rdrLibSummary"></p>
           <div class="rdr-shelf" id="rdrShelf"></div>
         </div>
@@ -182,6 +183,16 @@
         </header>
         <div class="rdr-scroll rdr-listen-body" id="rdrListenBody"></div>
         <footer class="rdr-listen-foot" id="rdrListenFoot"></footer>
+      </section>
+
+      <section class="rdr-view rdr-wordpractice" data-view="words">
+        <header class="rdr-bar">
+          <button class="rdr-icon-btn" data-act="words-back" aria-label="서재로">${icon('back')}</button>
+          <div class="rdr-bar-title">단어 쓰기</div>
+          <span class="rdr-bar-meta" id="rdrWpCount"></span>
+        </header>
+        <div class="rdr-wp-progress"><div id="rdrWpProgress"></div></div>
+        <div class="rdr-scroll rdr-wp-body" id="rdrWpBody"></div>
       </section>
 
       <section class="rdr-view rdr-study" data-view="study">
@@ -251,6 +262,8 @@
       x: '<path d="M7 7l10 10M17 7L7 17"/>',
       skipPrev: '<path d="M6 5h2v14H6zM20 5v14L9 12z"/>',
       skipNext: '<path d="M16 5h2v14h-2zM4 5v14l11-7z"/>',
+      pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13 7l4 4"/>',
+      speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6"/>',
       headphones: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'
     };
     const filled = ['play', 'pause', 'more', 'skipPrev', 'skipNext'].includes(name);
@@ -351,6 +364,7 @@
       if (!$('#rdrSheet').classList.contains('rdr-hidden')) { closeSheet(); return; }
       if (view === 'study') { backFromStudy(); return; }
       if (view === 'listen') { stopListen(); showView('library'); loadLibrary(); return; }
+      if (view === 'words') { leaveWords(); return; }
       if (view === 'reader') { backToLibrary(); return; }
       close();
       return;
@@ -382,6 +396,8 @@
       'sel-word': () => lookupVocabFromPending(),
       'study-back': () => backFromStudy(),
       listen: () => openListen(),
+      words: () => openWords(),
+      'words-back': () => leaveWords(),
       'listen-back': () => { stopListen(); showView('library'); loadLibrary(); },
       'study-done': () => completeStudy(),
       xp: () => openXpSheet(),
@@ -459,6 +475,8 @@
       [R.paraphraseSame, '바꿔 쓴 문장이 원문과 같은 뜻이면 추가'],
       [R.review, '학습한 문장을 다시 학습'],
       [R.listen, '학습한 문장을 끝까지 듣기 (하루 한 번)'],
+      [R.word, '단어 쓰기에서 단어 하나 끝내기'],
+      [R.wordMastered, '1·3·7일 복습을 모두 통과한 단어'],
       [R.chapter, '챕터를 끝까지 읽기'],
       [R.book, '책 한 권 완독']
     ];
@@ -769,6 +787,293 @@
     keepAwake(false);
   }
 
+  // ---------------- 단어 쓰기 ----------------
+  // 새 단어: 보면서 1번 → 가리고 2번 → 뜻 떠올리기 / 복습 단어: 가리고 1번 → 뜻 떠올리기
+  // 맞히면 다음 복습: 1일 → 3일 → 7일째, 7일째까지 통과하면 '외운 단어'. 틀리면 내일 처음부터.
+  const WP_INTERVALS = [1, 2, 4];
+  const W = { cards: [], idx: 0, stepIdx: 0, steps: [], card: null, info: null, loading: false, error: null, done: false, results: [], fix: false, reveal: false, typed: '', saveWarned: false };
+
+  function wpNorm(s) {
+    return String(s || '').trim().toLowerCase().replace(/[‘’]/g, "'");
+  }
+
+  function escRe(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+  function wpCloze(card) {
+    const sentence = card.sentence || '';
+    for (const w of [card.surface, card.lemma]) {
+      if (!w) continue;
+      const m = sentence.match(new RegExp(`(^|[^A-Za-z])(${escRe(w)})(?![A-Za-z])`, 'i'));
+      if (m) {
+        const start = m.index + m[1].length;
+        return { before: sentence.slice(0, start), word: m[2], after: sentence.slice(start + m[2].length) };
+      }
+    }
+    return null;
+  }
+
+  async function renderWordsCard() {
+    const card = $('#rdrWordsCard');
+    if (!card) return;
+    let info;
+    try { info = await API.listWordCards(); } catch (e) { card.classList.add('rdr-hidden'); return; }
+    if (!info.total) { card.classList.add('rdr-hidden'); return; }
+    card.classList.remove('rdr-hidden');
+    const n = info.due.length;
+    card.innerHTML = `
+      <span class="rdr-listen-card-icon">${icon('pen')}</span>
+      <span class="rdr-listen-card-text">
+        <b>단어 쓰기</b>
+        <small>${n ? `오늘 쓸 단어 ${n}개 · 복습 ${Math.min(info.reviewCount, n)} · 새 단어 ${Math.max(0, n - Math.min(info.reviewCount, n))}` : `오늘 쓸 단어를 다 했어요 · 외운 단어 ${info.mastered}개`}</small>
+      </span>
+      <span class="rdr-listen-card-go">${icon('play')}</span>`;
+  }
+
+  async function openWords() {
+    showView('words');
+    W.loading = true; W.error = null; W.done = false; W.results = []; W.idx = 0;
+    renderWp();
+    try {
+      W.info = await API.listWordCards();
+      W.cards = W.info.due;
+    } catch (e) { W.error = userMessage(e); }
+    W.loading = false;
+    if (W.cards.length) startWpCard();
+    renderWp();
+  }
+
+  function leaveWords() {
+    if (TTS) TTS.stop();
+    showView('library');
+    loadLibrary();
+  }
+
+  function startWpCard() {
+    const c = W.cards[W.idx];
+    W.card = c;
+    W.card.failed = false;
+    W.steps = c.stage === 0
+      ? [{ t: 'copy' }, { t: 'recall', n: 1, of: 2 }, { t: 'recall', n: 2, of: 2 }, { t: 'meaning' }]
+      : [{ t: 'recall', n: 1, of: 1 }, { t: 'meaning' }];
+    W.stepIdx = 0;
+    W.fix = false; W.reveal = false; W.typed = '';
+  }
+
+  function wpTarget(c) {
+    const cz = wpCloze(c);
+    return cz ? cz.word : c.surface;
+  }
+
+  function renderWp() {
+    const body = $('#rdrWpBody');
+    const count = $('#rdrWpCount');
+    const bar = $('#rdrWpProgress');
+    if (!body) return;
+    if (W.loading) { body.innerHTML = '<div class="rdr-shelf-loading"><div class="rdr-spinner"></div></div>'; count.textContent = ''; bar.style.width = '0%'; return; }
+    if (W.error) { body.innerHTML = `<div class="rdr-empty"><p class="rdr-empty-title">${esc(W.error)}</p></div>`; return; }
+    if (!W.cards.length) {
+      const next = W.info && W.info.nextDue ? new Date(W.info.nextDue) : null;
+      body.innerHTML = `<div class="rdr-empty">
+        <div class="rdr-empty-book"></div>
+        <p class="rdr-empty-title">오늘 쓸 단어가 없어요</p>
+        <p class="rdr-empty-sub">책에서 단어 뜻을 찾아보면 여기에 쌓여요.${next ? `<br>다음 복습: ${next.getMonth() + 1}월 ${next.getDate()}일` : ''}${W.info && W.info.mastered ? `<br>지금까지 외운 단어 ${W.info.mastered}개` : ''}</p>
+        <button class="rdr-btn rdr-btn-ghost" data-act="words-back">서재로</button></div>`;
+      count.textContent = ''; bar.style.width = '0%';
+      return;
+    }
+    if (W.done) { renderWpSummary(); return; }
+
+    const c = W.card;
+    const step = W.steps[W.stepIdx];
+    count.textContent = `${W.idx + 1} / ${W.cards.length}`;
+    bar.style.width = `${Math.round((W.idx / W.cards.length) * 100)}%`;
+    const cz = wpCloze(c);
+    const target = wpTarget(c);
+    const meaningHtml = `
+      <div class="rdr-wp-meaning">
+        ${c.pos ? `<span class="rdr-pos">${esc(c.pos)}</span>` : ''}
+        <span>${esc(c.dict_meaning || '')}</span>
+      </div>
+      ${c.context_meaning ? `<div class="rdr-word-ctx"><span>이 문장에서</span>${esc(c.context_meaning)}</div>` : ''}`;
+    const sentenceHtml = (showWord) => cz
+      ? `<p class="rdr-wp-sentence">${esc(cz.before)}${showWord ? `<b class="rdr-wp-shown">${esc(cz.word)}</b>` : `<span class="rdr-wp-blank">${'_'.repeat(Math.max(4, Math.min(10, cz.word.length)))}</span>`}${esc(cz.after)}</p>`
+      : (c.sentence ? `<p class="rdr-wp-sentence">${esc(c.sentence)}</p>` : '');
+    const stepLabel = step.t === 'copy' ? '보면서 따라 쓰기' : step.t === 'recall' ? `가리고 쓰기${step.of > 1 ? ` ${step.n}/${step.of}` : ''}` : '뜻 떠올리기';
+    const badge = c.stage === 0 ? '<span class="rdr-chip rdr-chip-green">새 단어</span>' : `<span class="rdr-chip">복습 ${c.stage}회차</span>`;
+
+    let main = '';
+    if (step.t === 'copy' || step.t === 'recall') {
+      const showAnswer = step.t === 'copy' || W.fix;
+      main = `
+        ${step.t === 'copy' ? `<div class="rdr-wp-word">${esc(target)}</div>` : ''}
+        ${meaningHtml}
+        ${sentenceHtml(step.t === 'copy')}
+        ${W.fix ? `<div class="rdr-wp-fix">정답은 <b>${esc(target)}</b> 이에요. 한 번 따라 써 보세요.</div>` : ''}
+        <form class="rdr-wp-form" id="rdrWpForm" autocomplete="off">
+          <input class="rdr-input rdr-wp-input" id="rdrWpInput" value="${esc(W.typed)}" placeholder="${showAnswer ? '위 단어를 그대로 써 보세요' : '빈칸에 들어갈 단어'}" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+          <button class="rdr-btn rdr-btn-primary" type="submit">확인</button>
+        </form>
+        <div class="rdr-wp-live" id="rdrWpLive"></div>
+        <div class="rdr-wp-tools">
+          <button class="rdr-link-btn" id="rdrWpSay">${icon('speaker')}<span>발음 듣기</span></button>
+          ${step.t === 'recall' && !W.fix ? '<button class="rdr-link-btn" id="rdrWpGiveup">모르겠어요</button>' : ''}
+        </div>`;
+    } else {
+      main = `
+        <div class="rdr-wp-word">${esc(c.lemma || c.surface)}</div>
+        ${cz ? `<p class="rdr-wp-sentence">${esc(cz.before)}<b class="rdr-wp-shown">${esc(cz.word)}</b>${esc(cz.after)}</p>` : ''}
+        ${W.reveal ? `
+          <div class="rdr-wp-answer">${meaningHtml}</div>
+          ${W.typed.trim() ? `<p class="rdr-hint">내가 쓴 뜻: ${esc(W.typed)}</p>` : ''}
+          <div class="rdr-sheet-actions">
+            <button class="rdr-btn rdr-btn-ghost" id="rdrWpWrong">틀렸어요</button>
+            <button class="rdr-btn rdr-btn-primary ${wpMeaningMatch(c, W.typed) ? 'rdr-wp-suggest' : ''}" id="rdrWpRight">맞았어요</button>
+          </div>` : `
+          <textarea class="rdr-input rdr-textarea rdr-wp-meaning-input" id="rdrWpMeaning" rows="2" placeholder="이 단어의 뜻을 한글로 적어 보세요">${esc(W.typed)}</textarea>
+          <button class="rdr-btn rdr-btn-blue rdr-btn-block" id="rdrWpReveal">정답 보기</button>`}
+        <div class="rdr-wp-tools"><button class="rdr-link-btn" id="rdrWpSay">${icon('speaker')}<span>발음 듣기</span></button></div>`;
+    }
+
+    body.innerHTML = `
+      <div class="rdr-card rdr-wp-card">
+        <div class="rdr-wp-top">${badge}<span class="rdr-wp-step">${stepLabel}</span></div>
+        ${main}
+      </div>`;
+
+    const say = $('#rdrWpSay');
+    if (say) say.onclick = () => { if (TTS && TTS.isSupported()) TTS.speak(step.t === 'meaning' ? (c.lemma || c.surface) : target, { rate: 0.9 }); };
+    const form = $('#rdrWpForm');
+    if (form) {
+      const input = $('#rdrWpInput');
+      const live = () => {
+        W.typed = input.value;
+        if (step.t === 'copy' || W.fix) {
+          const cmp = T.compareTyping(target, input.value);
+          $('#rdrWpLive').innerHTML = cmp.chars.map((ch) => `<span class="rdr-c-${ch.state}">${esc(ch.ch)}</span>`).join('');
+        } else {
+          $('#rdrWpLive').innerHTML = '';
+        }
+      };
+      input.addEventListener('input', live);
+      live();
+      form.onsubmit = (e) => { e.preventDefault(); wpSubmitSpelling(input.value); };
+      const give = $('#rdrWpGiveup');
+      if (give) give.onclick = () => wpSubmitSpelling('');
+      try { input.focus({ preventScroll: true }); } catch (e) { /* noop */ }
+    }
+    const mean = $('#rdrWpMeaning');
+    if (mean) mean.addEventListener('input', () => { W.typed = mean.value; });
+    const reveal = $('#rdrWpReveal');
+    if (reveal) reveal.onclick = () => { W.reveal = true; renderWp(); };
+    const right = $('#rdrWpRight');
+    if (right) right.onclick = () => finishWpCard(true);
+    const wrong = $('#rdrWpWrong');
+    if (wrong) wrong.onclick = () => finishWpCard(false);
+  }
+
+  function wpMeaningMatch(c, typed) {
+    const t = String(typed || '').replace(/\s+/g, '');
+    if (t.length < 2) return false;
+    const terms = `${c.dict_meaning || ''},${c.context_meaning || ''}`.split(/[,;·/]/).map((x) => x.replace(/\s+/g, '')).filter((x) => x.length >= 2);
+    return terms.some((x) => x.includes(t) || t.includes(x) || (x.length >= 3 && t.includes(x.slice(0, 2))));
+  }
+
+  function wpSubmitSpelling(value) {
+    const c = W.card;
+    const step = W.steps[W.stepIdx];
+    const target = wpTarget(c);
+    const ok = wpNorm(value) === wpNorm(target) || (step.t === 'recall' && !W.fix && wpNorm(value) === wpNorm(c.lemma));
+    if (step.t === 'copy' || W.fix) {
+      if (!ok) { toast('철자를 한 번 더 확인해 보세요'); return; }
+      W.fix = false;
+      nextWpStep();
+      return;
+    }
+    // 가리고 쓰기
+    if (ok) {
+      flashWp(true);
+      setTimeout(nextWpStep, 450);
+    } else {
+      c.failed = true;
+      W.fix = true;
+      W.typed = '';
+      flashWp(false);
+      renderWp();
+    }
+  }
+
+  function flashWp(ok) {
+    const card = root.querySelector('.rdr-wp-card');
+    if (!card) return;
+    card.classList.remove('rdr-wp-ok', 'rdr-wp-no');
+    void card.offsetWidth;
+    card.classList.add(ok ? 'rdr-wp-ok' : 'rdr-wp-no');
+  }
+
+  function nextWpStep() {
+    W.stepIdx += 1;
+    W.typed = '';
+    W.reveal = false;
+    renderWp();
+  }
+
+  async function finishWpCard(meaningOk) {
+    const c = W.card;
+    const ok = meaningOk && !c.failed;
+    const now = new Date();
+    const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+    let stage, next;
+    if (ok) {
+      stage = (c.stage || 0) + 1;
+      next = stage >= API.WORD_MASTERED_STAGE ? null : new Date(midnight.getTime() + WP_INTERVALS[stage - 1] * 86400000).toISOString();
+    } else {
+      stage = 0;
+      next = new Date(midnight.getTime() + 86400000).toISOString();
+    }
+    const mastered = ok && stage >= API.WORD_MASTERED_STAGE;
+    W.results.push({ card: c, ok, mastered, next });
+    try {
+      await API.saveWordReview(c.ids, {
+        review_stage: stage,
+        next_review_at: next,
+        last_reviewed_at: now.toISOString(),
+        correct_count: (c.correct_count || 0) + (ok ? 1 : 0),
+        wrong_count: (c.wrong_count || 0) + (ok ? 0 : 1)
+      });
+    } catch (e) {
+      if (!W.saveWarned) { toast(userMessage(e), 4000); W.saveWarned = true; }
+    }
+    if (XP && XP.available()) {
+      XP.award('word', { label: `단어 쓰기 · ${c.lemma || c.surface}` });
+      if (mastered) XP.award('wordMastered', { label: `외운 단어 · ${c.lemma || c.surface}` });
+    }
+    if (W.idx < W.cards.length - 1) {
+      W.idx += 1;
+      startWpCard();
+    } else {
+      W.done = true;
+    }
+    renderWp();
+  }
+
+  function renderWpSummary() {
+    const body = $('#rdrWpBody');
+    $('#rdrWpCount').textContent = '';
+    $('#rdrWpProgress').style.width = '100%';
+    const ok = W.results.filter((r) => r.ok).length;
+    const again = W.results.filter((r) => !r.ok);
+    const mastered = W.results.filter((r) => r.mastered);
+    body.innerHTML = `
+      <div class="rdr-card rdr-wp-summary">
+        <div class="rdr-levelup-kicker">오늘의 단어 쓰기 완료</div>
+        <div class="rdr-wp-sum-num">${ok} / ${W.results.length}</div>
+        <p class="rdr-hint">맞힌 단어는 다음 복습 날짜로 넘어가고, 틀린 단어는 내일 다시 나와요.</p>
+        ${mastered.length ? `<div class="rdr-wp-sum-row"><span class="rdr-chip rdr-chip-green">외운 단어</span>${mastered.map((r) => esc(r.card.lemma || r.card.surface)).join(', ')}</div>` : ''}
+        ${again.length ? `<div class="rdr-wp-sum-row"><span class="rdr-chip">내일 다시</span>${again.map((r) => esc(r.card.lemma || r.card.surface)).join(', ')}</div>` : ''}
+        <button class="rdr-btn rdr-btn-primary rdr-btn-block" data-act="words-back">서재로</button>
+      </div>`;
+  }
+
   // ---------------- 서재 ----------------
   async function loadLibrary() {
     const shelf = $('#rdrShelf');
@@ -779,6 +1084,7 @@
       const urls = await API.coverUrls(S.books.map((b) => b.cover_path));
       renderShelf(urls);
       renderListenCard();
+      renderWordsCard();
     } catch (e) {
       shelf.innerHTML = `<div class="rdr-empty"><p>${esc(userMessage(e))}</p>
         <button class="rdr-btn rdr-btn-ghost" id="rdrRetryLib">다시 시도</button></div>`;
@@ -2386,7 +2692,7 @@
       const link = document.createElement('link');
       link.id = 'rdr-styles-link';
       link.rel = 'stylesheet';
-      link.href = 'reader/reader.css?v=1.5';
+      link.href = 'reader/reader.css?v=1.7';
       document.head.appendChild(link);
     }
     return true;
