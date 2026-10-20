@@ -174,3 +174,7 @@ ADD COLUMN IF NOT EXISTS planner_top_list JSONB DEFAULT '[]'::jsonb,
 ADD COLUMN IF NOT EXISTS planner_bottom_list JSONB DEFAULT '[]'::jsonb,
 ADD COLUMN IF NOT EXISTS raw_report TEXT DEFAULT '';
 
+-- 일일 지표 페스타드레스 주말 발주 세부 데이터 컬럼 추가
+ALTER TABLE daily_metrics 
+ADD COLUMN IF NOT EXISTS festa_orders_data JSONB DEFAULT '{}'::jsonb;
+

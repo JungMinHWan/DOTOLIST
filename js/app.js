@@ -499,6 +499,23 @@ document.addEventListener('DOMContentLoaded', async function() {
     });
   }
   
+  // 페스타드레스 발주 폼 이벤트 바인딩
+  const btnFillFestaSample = document.getElementById('btnFillFestaSample');
+  if (btnFillFestaSample) {
+    btnFillFestaSample.onclick = () => {
+      fillFestaSampleData();
+    };
+  }
+
+  const festaGroup = document.getElementById('festaDressGroup');
+  if (festaGroup) {
+    festaGroup.addEventListener('input', (e) => {
+      if (e.target.classList.contains('festa-calc-sat') || e.target.classList.contains('festa-calc-sun') || e.target.classList.contains('festa-comp-name')) {
+        updateFestaTotals();
+      }
+    });
+  }
+  
   // 기존 상태 복원
   if (localStorage.getItem('metricsCollapsed') === 'true') {
     metricsBody.classList.add('collapsed');
@@ -1292,6 +1309,202 @@ function getPlannerListFromUI(containerId) {
   return result;
 }
 
+// 페스타드레스 주말 발주 폼 헬퍼 함수
+function updateFestaTotals() {
+  const calcRow = (satId, sunId, totalId) => {
+    const satEl = document.getElementById(satId);
+    const sunEl = document.getElementById(sunId);
+    const totalEl = document.getElementById(totalId);
+    if (!satEl || !sunEl || !totalEl) return;
+    const satVal = parseInt(satEl.value, 10);
+    const sunVal = parseInt(sunEl.value, 10);
+    if (isNaN(satVal) && isNaN(sunVal)) {
+      totalEl.value = '';
+    } else {
+      totalEl.value = (isNaN(satVal) ? 0 : satVal) + (isNaN(sunVal) ? 0 : sunVal);
+    }
+  };
+
+  calcRow('festaC1WaitSat', 'festaC1WaitSun', 'festaC1WaitTotal');
+  calcRow('saturdayFestaDressOrders1', 'sundayFestaDressOrders1', 'festaC1SendTotal');
+  calcRow('festaC1ApprSat', 'festaC1ApprSun', 'festaC1ApprTotal');
+  calcRow('festaC1CancelSat', 'festaC1CancelSun', 'festaC1CancelTotal');
+
+  calcRow('festaC2WaitSat', 'festaC2WaitSun', 'festaC2WaitTotal');
+  calcRow('saturdayFestaDressOrders2', 'sundayFestaDressOrders2', 'festaC2SendTotal');
+  calcRow('festaC2ApprSat', 'festaC2ApprSun', 'festaC2ApprTotal');
+  calcRow('festaC2CancelSat', 'festaC2CancelSun', 'festaC2CancelTotal');
+
+  const c1Name = document.getElementById('festaCompany1Name')?.value || '업체 1';
+  const c2Name = document.getElementById('festaCompany2Name')?.value || '업체 2';
+  const l1 = document.getElementById('compareC1Label');
+  const l2 = document.getElementById('compareC2Label');
+  if (l1) l1.textContent = c1Name;
+  if (l2) l2.textContent = c2Name;
+}
+
+function loadFestaData(m) {
+  const fd = m.festa_orders_data || {};
+  const c1 = fd.company1 || {};
+  const c2 = fd.company2 || {};
+  const cmp = fd.compare || {};
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = (val !== null && val !== undefined) ? val : '';
+  };
+
+  setVal('festaCompany1Name', c1.name || m.festa_company_1_name || '마틴드세븐');
+  setVal('festaC1WaitSat', c1.wait?.sat);
+  setVal('festaC1WaitSun', c1.wait?.sun);
+  setVal('festaC1WaitTotal', c1.wait?.total);
+  setVal('festaC1WaitNote', c1.wait?.note);
+
+  setVal('saturdayFestaDressOrders1', c1.send?.sat !== undefined ? c1.send.sat : m.festa_company_1_sat_orders);
+  setVal('sundayFestaDressOrders1', c1.send?.sun !== undefined ? c1.send.sun : m.festa_company_1_sun_orders);
+  setVal('festaC1SendTotal', c1.send?.total);
+  setVal('festaC1SendNote', c1.send?.note);
+
+  setVal('festaC1ApprSat', c1.appr?.sat);
+  setVal('festaC1ApprSun', c1.appr?.sun);
+  setVal('festaC1ApprTotal', c1.appr?.total);
+  setVal('festaC1ApprNote', c1.appr?.note);
+
+  setVal('festaC1CancelSat', c1.cancel?.sat);
+  setVal('festaC1CancelSun', c1.cancel?.sun);
+  setVal('festaC1CancelTotal', c1.cancel?.total);
+  setVal('festaC1CancelNote', c1.cancel?.note);
+
+  setVal('festaCompany2Name', c2.name || m.festa_company_2_name || '펠리스노비아');
+  setVal('festaC2WaitSat', c2.wait?.sat);
+  setVal('festaC2WaitSun', c2.wait?.sun);
+  setVal('festaC2WaitTotal', c2.wait?.total);
+  setVal('festaC2WaitNote', c2.wait?.note);
+
+  setVal('saturdayFestaDressOrders2', c2.send?.sat !== undefined ? c2.send.sat : m.festa_company_2_sat_orders);
+  setVal('sundayFestaDressOrders2', c2.send?.sun !== undefined ? c2.send.sun : m.festa_company_2_sun_orders);
+  setVal('festaC2SendTotal', c2.send?.total);
+  setVal('festaC2SendNote', c2.send?.note);
+
+  setVal('festaC2ApprSat', c2.appr?.sat);
+  setVal('festaC2ApprSun', c2.appr?.sun);
+  setVal('festaC2ApprTotal', c2.appr?.total);
+  setVal('festaC2ApprNote', c2.appr?.note);
+
+  setVal('festaC2CancelSat', c2.cancel?.sat);
+  setVal('festaC2CancelSun', c2.cancel?.sun);
+  setVal('festaC2CancelTotal', c2.cancel?.total);
+  setVal('festaC2CancelNote', c2.cancel?.note);
+
+  // 비교 지표
+  setVal('festaCompareConsult1', cmp.consult?.c1);
+  setVal('festaCompareConsult2', cmp.consult?.c2);
+  setVal('festaCompareNewOrders1', cmp.new_orders?.c1);
+  setVal('festaCompareNewOrders2', cmp.new_orders?.c2);
+  setVal('festaCompareSent1', cmp.sent_rate?.c1);
+  setVal('festaCompareSent2', cmp.sent_rate?.c2);
+  setVal('festaComparePending1', cmp.pending_appr?.c1);
+  setVal('festaComparePending2', cmp.pending_appr?.c2);
+  setVal('festaCompareWait1', cmp.accum_wait?.c1);
+  setVal('festaCompareWait2', cmp.accum_wait?.c2);
+
+  updateFestaTotals();
+}
+
+function getFestaDataToSave() {
+  const getNum = (id) => {
+    const v = document.getElementById(id)?.value?.trim();
+    return v !== '' && v !== undefined && !isNaN(parseInt(v, 10)) ? parseInt(v, 10) : null;
+  };
+  const getStr = (id) => document.getElementById(id)?.value?.trim() || '';
+
+  return {
+    company1: {
+      name: getStr('festaCompany1Name'),
+      wait: { sat: getNum('festaC1WaitSat'), sun: getNum('festaC1WaitSun'), total: getNum('festaC1WaitTotal'), note: getStr('festaC1WaitNote') },
+      send: { sat: getNum('saturdayFestaDressOrders1'), sun: getNum('sundayFestaDressOrders1'), total: getNum('festaC1SendTotal'), note: getStr('festaC1SendNote') },
+      appr: { sat: getNum('festaC1ApprSat'), sun: getNum('festaC1ApprSun'), total: getNum('festaC1ApprTotal'), note: getStr('festaC1ApprNote') },
+      cancel: { sat: getNum('festaC1CancelSat'), sun: getNum('festaC1CancelSun'), total: getNum('festaC1CancelTotal'), note: getStr('festaC1CancelNote') }
+    },
+    company2: {
+      name: getStr('festaCompany2Name'),
+      wait: { sat: getNum('festaC2WaitSat'), sun: getNum('festaC2WaitSun'), total: getNum('festaC2WaitTotal'), note: getStr('festaC2WaitNote') },
+      send: { sat: getNum('saturdayFestaDressOrders2'), sun: getNum('sundayFestaDressOrders2'), total: getNum('festaC2SendTotal'), note: getStr('festaC2SendNote') },
+      appr: { sat: getNum('festaC2ApprSat'), sun: getNum('festaC2ApprSun'), total: getNum('festaC2ApprTotal'), note: getStr('festaC2ApprNote') },
+      cancel: { sat: getNum('festaC2CancelSat'), sun: getNum('festaC2CancelSun'), total: getNum('festaC2CancelTotal'), note: getStr('festaC2CancelNote') }
+    },
+    compare: {
+      consult: { c1: getStr('festaCompareConsult1'), c2: getStr('festaCompareConsult2') },
+      new_orders: { c1: getStr('festaCompareNewOrders1'), c2: getStr('festaCompareNewOrders2') },
+      sent_rate: { c1: getStr('festaCompareSent1'), c2: getStr('festaCompareSent2') },
+      pending_appr: { c1: getStr('festaComparePending1'), c2: getStr('festaComparePending2') },
+      accum_wait: { c1: getStr('festaCompareWait1'), c2: getStr('festaCompareWait2') }
+    }
+  };
+}
+
+function fillFestaSampleData() {
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  };
+
+  setVal('festaCompany1Name', '마틴드세븐');
+  setVal('festaC1WaitSat', 21);
+  setVal('festaC1WaitSun', 13);
+  setVal('festaC1WaitTotal', 34);
+  setVal('festaC1WaitNote', '전부 미발송');
+
+  setVal('saturdayFestaDressOrders1', 6);
+  setVal('sundayFestaDressOrders1', 6);
+  setVal('festaC1SendTotal', 12);
+  setVal('festaC1SendNote', '모두 승인 대기');
+
+  setVal('festaC1ApprSat', 0);
+  setVal('festaC1ApprSun', 0);
+  setVal('festaC1ApprTotal', 0);
+  setVal('festaC1ApprNote', '');
+
+  setVal('festaC1CancelSat', 53);
+  setVal('festaC1CancelSun', 32);
+  setVal('festaC1CancelTotal', 85);
+  setVal('festaC1CancelNote', '계약 수정 때 재생성되며 생긴 건');
+
+  setVal('festaCompany2Name', '펠리스노비아');
+  setVal('festaC2WaitSat', 12);
+  setVal('festaC2WaitSun', 8);
+  setVal('festaC2WaitTotal', 20);
+  setVal('festaC2WaitNote', '전부 미발송');
+
+  setVal('saturdayFestaDressOrders2', 0);
+  setVal('sundayFestaDressOrders2', 1);
+  setVal('festaC2SendTotal', 1);
+  setVal('festaC2SendNote', 'SC1000049602, 10/18 19:08 발송 (본식 1회, 시그니처라벨 무료 업그레이드 88만원 상당)');
+
+  setVal('festaC2ApprSat', 0);
+  setVal('festaC2ApprSun', 0);
+  setVal('festaC2ApprTotal', 0);
+  setVal('festaC2ApprNote', '');
+
+  setVal('festaC2CancelSat', 28);
+  setVal('festaC2CancelSun', 11);
+  setVal('festaC2CancelTotal', 39);
+  setVal('festaC2CancelNote', '계약 18건에서 발생');
+
+  setVal('festaCompareConsult1', '95건');
+  setVal('festaCompareConsult2', '71건');
+  setVal('festaCompareNewOrders1', '46건');
+  setVal('festaCompareNewOrders2', '21건');
+  setVal('festaCompareSent1', '12건 (26%)');
+  setVal('festaCompareSent2', '1건 (5%)');
+  setVal('festaComparePending1', '13건 (가장 오래된 건 10/08 발송)');
+  setVal('festaComparePending2', '2건 (가장 오래된 건 10/14 발송)');
+  setVal('festaCompareWait1', '83건 (2025-08부터)');
+  setVal('festaCompareWait2', '41건 (2025-08부터)');
+
+  updateFestaTotals();
+}
+
 async function refreshAllData() {
   console.log('refreshAllData called');
   document.getElementById('metricsDate').textContent = formatDateKorean(currentMetricsDate);
@@ -1389,12 +1602,7 @@ async function refreshAllData() {
     }
     document.getElementById('sundayHonsooText').value = sunHonsoo;
 
-    document.getElementById('festaCompany1Name').value = m.festa_company_1_name || '';
-    document.getElementById('saturdayFestaDressOrders1').value = m.festa_company_1_sat_orders !== null && m.festa_company_1_sat_orders !== undefined ? m.festa_company_1_sat_orders : '';
-    document.getElementById('sundayFestaDressOrders1').value = m.festa_company_1_sun_orders !== null && m.festa_company_1_sun_orders !== undefined ? m.festa_company_1_sun_orders : '';
-    document.getElementById('festaCompany2Name').value = m.festa_company_2_name || '';
-    document.getElementById('saturdayFestaDressOrders2').value = m.festa_company_2_sat_orders !== null && m.festa_company_2_sat_orders !== undefined ? m.festa_company_2_sat_orders : '';
-    document.getElementById('sundayFestaDressOrders2').value = m.festa_company_2_sun_orders !== null && m.festa_company_2_sun_orders !== undefined ? m.festa_company_2_sun_orders : '';
+    loadFestaData(m);
 
     // 히든 처리된 기존 엘리먼트 초기화 (에러 방지)
     document.getElementById('saturdayContractsCount').value = m.saturday_contracts_count !== null && m.saturday_contracts_count !== undefined ? m.saturday_contracts_count : '';
@@ -1902,6 +2110,7 @@ async function saveMetrics() {
     festa_company_2_name: document.getElementById('festaCompany2Name').value,
     festa_company_2_sat_orders: document.getElementById('saturdayFestaDressOrders2').value,
     festa_company_2_sun_orders: document.getElementById('sundayFestaDressOrders2').value,
+    festa_orders_data: getFestaDataToSave(),
     
     sat_wedding_visit_reservation: document.getElementById('satWeddingVisitReservation').value,
     sat_wedding_actual_visit: document.getElementById('satWeddingActualVisit').value,

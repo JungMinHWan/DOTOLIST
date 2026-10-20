@@ -428,7 +428,163 @@ body {
   border-radius: 4px;
 }
 
+/* 페스타드레스 주말 발주 폼 세부 스타일 */
+.btn-fill-festa-sample {
+  background: white;
+  border: 1px solid var(--border-color);
+  color: var(--theme-primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-fill-festa-sample:hover {
+  background: var(--theme-light-bg);
+  border-color: var(--theme-primary);
+}
+.festa-tables-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.festa-company-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+.festa-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.festa-comp-name {
+  font-weight: 800 !important;
+  color: var(--theme-primary-dark) !important;
+  font-size: 13px !important;
+  max-width: 220px;
+}
+.festa-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: var(--theme-light-bg);
+  color: var(--theme-primary);
+  border-radius: 4px;
+}
+.festa-table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-x: auto;
+}
+.festa-table-header {
+  display: grid;
+  grid-template-columns: 125px 70px 70px 70px 1fr;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  text-align: center;
+}
+.festa-table-row {
+  display: grid;
+  grid-template-columns: 125px 70px 70px 70px 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.festa-table-row .row-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  text-align: center;
+}
+.festa-table-row .row-label.highlight-label {
+  color: var(--theme-primary-dark);
+  border-color: var(--theme-primary);
+  background: var(--theme-light-bg);
+}
+.festa-table-row input {
+  padding: 5px 6px;
+  font-size: 12px;
+}
+.festa-table-row input[readonly] {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: default;
+}
+.festa-compare-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+}
+.festa-compare-header {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--theme-primary-dark);
+  margin-bottom: 8px;
+}
+.festa-compare-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.compare-header-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  background: #f1f5f9;
+  border-radius: 4px;
+  text-align: center;
+}
+.compare-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr;
+  gap: 6px;
+  align-items: center;
+}
+.compare-row .row-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+}
+.compare-row input {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
 /* 모바일 대응 미디어 쿼리 */
+@media (max-width: 650px) {
+  .festa-table-header, .festa-table-row {
+    grid-template-columns: 100px 55px 55px 55px 1fr;
+    font-size: 10px;
+    gap: 4px;
+  }
+  .compare-header-row, .compare-row {
+    grid-template-columns: 140px 1fr 1fr;
+    font-size: 10px;
+  }
+}
 @media (max-width: 480px) {
   .group-row {
     flex-direction: column;

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/style.css?v=6.1">
+  <link rel="stylesheet" href="./css/style.css?v=6.2">
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
@@ -395,22 +395,153 @@
 
         <!-- 페스타드레스 발주 건수 주말 그룹 (월요일 전용) -->
         <div class="metrics-group monday-only hidden" id="festaDressGroup">
-          <div class="group-title">👗 페스타드레스 주말 발주 (2개 업체)</div>
-          <div class="group-row">
-            <div class="group-col">
-              <div class="col-title">업체 1</div>
-              <div class="metric-item"><label class="metric-label">업체명</label><input type="text" class="metric-input" id="festaCompany1Name" placeholder="업체명 1"></div>
-              <div class="metric-item"><label class="metric-label">토요일 발주</label><input type="number" class="metric-input" id="saturdayFestaDressOrders1" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">일요일 발주</label><input type="number" class="metric-input" id="sundayFestaDressOrders1" placeholder="0"></div>
+          <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>👗 페스타드레스 주말 발주 현황</span>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button type="button" class="btn-fill-festa-sample" id="btnFillFestaSample" title="10/17~18 현황 데이터 자동 채우기">📥 10/17~18 데이터 채우기</button>
             </div>
-            <div class="group-col">
-              <div class="col-title">업체 2</div>
-              <div class="metric-item"><label class="metric-label">업체명</label><input type="text" class="metric-input" id="festaCompany2Name" placeholder="업체명 2"></div>
-              <div class="metric-item"><label class="metric-label">토요일 발주</label><input type="number" class="metric-input" id="saturdayFestaDressOrders2" placeholder="0"></div>
-              <div class="metric-item"><label class="metric-label">일요일 발주</label><input type="number" class="metric-input" id="sundayFestaDressOrders2" placeholder="0"></div>
+          </div>
+
+          <div class="festa-tables-wrapper">
+            <!-- 업체 1 카드 -->
+            <div class="festa-company-card">
+              <div class="festa-card-header">
+                <span class="festa-card-badge">업체 1</span>
+                <input type="text" class="metric-input festa-comp-name" id="festaCompany1Name" placeholder="업체명 (예: 마틴드세븐)" value="마틴드세븐">
+              </div>
+              <div class="festa-table-container">
+                <div class="festa-table-header">
+                  <span>구분</span>
+                  <span>토요일</span>
+                  <span>일요일</span>
+                  <span>합계</span>
+                  <span>비고</span>
+                </div>
+                <!-- 발주대기 (신규) -->
+                <div class="festa-table-row">
+                  <span class="row-label">발주대기 (신규)</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC1WaitSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC1WaitSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC1WaitTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC1WaitNote" placeholder="비고 (예: 전부 미발송)">
+                </div>
+                <!-- 발주 (업체 발송) -->
+                <div class="festa-table-row">
+                  <span class="row-label highlight-label">발주 (업체 발송)</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="saturdayFestaDressOrders1" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="sundayFestaDressOrders1" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC1SendTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC1SendNote" placeholder="비고 (예: 모두 승인 대기)">
+                </div>
+                <!-- 승인 -->
+                <div class="festa-table-row">
+                  <span class="row-label">승인</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC1ApprSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC1ApprSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC1ApprTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC1ApprNote" placeholder="비고">
+                </div>
+                <!-- 발주전 취소 -->
+                <div class="festa-table-row">
+                  <span class="row-label text-muted">발주전 취소</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC1CancelSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC1CancelSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC1CancelTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC1CancelNote" placeholder="비고 (예: 계약 수정 재생성)">
+                </div>
+              </div>
+            </div>
+
+            <!-- 업체 2 카드 -->
+            <div class="festa-company-card">
+              <div class="festa-card-header">
+                <span class="festa-card-badge">업체 2</span>
+                <input type="text" class="metric-input festa-comp-name" id="festaCompany2Name" placeholder="업체명 (예: 펠리스노비아)" value="펠리스노비아">
+              </div>
+              <div class="festa-table-container">
+                <div class="festa-table-header">
+                  <span>구분</span>
+                  <span>토요일</span>
+                  <span>일요일</span>
+                  <span>합계</span>
+                  <span>비고</span>
+                </div>
+                <!-- 발주대기 (신규) -->
+                <div class="festa-table-row">
+                  <span class="row-label">발주대기 (신규)</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC2WaitSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC2WaitSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC2WaitTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC2WaitNote" placeholder="비고 (예: 전부 미발송)">
+                </div>
+                <!-- 발주 (업체 발송) -->
+                <div class="festa-table-row">
+                  <span class="row-label highlight-label">발주 (업체 발송)</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="saturdayFestaDressOrders2" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="sundayFestaDressOrders2" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC2SendTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC2SendNote" placeholder="비고 (예: SC번호, 업그레이드 등)">
+                </div>
+                <!-- 승인 -->
+                <div class="festa-table-row">
+                  <span class="row-label">승인</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC2ApprSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC2ApprSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC2ApprTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC2ApprNote" placeholder="비고">
+                </div>
+                <!-- 발주전 취소 -->
+                <div class="festa-table-row">
+                  <span class="row-label text-muted">발주전 취소</span>
+                  <input type="number" class="metric-input festa-calc-sat" id="festaC2CancelSat" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-sun" id="festaC2CancelSun" placeholder="0">
+                  <input type="number" class="metric-input festa-calc-total" id="festaC2CancelTotal" placeholder="0" readonly>
+                  <input type="text" class="metric-input" id="festaC2CancelNote" placeholder="비고 (예: 계약 18건 발생 등)">
+                </div>
+              </div>
+            </div>
+
+            <!-- 두 업체 비교 (드레스투어 → 발주) 카드 -->
+            <div class="festa-compare-card">
+              <div class="festa-compare-header">
+                📊 두 업체 비교 (드레스투어 → 발주)
+              </div>
+              <div class="festa-compare-table">
+                <div class="compare-header-row">
+                  <span class="col-item">지표 항목</span>
+                  <span class="col-comp1" id="compareC1Label">마틴드세븐</span>
+                  <span class="col-comp2" id="compareC2Label">펠리스노비아</span>
+                </div>
+                <div class="compare-row">
+                  <span class="row-label">드레스투어 상담 (대기취소 제외)</span>
+                  <input type="text" class="metric-input" id="festaCompareConsult1" placeholder="예: 95건">
+                  <input type="text" class="metric-input" id="festaCompareConsult2" placeholder="예: 71건">
+                </div>
+                <div class="compare-row">
+                  <span class="row-label">주말 신규 발주 (대기+발송)</span>
+                  <input type="text" class="metric-input" id="festaCompareNewOrders1" placeholder="예: 46건">
+                  <input type="text" class="metric-input" id="festaCompareNewOrders2" placeholder="예: 21건">
+                </div>
+                <div class="compare-row">
+                  <span class="row-label">그중 업체 발송 완료</span>
+                  <input type="text" class="metric-input" id="festaCompareSent1" placeholder="예: 12건 (26%)">
+                  <input type="text" class="metric-input" id="festaCompareSent2" placeholder="예: 1건 (5%)">
+                </div>
+                <div class="compare-row">
+                  <span class="row-label">누적 승인 대기</span>
+                  <input type="text" class="metric-input" id="festaComparePending1" placeholder="예: 13건 (가장 오래된 건 10/08 발송)">
+                  <input type="text" class="metric-input" id="festaComparePending2" placeholder="예: 2건 (가장 오래된 건 10/14 발송)">
+                </div>
+                <div class="compare-row">
+                  <span class="row-label">누적 발주대기</span>
+                  <input type="text" class="metric-input" id="festaCompareWait1" placeholder="예: 83건 (2025-08부터)">
+                  <input type="text" class="metric-input" id="festaCompareWait2" placeholder="예: 41건 (2025-08부터)">
+                </div>
+              </div>
             </div>
           </div>
         </div>
+
 
         <!-- 주말 혼수예약 상세 그룹 (월요일 전용) -->
         <div class="metrics-group monday-only hidden" id="weddingReservationGroup">
@@ -1528,9 +1659,9 @@
     </div>
   </div>
 
-  <script src="./js/supabase.js?v=6.1"></script>
+  <script src="./js/supabase.js?v=6.2"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
-  <script src="./js/app.js?v=6.1"></script>
+  <script src="./js/app.js?v=6.2"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>

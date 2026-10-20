@@ -200,6 +200,7 @@ const api = {
         sunday_note: '',
         planner_top_list: [],
         planner_bottom_list: [],
+        festa_orders_data: null,
         raw_report: ''
       };
     } catch (e) {
@@ -253,6 +254,7 @@ const api = {
         sunday_note: '',
         planner_top_list: [],
         planner_bottom_list: [],
+        festa_orders_data: null,
         raw_report: ''
       };
     }
@@ -312,6 +314,7 @@ const api = {
           sunday_note: val.sunday_note || '',
           planner_top_list: Array.isArray(val.planner_top_list) ? val.planner_top_list : [],
           planner_bottom_list: Array.isArray(val.planner_bottom_list) ? val.planner_bottom_list : [],
+          festa_orders_data: val.festa_orders_data || {},
           raw_report: val.raw_report || '',
           updated_at: new Date().toISOString()
         });
