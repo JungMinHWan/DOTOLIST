@@ -728,6 +728,7 @@ const api = {
       const { data, error } = await supabaseClient
         .from('books')
         .select()
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -740,14 +741,51 @@ const api = {
 
   async addBook(title) {
     try {
+      // 가장 상단에 위치하도록 min sort_order 구하기
+      const { data: minData } = await supabaseClient
+        .from('books')
+        .select('sort_order')
+        .order('sort_order', { ascending: true })
+        .limit(1);
+
+      let nextOrder = 1;
+      if (minData && minData.length > 0 && minData[0].sort_order !== null && minData[0].sort_order !== undefined) {
+        nextOrder = minData[0].sort_order - 1;
+      }
+
       const { data, error } = await supabaseClient
         .from('books')
-        .insert({ title: title, status: '읽는 중', notes: '' })
+        .insert({ title: title, status: '읽는 중', notes: '', sort_order: nextOrder })
         .select()
         .single();
 
       if (error) throw error;
       return { success: true, data };
+    } catch (e) {
+      console.error(e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateBookOrder(bookIds) {
+    try {
+      if (!bookIds || bookIds.length === 0) return { success: true };
+
+      const promises = bookIds.map((id, index) => 
+        supabaseClient
+          .from('books')
+          .update({
+            sort_order: index + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('book_id', id)
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
+
+      return { success: true };
     } catch (e) {
       console.error(e);
       return { success: false, error: e.message };

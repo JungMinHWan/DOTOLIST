@@ -700,10 +700,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   let bookNotesSaveTimeout = null;
   bookNotesArea.oninput = function() {
     if (!selectedBook) return;
-    const statusEl = document.getElementById('bookNotesSaveStatus');
-    statusEl.innerText = '입력 중...';
-    statusEl.style.color = 'var(--text-muted)';
-    statusEl.style.fontWeight = '700';
+    updateBookSaveIndicator('saving');
 
     clearTimeout(bookNotesSaveTimeout);
     bookNotesSaveTimeout = setTimeout(() => {
@@ -2489,6 +2486,86 @@ function closeBookShelfModal() {
   checkAndUnlockBodyScroll();
 }
 
+let bookSaveStatusTimer = null;
+function updateBookSaveIndicator(state) {
+  const container = document.getElementById('bookNotesSaveStatus');
+  if (!container) return;
+
+  if (bookSaveStatusTimer) {
+    clearTimeout(bookSaveStatusTimer);
+    bookSaveStatusTimer = null;
+  }
+
+  // 내부 점 요소가 없으면 생성
+  if (!container.querySelector('.save-status-dot')) {
+    container.innerHTML = '<span class="save-status-dot"></span>';
+  }
+
+  container.className = `save-status-dot-container ${state}`;
+  if (state === 'saving') {
+    container.setAttribute('title', '실시간 저장 중...');
+  } else if (state === 'saved') {
+    container.setAttribute('title', '실시간 저장 완료');
+    bookSaveStatusTimer = setTimeout(() => {
+      container.className = 'save-status-dot-container idle';
+      container.setAttribute('title', '');
+    }, 2500);
+  } else if (state === 'error') {
+    container.setAttribute('title', '저장 실패');
+  } else {
+    container.className = 'save-status-dot-container idle';
+    container.setAttribute('title', '');
+  }
+}
+
+async function moveBookOrder(bookId, direction, event) {
+  if (event) {
+    event.stopPropagation();
+    event.preventDefault();
+  }
+
+  // 현재 필터된 목록 기준으로 순서 변경 대상 찾기
+  let filteredBooks = currentBooks;
+  if (currentBookFilter !== 'all') {
+    filteredBooks = currentBooks.filter(b => b.status === currentBookFilter);
+  }
+
+  const currentIdx = filteredBooks.findIndex(b => b.book_id === bookId);
+  if (currentIdx === -1) return;
+
+  const targetIdx = currentIdx + direction;
+  if (targetIdx < 0 || targetIdx >= filteredBooks.length) return;
+
+  const targetBook = filteredBooks[targetIdx];
+
+  // 전체 currentBooks 배열에서 두 책의 실제 인덱스 찾기
+  const globalIdxA = currentBooks.findIndex(b => b.book_id === bookId);
+  const globalIdxB = currentBooks.findIndex(b => b.book_id === targetBook.book_id);
+
+  if (globalIdxA === -1 || globalIdxB === -1) return;
+
+  // 순서 스왑
+  const temp = currentBooks[globalIdxA];
+  currentBooks[globalIdxA] = currentBooks[globalIdxB];
+  currentBooks[globalIdxB] = temp;
+
+  // sort_order 갱신
+  currentBooks.forEach((b, i) => {
+    b.sort_order = i + 1;
+  });
+
+  // UI 즉각 업데이트
+  renderBookList();
+
+  // Supabase에 순서 비동기 저장
+  try {
+    const bookIds = currentBooks.map(b => b.book_id);
+    await api.updateBookOrder(bookIds);
+  } catch (err) {
+    console.error('책 순서 DB 저장 오류:', err);
+  }
+}
+
 function renderBookList() {
   const listEl = document.getElementById('bookList');
   listEl.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
@@ -2503,12 +2580,34 @@ function renderBookList() {
     return;
   }
   
-  listEl.innerHTML = filteredBooks.map(b => {
+  listEl.innerHTML = filteredBooks.map((b, idx) => {
     const statusClass = b.status === '읽는 중' ? '읽는_중' : b.status;
+    const isFirst = idx === 0;
+    const isLast = idx === filteredBooks.length - 1;
     return `
       <div class="book-item" onclick="openBookNotesModal('${b.book_id}')">
-        <div class="book-item-title">${escapeHtml(b.title)}</div>
-        <span class="book-item-status ${statusClass}">${b.status}</span>
+        <div class="book-item-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+        <div class="book-item-right">
+          <span class="book-item-status ${statusClass}">${b.status}</span>
+          <div class="book-reorder-group" onclick="event.stopPropagation()">
+            <button type="button" class="book-order-btn ${isFirst ? 'disabled' : ''}" 
+                    title="위로 이동" 
+                    ${isFirst ? 'disabled' : ''} 
+                    onclick="moveBookOrder('${b.book_id}', -1, event)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+            </button>
+            <button type="button" class="book-order-btn ${isLast ? 'disabled' : ''}" 
+                    title="아래로 이동" 
+                    ${isLast ? 'disabled' : ''} 
+                    onclick="moveBookOrder('${b.book_id}', 1, event)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
@@ -2564,8 +2663,8 @@ function openBookNotesModal(bookId) {
   const textarea = document.getElementById('bookNotesTextarea');
   textarea.value = selectedBook.notes || '';
   
-  // 저장 마크 비우기
-  document.getElementById('bookNotesSaveStatus').innerText = '';
+  // 저장 인디케이터 초기화
+  updateBookSaveIndicator('idle');
 }
 
 function closeBookNotesModal() {
@@ -2607,24 +2706,13 @@ async function saveBookNotesRealtime() {
   const textarea = document.getElementById('bookNotesTextarea');
   const notes = textarea.value;
   
-  const statusEl = document.getElementById('bookNotesSaveStatus');
-  
   const res = await api.updateBookNotes(selectedBook.book_id, notes);
   if (res.success) {
     selectedBook.notes = notes;
-    statusEl.innerText = '실시간 저장 완료';
+    updateBookSaveIndicator('saved');
     triggerQuestUpdate('book_logged', true);
-    statusEl.style.color = '#10b981';
-    statusEl.style.fontWeight = '800';
-    setTimeout(() => {
-      if (statusEl.innerText === '실시간 저장 완료') {
-        statusEl.innerText = '';
-      }
-    }, 2000);
   } else {
-    statusEl.innerText = '저장 실패';
-    statusEl.style.color = '#ef4444';
-    statusEl.style.fontWeight = '800';
+    updateBookSaveIndicator('error');
   }
 }
 
@@ -2832,27 +2920,15 @@ async function saveBookTitleRealtime() {
   const newTitle = input.value.trim();
   if (!newTitle || newTitle === selectedBook.title) return;
   
-  const statusEl = document.getElementById('bookNotesSaveStatus');
-  statusEl.innerText = '제목 저장 중...';
-  statusEl.style.color = 'var(--text-muted)';
-  statusEl.style.fontWeight = '700';
+  updateBookSaveIndicator('saving');
   
   const res = await api.updateBookTitle(selectedBook.book_id, newTitle);
   if (res.success) {
     selectedBook.title = newTitle;
-    statusEl.innerText = '제목 저장 완료';
-    statusEl.style.color = '#10b981';
-    statusEl.style.fontWeight = '800';
+    updateBookSaveIndicator('saved');
     await loadBooks(); // 독서 기록 요약 및 목록 새로고침
-    setTimeout(() => {
-      if (statusEl.innerText === '제목 저장 완료') {
-        statusEl.innerText = '';
-      }
-    }, 2000);
   } else {
-    statusEl.innerText = '제목 저장 실패';
-    statusEl.style.color = '#ef4444';
-    statusEl.style.fontWeight = '800';
+    updateBookSaveIndicator('error');
     input.value = selectedBook.title; // 오류 발생 시 원래 제목으로 복구
   }
 }

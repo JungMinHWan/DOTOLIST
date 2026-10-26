@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/style.css?v=6.3">
+  <link rel="stylesheet" href="./css/style.css?v=6.4">
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
@@ -656,9 +656,9 @@
   <!-- Book Shelf Modal -->
   <div class="goal-modal-overlay" id="bookShelfModalOverlay">
     <div class="goal-modal book-shelf-modal">
-      <div class="goal-modal-header">
-        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main);">📚 나의 서재</div>
-        <button class="goal-modal-close" id="bookShelfModalClose">×</button>
+      <div class="goal-modal-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1;">📚 나의 서재</div>
+        <button class="goal-modal-close" id="bookShelfModalClose" title="닫기">×</button>
       </div>
       <div class="book-shelf-tabs">
         <button class="book-tab active" data-status="all">전체</button>
@@ -681,11 +681,11 @@
     <div class="goal-modal book-notes-modal">
       <div class="goal-modal-header" style="flex-direction: column; align-items: flex-start; gap: 6px; position: relative;">
         <div class="book-notes-header-top" style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
-          <div class="book-notes-title-container" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <div class="book-notes-title-container" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; padding-right: 36px;">
             <span class="book-notes-badge" id="bookNotesBadge">읽는 중</span>
             <input type="text" class="book-notes-title-input" id="bookNotesTitleInput" placeholder="책 제목을 입력하세요">
           </div>
-          <button class="goal-modal-close" id="bookNotesModalClose" style="position: absolute; right: 0; top: 0;">×</button>
+          <button class="goal-modal-close" id="bookNotesModalClose" style="position: absolute; right: 0; top: 0;" title="닫기">×</button>
         </div>
       </div>
       <div class="book-notes-status-row">
@@ -703,7 +703,9 @@
       <div class="book-notes-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; width: 100%;">
         <button class="book-notes-delete-btn" id="bookNotesDeleteBtn">기록 삭제</button>
         <div class="book-notes-footer-right" style="display: flex; align-items: center; gap: 8px;">
-          <span class="save-status" id="bookNotesSaveStatus" style="font-size: 12px; margin-right: 4px;"></span>
+          <div class="save-status-dot-container idle" id="bookNotesSaveStatus" title="저장 상태">
+            <span class="save-status-dot"></span>
+          </div>
           <button class="book-notes-close-btn" id="btnOpenLexiconInNotes" style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); color: #c4b5fd;">💡 지식 탐색</button>
           <button class="book-notes-close-btn" id="bookNotesConfirmBtn">완료</button>
         </div>
@@ -714,9 +716,9 @@
   <!-- Manual Shelf Modal -->
   <div class="goal-modal-overlay" id="manualShelfModalOverlay">
     <div class="goal-modal book-shelf-modal">
-      <div class="goal-modal-header">
-        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main);">📋 업무 매뉴얼</div>
-        <button class="goal-modal-close" id="manualShelfModalClose">×</button>
+      <div class="goal-modal-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1;">📋 업무 매뉴얼</div>
+        <button class="goal-modal-close" id="manualShelfModalClose" title="닫기">×</button>
       </div>
       <div class="book-shelf-tabs">
         <button class="manual-tab active" data-status="all">전체</button>
@@ -1679,9 +1681,9 @@
     </div>
   </div>
 
-  <script src="./js/supabase.js?v=6.2"></script>
+  <script src="./js/supabase.js?v=6.3"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
-  <script src="./js/app.js?v=6.3"></script>
+  <script src="./js/app.js?v=6.4"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
