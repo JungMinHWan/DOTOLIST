@@ -57,6 +57,82 @@ function formatDateString(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
+// IP 변경 또는 최초 접근 시 표시되는 4자리 비밀번호 모달 (**** 마스킹 지원)
+function promptAccessPasswordModal(expectedPassword) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('accessAuthModalOverlay');
+    const input = document.getElementById('accessAuthPasswordInput');
+    const submitBtn = document.getElementById('accessAuthSubmitBtn');
+    const toggleBtn = document.getElementById('accessAuthTogglePwBtn');
+    const errorEl = document.getElementById('accessAuthError');
+
+    // 모달 DOM이 없을 경우의 안전한 폴백
+    if (!modal || !input) {
+      let fallback = prompt('접근 권한이 필요합니다. 4자리 비밀번호를 입력하세요:');
+      resolve(fallback);
+      return;
+    }
+
+    input.value = '';
+    input.type = 'password';
+    if (toggleBtn) toggleBtn.innerText = '👁️';
+    errorEl.classList.add('hidden');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(() => {
+      input.focus();
+    }, 100);
+
+    // 비밀번호 보기/숨기기 토글
+    if (toggleBtn) {
+      toggleBtn.onclick = () => {
+        if (input.type === 'password') {
+          input.type = 'text';
+          toggleBtn.innerText = '🔒';
+        } else {
+          input.type = 'password';
+          toggleBtn.innerText = '👁️';
+        }
+        input.focus();
+      };
+    }
+
+    const handleSubmit = () => {
+      const val = input.value.trim();
+      if (!val) {
+        errorEl.innerText = '비밀번호를 입력해 주세요.';
+        errorEl.classList.remove('hidden');
+        input.focus();
+        return;
+      }
+
+      if (val === expectedPassword) {
+        errorEl.classList.add('hidden');
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+        resolve(val);
+      } else {
+        errorEl.innerText = '비밀번호가 올바르지 않습니다. 다시 입력해주세요.';
+        errorEl.classList.remove('hidden');
+        input.classList.remove('vault-shake');
+        void input.offsetWidth; // reflow
+        input.classList.add('vault-shake');
+        input.value = '';
+        input.focus();
+      }
+    };
+
+    submitBtn.onclick = handleSubmit;
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmit();
+      }
+    };
+  });
+}
+
 async function verifyAccess() {
   const PASSWORD = '4806';
   
@@ -89,7 +165,7 @@ async function verifyAccess() {
   
   // IP가 바뀌었거나, 디바이스 ID가 없거나, 세션이 유효하지 않은 경우에만 4자리 비밀번호 확인
   if (storedIp !== currentIp || !storedDevice || !hasValidSession) {
-    let input = prompt('접근 권한이 필요합니다. 4자리 비밀번호를 입력하세요:');
+    const input = await promptAccessPasswordModal(PASSWORD);
     if (input === PASSWORD) {
       try {
         // 1. 공용 계정으로 로그인 시도
@@ -2893,74 +2969,223 @@ async function switchVaultTab(tab) {
   }
 }
 
-// 실시간 목록 렌더링
+// 금고 데이터 항목(블록) 파서 (줄바꿈 지원)
+function parseVaultEntries(rawText) {
+  if (!rawText || !rawText.trim()) return [];
+
+  // 줄바꿈 통일 (\r\n -> \n)
+  const normalized = rawText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // 1. 빈 줄(공백 포함 2연속 엔터 이상)이 있는지 확인
+  const hasEmptyLines = /\n\s*\n/.test(normalized);
+
+  let rawBlocks = [];
+  if (hasEmptyLines) {
+    // 빈 줄 기준으로 블록 분리
+    rawBlocks = normalized.split(/\n\s*\n+/);
+  } else {
+    // 빈 줄이 전혀 없는 경우:
+    const lines = normalized.split('\n');
+    const headerRegex = /^(\[.+\]|【.+】|#+\s+|[0-9]+[\.\)]\s+)/;
+    const hasHeaders = lines.some(l => headerRegex.test(l.trim()));
+
+    if (hasHeaders) {
+      let cur = [];
+      for (const line of lines) {
+        const tr = line.trim();
+        if (headerRegex.test(tr) && cur.length > 0) {
+          rawBlocks.push(cur.join('\n'));
+          cur = [line];
+        } else if (tr.startsWith('---') || tr.startsWith('===')) {
+          if (cur.length > 0) rawBlocks.push(cur.join('\n'));
+          cur = [];
+        } else {
+          cur.push(line);
+        }
+      }
+      if (cur.length > 0) rawBlocks.push(cur.join('\n'));
+    } else {
+      // 빈 줄도 없고 헤더 패턴도 없는 경우:
+      // 서비스명과 그에 딸린 비밀번호/아이디 등을 스마트하게 묶어줌
+      let cur = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const tr = line.trim();
+        if (!tr) continue;
+
+        // 서브라인(비밀번호, 아이디, URL, 키 등) 여부 판별
+        const isSubLine = /(:|@|\/|pw|id|비번|비밀번호|패스워드|pin|key|토큰|token|http)/i.test(tr) ||
+                          /^[a-zA-Z0-9!@#$%^&*()_+=\-{}[\]:;"'<>,.?/~`]{6,}$/.test(tr);
+
+        if (cur.length > 0 && !isSubLine) {
+          rawBlocks.push(cur.join('\n'));
+          cur = [line];
+        } else {
+          cur.push(line);
+        }
+      }
+      if (cur.length > 0) rawBlocks.push(cur.join('\n'));
+    }
+  }
+
+  const entries = [];
+  rawBlocks.forEach((bText, idx) => {
+    const trimmed = bText.trim();
+    if (!trimmed) return;
+
+    const blockLines = trimmed.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    if (blockLines.length === 0) return;
+
+    entries.push({
+      id: idx,
+      fullText: trimmed,
+      title: blockLines[0],
+      lines: blockLines
+    });
+  });
+
+  return entries;
+}
+
+// 검색어 하이라이트 헬퍼
+function highlightVaultSearch(text, query) {
+  if (!query || !query.trim()) return escapeHtml(text);
+  const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${q})`, 'gi');
+  return escapeHtml(text).replace(regex, '<mark class="vault-highlight">$1</mark>');
+}
+
+// 안전한 HTML 속성 이스케이프
+function escapeVaultAttr(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// 실시간 목록 렌더링 (줄바꿈이 있는 계정 정보도 완벽히 지원)
 async function renderVaultList(searchQuery) {
   const container = document.getElementById('vaultListContainer');
+  if (!container) return;
+
   const rawText = await loadVaultData();
   
   if (!rawText.trim()) {
     container.innerHTML = '<div class="vault-no-data">저장된 비밀번호 정보가 없습니다.<br>"메모장 편집" 탭에서 정보를 추가해 보세요!</div>';
     return;
   }
-  
-  const lines = rawText.split('\n').map(line => line.trim()).filter(line => line !== '');
-  const filtered = searchQuery.trim() 
-    ? lines.filter(line => line.toLowerCase().includes(searchQuery.toLowerCase()))
-    : lines;
+
+  const entries = parseVaultEntries(rawText);
+  const q = (searchQuery || '').trim().toLowerCase();
+
+  const filtered = q
+    ? entries.filter(e => e.fullText.toLowerCase().includes(q))
+    : entries;
     
   if (filtered.length === 0) {
-    container.innerHTML = `<div class="vault-no-data">'${searchQuery}' 검색 결과가 없습니다.</div>`;
+    container.innerHTML = `<div class="vault-no-data">'${escapeHtml(searchQuery)}' 검색 결과가 없습니다.</div>`;
     return;
   }
-  
-  container.innerHTML = filtered.map((line, index) => {
+
+  container.innerHTML = filtered.map(entry => {
+    const isMultiLine = entry.lines.length > 1;
+    const rawFull = entry.fullText;
+
+    if (!isMultiLine) {
+      const line = entry.lines[0];
+      return `
+        <div class="vault-card single-line">
+          <div class="vault-item-text">${highlightVaultSearch(line, searchQuery)}</div>
+          <button type="button" class="vault-btn-copy" data-copy="${escapeVaultAttr(line)}" title="복사">복사</button>
+        </div>
+      `;
+    }
+
+    const titleLine = entry.lines[0];
+    const subLines = entry.lines.slice(1);
+
+    const subLinesHtml = subLines.map(line => {
+      return `
+        <div class="vault-card-subline">
+          <span class="vault-subline-text">${highlightVaultSearch(line, searchQuery)}</span>
+          <button type="button" class="vault-btn-mini-copy" data-copy="${escapeVaultAttr(line)}" title="이 줄 복사">복사</button>
+        </div>
+      `;
+    }).join('');
+
     return `
-      <div class="vault-item">
-        <div class="vault-item-text">${escapeHtml(line)}</div>
-        <button class="vault-item-copy" onclick="copyVaultItem(this, \`${line.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">복사</button>
+      <div class="vault-card">
+        <div class="vault-card-header">
+          <div class="vault-card-title">${highlightVaultSearch(titleLine, searchQuery)}</div>
+          <button type="button" class="vault-btn-copy" data-copy="${escapeVaultAttr(rawFull)}" title="전체 내용 복사">전체 복사</button>
+        </div>
+        <div class="vault-card-sublines">
+          ${subLinesHtml}
+        </div>
       </div>
     `;
   }).join('');
 }
 
-// 클립보드 복사
-async function copyVaultItem(btn, text) {
+// 클립보드 복사 실행 함수
+async function handleVaultCopy(btn, text) {
   try {
-    await navigator.clipboard.writeText(text);
-    btn.innerText = '복사 완료!';
-    btn.classList.add('copied');
-    setTimeout(() => {
-      btn.innerText = '복사';
-      btn.classList.remove('copied');
-    }, 2000);
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      throw new Error('Clipboard API not available');
+    }
   } catch (err) {
-    console.error('Failed to copy text: ', err);
     // 폴백 브라우저 복사 시도
     const textarea = document.createElement('textarea');
     textarea.value = text;
     textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
     document.body.appendChild(textarea);
+    textarea.focus();
     textarea.select();
     try {
       document.execCommand('copy');
-      btn.innerText = '복사 완료!';
-      btn.classList.add('copied');
-      setTimeout(() => {
-        btn.innerText = '복사';
-        btn.classList.remove('copied');
-      }, 2000);
     } catch (e) {
       alert('복사에 실패했습니다. 직접 복사해 주세요.');
+      document.body.removeChild(textarea);
+      return;
     }
     document.body.removeChild(textarea);
   }
+
+  const originalText = btn.innerText;
+  btn.innerText = '복사 완료!';
+  btn.classList.add('copied');
+  setTimeout(() => {
+    btn.innerText = originalText;
+    btn.classList.remove('copied');
+  }, 1800);
 }
 
-// 온클릭 어트리뷰트 바인딩을 위한 전역 스코프 노출
-window.copyVaultItem = copyVaultItem;
+// 온클릭 어트리뷰트 바인딩 호환용 전역 스코프 노출
+window.copyVaultItem = function(btn, text) {
+  handleVaultCopy(btn, text);
+};
 
 // 이벤트 바인딩 셋업
 function setupVaultEvents() {
+  // 실시간 목록 복사 이벤트 위임 바인딩
+  const listContainer = document.getElementById('vaultListContainer');
+  if (listContainer && !listContainer.dataset.listenerBound) {
+    listContainer.dataset.listenerBound = 'true';
+    listContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-copy]');
+      if (btn) {
+        const text = btn.getAttribute('data-copy');
+        if (text !== null) {
+          handleVaultCopy(btn, text);
+        }
+      }
+    });
+  }
   // 인증 확인 클릭
   document.getElementById('vaultAuthSubmit').onclick = async () => {
     const input = document.getElementById('vaultPasswordInput').value;

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/style.css?v=6.2">
+  <link rel="stylesheet" href="./css/style.css?v=6.3">
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
@@ -806,6 +806,26 @@
     </div>
   </div>
 
+  <!-- Initial Access / IP Change Verification Modal -->
+  <div class="vault-modal-overlay hidden" id="accessAuthModalOverlay">
+    <div class="vault-modal" style="max-width: 380px;">
+      <div class="vault-modal-header" style="margin-bottom: 14px;">
+        <div class="vault-modal-title">🔐 접근 권한 인증</div>
+      </div>
+      <div class="vault-modal-body">
+        <p class="vault-hint" style="margin-bottom: 14px; line-height: 1.5;">접근 권한이 필요합니다.<br>4자리 보안 비밀번호를 입력해주세요.</p>
+        <div class="vault-auth-row">
+          <div style="position: relative; flex: 1;">
+            <input type="password" id="accessAuthPasswordInput" class="vault-input" placeholder="••••" maxlength="20" autocomplete="current-password" inputmode="numeric" style="letter-spacing: 4px; font-size: 1.15rem; padding-right: 38px;">
+            <button type="button" id="accessAuthTogglePwBtn" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #94a3b8; cursor: pointer; padding: 2px; font-size: 16px; line-height: 1;" title="비밀번호 보기/숨기기">👁️</button>
+          </div>
+          <button class="vault-btn" id="accessAuthSubmitBtn" style="min-width: 68px;">확인</button>
+        </div>
+        <div class="vault-auth-error hidden" id="accessAuthError" style="margin-top: 10px;">비밀번호가 올바르지 않습니다. 다시 입력해주세요.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Password Verification Modal -->
   <div class="vault-modal-overlay hidden" id="vaultAuthModal">
     <div class="vault-modal">
@@ -849,8 +869,8 @@
       
       <!-- 편집 모드 영역 -->
       <div class="vault-content-section hidden" id="vaultEditSection">
-        <p class="vault-hint" style="margin-bottom: 8px;">줄바꿈(Enter) 단위로 계정 정보를 자유롭게 입력하세요. (형식 자유)</p>
-        <textarea class="vault-textarea" id="vaultTextAreaInput" placeholder="[구글] test@yozm.co.kr / pw: yozm1234&#10;[노션] yozm_admin_key&#10;[슬랙] slack-token-value"></textarea>
+        <p class="vault-hint" style="margin-bottom: 8px; line-height: 1.5;">💡 <b>서비스별로 빈 줄(Enter 두 번)을 띄워 입력</b>하시면, 검색 시 사이트명과 비밀번호가 한 묶음 카드로 완벽하게 조회됩니다! (줄바꿈 지원)</p>
+        <textarea class="vault-textarea" id="vaultTextAreaInput" placeholder="[네이버]&#10;아이디: mynaver&#10;비밀번호: pass1234!&#10;&#10;[구글]&#10;test@yozm.co.kr / pw: yozm1234&#10;&#10;[회사 슬랙]&#10;slack-token-value"></textarea>
         <div class="vault-footer-row">
           <button class="vault-btn-secondary" id="vaultChangeMasterPwBtn">🔑 비밀번호 변경</button>
           <div style="display: flex; align-items: center; gap: 8px;">
@@ -1661,7 +1681,7 @@
 
   <script src="./js/supabase.js?v=6.2"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
-  <script src="./js/app.js?v=6.2"></script>
+  <script src="./js/app.js?v=6.3"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>

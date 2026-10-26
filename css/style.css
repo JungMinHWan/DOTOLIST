@@ -1552,11 +1552,11 @@ body {
 
 /* 리스트 컨테이너 */
 .vault-list {
-  max-height: 280px;
+  max-height: 350px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   padding-right: 4px;
 }
 
@@ -1576,6 +1576,142 @@ body {
   background: rgba(255,255,255,0.25);
 }
 
+/* 카드형 엔트리 (여러 줄 지원) */
+.vault-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.vault-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+}
+
+/* 1줄짜리 항목 */
+.vault-card.single-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.vault-card.single-line .vault-item-text {
+  flex: 1;
+}
+
+/* 여러 줄 카드 헤더 */
+.vault-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 8px;
+}
+
+.vault-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #34d399;
+  letter-spacing: -0.01em;
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vault-card-title::before {
+  content: '🏷️';
+  font-size: 0.85rem;
+}
+
+.vault-card-sublines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.vault-card-subline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 7px 10px;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+
+.vault-card-subline:hover {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.vault-subline-text {
+  font-size: 0.86rem;
+  color: #e2e8f0;
+  font-family: 'Fira Code', 'SFMono-Regular', Consolas, monospace;
+  word-break: break-all;
+  flex: 1;
+  line-height: 1.45;
+}
+
+/* 복사 버튼 */
+.vault-btn-copy {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #10b981;
+  padding: 5px 11px;
+  font-size: 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.vault-btn-copy:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+.vault-btn-copy.copied,
+.vault-btn-mini-copy.copied,
+.vault-item-copy.copied {
+  background: #047857 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+}
+
+.vault-btn-mini-copy {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.vault-btn-mini-copy:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+/* 기존 호환용 스타일 */
 .vault-item {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1619,10 +1755,24 @@ body {
   color: #ffffff;
 }
 
-.vault-item-copy.copied {
-  background: #047857 !important;
-  color: #ffffff !important;
-  border-color: #047857 !important;
+/* 검색어 하이라이트 */
+.vault-highlight {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fef3c7;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+/* 틀렸을 때 인풋 흔들림 애니메이션 */
+@keyframes vaultShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.vault-shake {
+  animation: vaultShake 0.35s ease;
 }
 
 /* 텍스트에리어 편집기 */
