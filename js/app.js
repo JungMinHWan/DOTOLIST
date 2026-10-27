@@ -60,9 +60,9 @@ const IS_TOUCH_DEVICE = window.matchMedia && window.matchMedia('(hover: none) an
 // 할일 입력창 Enter 처리 규칙
 // - PC: Enter = 저장, Shift+Enter = 줄바꿈
 // - 모바일: Enter = 줄바꿈 (저장은 버튼으로)
-// - 공통: Ctrl/Cmd+Enter = 저장, 한글 조합 중 Enter는 무시(중복 저장 방지)
+// - 공통: Ctrl/Cmd+Enter = 저장
 function shouldSubmitOnEnter(e) {
-  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return false;
+  if (e.key !== 'Enter') return false;
   if (e.ctrlKey || e.metaKey) return true;
   if (IS_TOUCH_DEVICE) return false;
   return !e.shiftKey;
