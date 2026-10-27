@@ -55,7 +55,14 @@ function formatDateKorean(dateStr) {
 }
 
 // 모바일(터치 기기) 여부: Shift 키가 없으므로 Enter를 줄바꿈으로 사용
-const IS_TOUCH_DEVICE = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+// ※ 삼성 갤럭시 등 일부 안드로이드는 (hover: hover)로 보고되므로 hover 조건은 쓰지 않음
+const IS_TOUCH_DEVICE = (() => {
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPad|iPod|Mobile|SamsungBrowser/i.test(ua)) return true;
+  // iPadOS(데스크톱 UA로 위장)
+  if (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+})();
 
 // 할일 입력창 Enter 처리 규칙
 // - PC: Enter = 저장, Shift+Enter = 줄바꿈
