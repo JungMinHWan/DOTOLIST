@@ -1,6 +1,7 @@
 let currentPeriod = 'today', selectedDate = null, currentMetricsDate = null;
 let customRangeStart = null, customRangeEnd = null;
 let touchStartX = 0, touchEndX = 0, touchStartY = 0, touchEndY = 0;
+let touchStartTime = 0, touchSwipeValid = false;
 let loadedTasks = [];
 let dateSortDirection = 'asc';
 
@@ -51,6 +52,12 @@ function formatDateKorean(dateStr) {
   const d = new Date(dateStr);
   const w = ['일','월','화','수','목','금','토'];
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${w[d.getDay()]})`;
+}
+
+// 달력 버튼 안 텍스트: 날짜 선택 시 해당 날짜, 아니면 '달력' (모바일에서 별도 라벨 때문에 잘리는 문제 방지)
+function setCalendarBtnDate(dateStr) {
+  const textEl = document.querySelector('#calendarBtn .calendar-btn-text');
+  if (textEl) textEl.textContent = dateStr ? formatDateKorean(dateStr) : '달력';
 }
 
 function formatDateString(d) {
@@ -250,10 +257,20 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   
   document.addEventListener('touchstart', e => {
+    // 한 손가락 터치만 스와이프로 인정, 입력창·가로 스크롤 영역에서 시작한 터치는 제외
+    const t = e.target;
+    touchSwipeValid = e.touches.length === 1 &&
+      !(t.closest && t.closest('input, textarea, select, [contenteditable="true"], .period-tabs, canvas'));
     touchStartX = e.changedTouches[0].screenX;
     touchStartY = e.changedTouches[0].screenY;
+    touchStartTime = Date.now();
+  }, {passive: true});
+  document.addEventListener('touchmove', e => {
+    if (e.touches.length > 1) touchSwipeValid = false;
   }, {passive: true});
   document.addEventListener('touchend', e => {
+    if (!touchSwipeValid || e.touches.length > 0) { touchSwipeValid = false; return; }
+    touchSwipeValid = false;
     touchEndX = e.changedTouches[0].screenX;
     touchEndY = e.changedTouches[0].screenY;
     handleSwipeGesture();
@@ -441,6 +458,7 @@ document.addEventListener('DOMContentLoaded', async function() {
       closeAllHeaders();
       document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
       document.getElementById('calendarBtn').classList.remove('active');
+      setCalendarBtnDate(null);
       document.getElementById('selectedDateLabel').style.display = 'none';
       this.classList.add('active');
       
@@ -525,6 +543,8 @@ document.addEventListener('DOMContentLoaded', async function() {
       selectedDate = null;
       
       document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById('calendarBtn').classList.remove('active');
+      setCalendarBtnDate(null);
       const weekTab = document.querySelector('.period-tab[data-period="week"]');
       if (weekTab) weekTab.classList.add('active');
       
@@ -1162,7 +1182,8 @@ function selectDateFromCalendar(dateStr) {
   document.getElementById('calendarBtn').classList.add('active');
   
   document.getElementById('selectedDateLabel').textContent = formatDateKorean(dateStr);
-  document.getElementById('selectedDateLabel').style.display = 'inline-block';
+  document.getElementById('selectedDateLabel').style.display = 'none';
+  setCalendarBtnDate(dateStr);
   
   applyThemeByDate(dateStr);
   updateUIForCustomDate();
@@ -1236,7 +1257,8 @@ function updateUIForCustomDate() {
   document.getElementById('calendarBtn').classList.add('active');
   const label = document.getElementById('selectedDateLabel');
   label.textContent = formatDateKorean(currentMetricsDate);
-  label.style.display = 'inline-block';
+  label.style.display = 'none';
+  setCalendarBtnDate(currentMetricsDate);
 }
 
 function handleSwipeGesture() {
@@ -1264,11 +1286,16 @@ function handleSwipeGesture() {
   
   const diffX = touchEndX - touchStartX;
   const diffY = touchEndY - touchStartY;
+  const duration = Date.now() - touchStartTime;
   
-  if(Math.abs(diffY) > Math.abs(diffX)) return;
+  // 민감도 완화: 화면 폭의 35%(최소 120px) 이상, 거의 수평(가로가 세로의 2.5배 이상), 0.8초 이내의 스와이프만 인정
+  const threshold = Math.max(120, window.innerWidth * 0.35);
+  if (duration > 800) return;
+  if (Math.abs(diffX) < threshold) return;
+  if (Math.abs(diffX) < Math.abs(diffY) * 2.5) return;
   
-  if(diffX > 80) changeDate(-1);
-  else if(diffX < -80) changeDate(1);
+  if(diffX > 0) changeDate(-1);
+  else changeDate(1);
 }
 
 function changeDate(offset) {

@@ -140,6 +140,20 @@ body {
 
 .selected-date-label { background: rgba(255,255,255,0.95); color: var(--theme-primary); padding: 8px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 700; margin-left: 4px; display: none; }
 
+/* 탭·달력 버튼이 좁은 화면에서 찌그러지거나 글자가 세로로 줄바꿈되지 않도록 */
+.period-tab, .calendar-btn, .selected-date-label { flex-shrink: 0; white-space: nowrap; }
+
+@media (max-width: 480px) {
+  .period-tabs { gap: 6px; }
+  .period-tab, .calendar-btn { padding: 8px 10px; }
+  .calendar-btn { gap: 4px; }
+  .selected-date-label { padding: 8px 10px; margin-left: 0; }
+}
+@media (max-width: 370px) {
+  .period-tabs { gap: 4px; }
+  .period-tab, .calendar-btn { padding: 7px 8px; font-size: 12px; }
+}
+
 /* Expandable Wrappers */
 .search-wrapper, .memo-wrapper, .custom-calendar-wrapper { margin-top: 16px; display: none; animation: slideDown 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); }
 .show { display: block; }
