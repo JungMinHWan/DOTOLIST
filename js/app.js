@@ -54,6 +54,20 @@ function formatDateKorean(dateStr) {
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${w[d.getDay()]})`;
 }
 
+// 모바일(터치 기기) 여부: Shift 키가 없으므로 Enter를 줄바꿈으로 사용
+const IS_TOUCH_DEVICE = window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+// 할일 입력창 Enter 처리 규칙
+// - PC: Enter = 저장, Shift+Enter = 줄바꿈
+// - 모바일: Enter = 줄바꿈 (저장은 버튼으로)
+// - 공통: Ctrl/Cmd+Enter = 저장, 한글 조합 중 Enter는 무시(중복 저장 방지)
+function shouldSubmitOnEnter(e) {
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return false;
+  if (e.ctrlKey || e.metaKey) return true;
+  if (IS_TOUCH_DEVICE) return false;
+  return !e.shiftKey;
+}
+
 // 달력 버튼 안 텍스트: 날짜 선택 시 해당 날짜, 아니면 '달력' (모바일에서 별도 라벨 때문에 잘리는 문제 방지)
 function setCalendarBtnDate(dateStr) {
   const textEl = document.querySelector('#calendarBtn .calendar-btn-text');
@@ -624,7 +638,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   document.getElementById('btnAdd').onclick = addTask;
   const descInput = document.getElementById('inputDescription');
   descInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (shouldSubmitOnEnter(e)) {
       e.preventDefault();
       addTask();
     }
@@ -2453,7 +2467,7 @@ function editTask(id) {
   cancelBtn.onclick = closeModal;
   overlay.onclick = (e) => { if(e.target === overlay) closeModal(); };
   textarea.onkeydown = (e) => {
-    if(e.key === 'Enter' && !e.shiftKey) {
+    if (shouldSubmitOnEnter(e)) {
       e.preventDefault();
       doSave();
     }
