@@ -944,6 +944,139 @@ const api = {
     }
   },
 
+  // 보고문서(Reports) 관련 API
+  async getReports() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('reports')
+        .select()
+        .order('sort_order', { ascending: true })
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('getReports error:', e);
+      return [];
+    }
+  },
+
+  async addReport(title) {
+    try {
+      const { data: minData } = await supabaseClient
+        .from('reports')
+        .select('sort_order')
+        .order('sort_order', { ascending: true })
+        .limit(1);
+
+      let nextOrder = 1;
+      if (minData && minData.length > 0 && minData[0].sort_order !== null && minData[0].sort_order !== undefined) {
+        nextOrder = minData[0].sort_order - 1;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('reports')
+        .insert({
+          title: title,
+          status: '작성 중',
+          content: '',
+          sort_order: nextOrder
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (e) {
+      console.error('addReport error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateReportOrder(reportIds) {
+    try {
+      if (!reportIds || reportIds.length === 0) return { success: true };
+
+      const promises = reportIds.map((id, index) =>
+        supabaseClient
+          .from('reports')
+          .update({
+            sort_order: index + 1
+          })
+          .eq('report_id', id)
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
+
+      return { success: true };
+    } catch (e) {
+      console.error('updateReportOrder error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateReportStatus(reportId, newStatus) {
+    try {
+      const { error } = await supabaseClient
+        .from('reports')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('report_id', reportId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('updateReportStatus error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateReportContent(reportId, newContent) {
+    try {
+      const { error } = await supabaseClient
+        .from('reports')
+        .update({ content: newContent, updated_at: new Date().toISOString() })
+        .eq('report_id', reportId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('updateReportContent error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async updateReportTitle(reportId, newTitle) {
+    try {
+      const { error } = await supabaseClient
+        .from('reports')
+        .update({ title: newTitle, updated_at: new Date().toISOString() })
+        .eq('report_id', reportId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('updateReportTitle error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
+  async deleteReport(reportId) {
+    try {
+      const { error } = await supabaseClient
+        .from('reports')
+        .delete()
+        .eq('report_id', reportId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('deleteReport error:', e);
+      return { success: false, error: e.message };
+    }
+  },
+
   async getVaultValue(key) {
     try {
       const { data, error } = await supabaseClient

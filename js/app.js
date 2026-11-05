@@ -1295,9 +1295,11 @@ function handleSwipeGesture() {
   // 서재·매뉴얼 모달은 'show', 사전 모달은 'active' 클래스로 열림 상태를 표시함
   const isBookOpen = document.getElementById('bookShelfModalOverlay') && document.getElementById('bookShelfModalOverlay').classList.contains('show');
   const isManualOpen = document.getElementById('manualShelfModalOverlay') && document.getElementById('manualShelfModalOverlay').classList.contains('show');
+  const isReportOpen = (document.getElementById('reportShelfModalOverlay') && document.getElementById('reportShelfModalOverlay').classList.contains('show')) ||
+                       (document.getElementById('reportEditorModalOverlay') && document.getElementById('reportEditorModalOverlay').classList.contains('show'));
   const isLexiconOpen = document.getElementById('lexiconModalOverlay') && document.getElementById('lexiconModalOverlay').classList.contains('active');
   
-  if (isSpenOpen || isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen || isSecretOpen || isBookOpen || isManualOpen || isLexiconOpen) return;
+  if (isSpenOpen || isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen || isSecretOpen || isBookOpen || isManualOpen || isReportOpen || isLexiconOpen) return;
 
   if(document.getElementById('searchWrapper').classList.contains('show') || 
      document.getElementById('memoWrapper').classList.contains('show') ||

@@ -8,6 +8,7 @@ ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.goal_executions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vault ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 
 -- 2. 로그인된(authenticated) 사용자에게만 모든 CRUD 권한을 허용하는 Policy 정의
 DROP POLICY IF EXISTS "Allow authenticated users to read/write tasks" ON public.tasks;
@@ -36,3 +37,6 @@ CREATE POLICY "Allow authenticated users to read/write books" ON public.books TO
 
 DROP POLICY IF EXISTS "Allow authenticated users to read/write vault" ON public.vault;
 CREATE POLICY "Allow authenticated users to read/write vault" ON public.vault TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated users to read/write reports" ON public.reports;
+CREATE POLICY "Allow authenticated users to read/write reports" ON public.reports TO authenticated USING (true) WITH CHECK (true);
