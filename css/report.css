@@ -526,6 +526,24 @@
 .report-editor-content div {
   margin-bottom: 6px;
 }
+.report-editor-content b,
+.report-editor-content strong {
+  font-weight: 800;
+}
+.report-editor-content u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+.report-editor-content i,
+.report-editor-content em {
+  font-style: italic;
+}
+.report-editor-content s,
+.report-editor-content strike,
+.report-editor-content del {
+  text-decoration: line-through;
+}
 .report-editor-content ul,
 .report-editor-content ol {
   margin: 8px 0 12px 24px;

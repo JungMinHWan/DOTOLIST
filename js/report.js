@@ -459,10 +459,33 @@
   }
 
   // === 리치 에디터 서식 및 블록 삽입 도구 ===
+  function updateToolbarActiveState() {
+    const commands = [
+      'bold',
+      'italic',
+      'underline',
+      'strikeThrough',
+      'justifyLeft',
+      'justifyCenter',
+      'justifyRight',
+      'insertUnorderedList',
+      'insertOrderedList'
+    ];
+    commands.forEach(cmd => {
+      const btn = document.querySelector(`[data-report-cmd="${cmd}"]`);
+      if (!btn) return;
+      try {
+        const isActive = document.queryCommandState(cmd);
+        btn.classList.toggle('active', !!isActive);
+      } catch (_) {}
+    });
+  }
+
   function execFormat(command, value = null) {
     restoreEditorSelection();
     document.execCommand(command, false, value);
     saveEditorSelection();
+    updateToolbarActiveState();
     scheduleAutoSave();
   }
 
@@ -470,6 +493,7 @@
     restoreEditorSelection();
     document.execCommand('formatBlock', false, tag);
     saveEditorSelection();
+    updateToolbarActiveState();
     scheduleAutoSave();
   }
 
@@ -1240,20 +1264,154 @@
       };
     });
 
-    // 에디터 본문 이벤트 (자동 저장, 선택 영역 추적, 클립보드 이미지 붙여넣기, 컨텍스트 감지)
+    // 에디터 본문 이벤트 (자동 저장, 단축키, 선택 영역 추적, 클립보드 이미지 붙여넣기, 컨텍스트 감지)
     const editor = document.getElementById('reportEditorContent');
     if (editor) {
+      editor.addEventListener('keydown', (e) => {
+        const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+        const code = e.code || '';
+        const keyLower = (e.key || '').toLowerCase();
+
+        // 1. 기본 텍스트 서식 단축키 (한글 입력 상태 ㅠ, ㅕ, ㅑ 등에서도 e.code 및 자모 매칭으로 완벽 동작)
+        if (isCmdOrCtrl && !e.shiftKey && !e.altKey) {
+          // Cmd/Ctrl + B : 굵게 (Bold)
+          if (code === 'KeyB' || keyLower === 'b' || keyLower === 'ㅠ' || e.keyCode === 66) {
+            e.preventDefault();
+            document.execCommand('bold', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + U : 밑줄 (Underline)
+          if (code === 'KeyU' || keyLower === 'u' || keyLower === 'ㅕ' || e.keyCode === 85) {
+            e.preventDefault();
+            document.execCommand('underline', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + I : 기울임 (Italic)
+          if (code === 'KeyI' || keyLower === 'i' || keyLower === 'ㅑ' || e.keyCode === 73) {
+            e.preventDefault();
+            document.execCommand('italic', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + S : 즉시 저장 (브라우저 웹페이지 저장 창 방지)
+          if (code === 'KeyS' || keyLower === 's' || keyLower === 'ㄴ' || e.keyCode === 83) {
+            e.preventDefault();
+            saveReportContentRealtime();
+            notifyToast('보고문서가 저장되었습니다.');
+            return;
+          }
+        }
+
+        // 2. 취소선 단축키: Cmd/Ctrl + Shift + X, Cmd/Ctrl + Shift + S, Alt + Shift + 5
+        const isStrikeCmd =
+          (isCmdOrCtrl && e.shiftKey && (code === 'KeyX' || keyLower === 'x' || keyLower === 'ㅌ' || e.keyCode === 88 || code === 'KeyS' || keyLower === 's' || keyLower === 'ㄴ' || e.keyCode === 83)) ||
+          (e.altKey && e.shiftKey && (code === 'Digit5' || keyLower === '5' || e.keyCode === 53));
+
+        if (isStrikeCmd) {
+          e.preventDefault();
+          document.execCommand('strikeThrough', false, null);
+          saveEditorSelection();
+          updateToolbarActiveState();
+          scheduleAutoSave();
+          return;
+        }
+
+        // 3. 목록 및 정렬 단축키 (Cmd/Ctrl + Shift + 조합)
+        if (isCmdOrCtrl && e.shiftKey && !e.altKey) {
+          // Cmd/Ctrl + Shift + 7 : 번호 목록
+          if (code === 'Digit7' || keyLower === '7' || e.keyCode === 55) {
+            e.preventDefault();
+            document.execCommand('insertOrderedList', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + Shift + 8 : 글머리 기호 목록
+          if (code === 'Digit8' || keyLower === '8' || e.keyCode === 56) {
+            e.preventDefault();
+            document.execCommand('insertUnorderedList', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + Shift + L : 좌측 정렬
+          if (code === 'KeyL' || keyLower === 'l' || keyLower === 'ㅣ' || e.keyCode === 76) {
+            e.preventDefault();
+            document.execCommand('justifyLeft', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + Shift + E : 가운데 정렬
+          if (code === 'KeyE' || keyLower === 'e' || keyLower === 'ㄷ' || keyLower === 'ㄸ' || e.keyCode === 69) {
+            e.preventDefault();
+            document.execCommand('justifyCenter', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+          // Cmd/Ctrl + Shift + R : 우측 정렬
+          if (code === 'KeyR' || keyLower === 'r' || keyLower === 'ㄱ' || keyLower === 'ㄲ' || e.keyCode === 82) {
+            e.preventDefault();
+            document.execCommand('justifyRight', false, null);
+            saveEditorSelection();
+            updateToolbarActiveState();
+            scheduleAutoSave();
+            return;
+          }
+        }
+
+        // 4. 문단 제목 단축키 (Cmd/Ctrl + Alt + 1/2/3/0)
+        if (isCmdOrCtrl && e.altKey && !e.shiftKey) {
+          if (code === 'Digit1' || keyLower === '1' || e.keyCode === 49) {
+            e.preventDefault();
+            applyHeadingFormat('H1');
+            return;
+          }
+          if (code === 'Digit2' || keyLower === '2' || e.keyCode === 50) {
+            e.preventDefault();
+            applyHeadingFormat('H2');
+            return;
+          }
+          if (code === 'Digit3' || keyLower === '3' || e.keyCode === 51) {
+            e.preventDefault();
+            applyHeadingFormat('H3');
+            return;
+          }
+          if (code === 'Digit0' || keyLower === '0' || e.keyCode === 48) {
+            e.preventDefault();
+            applyHeadingFormat('P');
+            return;
+          }
+        }
+      });
+
       editor.addEventListener('input', () => {
         saveEditorSelection();
+        updateToolbarActiveState();
         scheduleAutoSave();
       });
 
       editor.addEventListener('keyup', () => {
         saveEditorSelection();
+        updateToolbarActiveState();
       });
 
       editor.addEventListener('mouseup', () => {
         saveEditorSelection();
+        updateToolbarActiveState();
       });
 
       editor.addEventListener('blur', () => {
