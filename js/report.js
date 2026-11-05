@@ -657,6 +657,8 @@
         } else {
           tr.appendChild(cell);
         }
+        // 열 개수 변경 시 기존 고정 폭을 균등 비율로 재분배
+        Array.from(tr.cells).forEach(c => { c.style.width = ''; });
       });
     } else if (action === 'del-row') {
       const allRows = table.querySelectorAll('tr');
@@ -675,15 +677,263 @@
       } else {
         allRows.forEach(tr => {
           if (tr.cells[cellIndex]) tr.cells[cellIndex].remove();
+          Array.from(tr.cells).forEach(c => { c.style.width = ''; });
         });
         hideContextBars();
       }
+    } else if (action === 'reset-size') {
+      table.style.width = '100%';
+      table.querySelectorAll('tr').forEach(tr => {
+        tr.style.height = '';
+        Array.from(tr.cells).forEach(c => {
+          c.style.width = '';
+          c.style.height = '';
+        });
+      });
     } else if (action === 'del-table') {
       table.remove();
       hideContextBars();
     }
 
     scheduleAutoSave();
+  }
+
+  // === 표 셀(열 너비 / 행 높이) 마우스 드래그 앤 드롭 크기 조절 ===
+  function setupTableResizeInteractions(editor) {
+    if (!editor) return;
+
+    let guideEl = document.getElementById('reportTableResizeGuide');
+    if (!guideEl) {
+      guideEl = document.createElement('div');
+      guideEl.id = 'reportTableResizeGuide';
+      guideEl.className = 'report-table-resize-guide';
+      document.body.appendChild(guideEl);
+    }
+
+    let hoverTarget = null;
+    let activeDrag = null;
+    let lastHoveredCell = null;
+    const BORDER_THRESHOLD = 7;
+    const MIN_COL_WIDTH = 40;
+    const MIN_ROW_HEIGHT = 28;
+
+    function clearHoverCursor() {
+      if (lastHoveredCell) {
+        lastHoveredCell.style.cursor = '';
+        lastHoveredCell = null;
+      }
+      hoverTarget = null;
+      if (!activeDrag && guideEl) {
+        guideEl.classList.remove('active');
+      }
+    }
+
+    editor.addEventListener('mousemove', (e) => {
+      if (activeDrag) return;
+
+      const cell = e.target.closest && e.target.closest('td, th');
+      if (!cell || !editor.contains(cell)) {
+        clearHoverCursor();
+        return;
+      }
+
+      const table = cell.closest('table');
+      const row = cell.closest('tr');
+      if (!table || !row) {
+        clearHoverCursor();
+        return;
+      }
+
+      const rect = cell.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+      const distRight = Math.abs(rect.right - e.clientX);
+      const distLeft = Math.abs(e.clientX - rect.left);
+      const distBottom = Math.abs(rect.bottom - e.clientY);
+
+      if (lastHoveredCell && lastHoveredCell !== cell) {
+        lastHoveredCell.style.cursor = '';
+      }
+      lastHoveredCell = cell;
+
+      if (distRight <= BORDER_THRESHOLD) {
+        cell.style.cursor = 'col-resize';
+        hoverTarget = {
+          type: 'col',
+          table: table,
+          colIndex: cell.cellIndex,
+          borderX: rect.right
+        };
+        guideEl.style.left = `${rect.right - 1}px`;
+        guideEl.style.top = `${tableRect.top}px`;
+        guideEl.style.width = '2px';
+        guideEl.style.height = `${tableRect.height}px`;
+        guideEl.classList.add('active');
+      } else if (distLeft <= BORDER_THRESHOLD && cell.cellIndex > 0) {
+        cell.style.cursor = 'col-resize';
+        hoverTarget = {
+          type: 'col',
+          table: table,
+          colIndex: cell.cellIndex - 1,
+          borderX: rect.left
+        };
+        guideEl.style.left = `${rect.left - 1}px`;
+        guideEl.style.top = `${tableRect.top}px`;
+        guideEl.style.width = '2px';
+        guideEl.style.height = `${tableRect.height}px`;
+        guideEl.classList.add('active');
+      } else if (distBottom <= BORDER_THRESHOLD) {
+        cell.style.cursor = 'row-resize';
+        hoverTarget = {
+          type: 'row',
+          table: table,
+          row: row,
+          borderY: rect.bottom
+        };
+        guideEl.style.left = `${tableRect.left}px`;
+        guideEl.style.top = `${rect.bottom - 1}px`;
+        guideEl.style.width = `${tableRect.width}px`;
+        guideEl.style.height = '2px';
+        guideEl.classList.add('active');
+      } else {
+        clearHoverCursor();
+      }
+    });
+
+    editor.addEventListener('mouseleave', () => {
+      if (!activeDrag) clearHoverCursor();
+    });
+
+    editor.addEventListener('mousedown', (e) => {
+      if (!hoverTarget || e.button !== 0) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (hoverTarget.type === 'col') {
+        const table = hoverTarget.table;
+        const firstRow = table.rows[0];
+        if (!firstRow) return;
+
+        const startWidths = Array.from(firstRow.cells).map(c => c.getBoundingClientRect().width);
+        const startTableWidth = table.getBoundingClientRect().width;
+        const tableRect = table.getBoundingClientRect();
+
+        // 드래그 시작 시 모든 열의 현재 픽셀 폭을 고정하여 안정적으로 조절
+        table.style.width = `${startTableWidth}px`;
+        Array.from(table.rows).forEach(r => {
+          Array.from(r.cells).forEach((c, idx) => {
+            if (startWidths[idx] !== undefined) {
+              c.style.width = `${startWidths[idx]}px`;
+            }
+          });
+        });
+
+        activeDrag = {
+          type: 'col',
+          table: table,
+          colIndex: hoverTarget.colIndex,
+          numCols: firstRow.cells.length,
+          startX: e.clientX,
+          startBorderX: hoverTarget.borderX,
+          startWidths: startWidths,
+          startTableWidth: startTableWidth,
+          tableTop: tableRect.top,
+          tableHeight: tableRect.height
+        };
+        editor.classList.add('table-resizing-col');
+      } else if (hoverTarget.type === 'row') {
+        const table = hoverTarget.table;
+        const row = hoverTarget.row;
+        const startHeight = row.getBoundingClientRect().height;
+        const tableRect = table.getBoundingClientRect();
+
+        activeDrag = {
+          type: 'row',
+          table: table,
+          row: row,
+          startY: e.clientY,
+          startBorderY: hoverTarget.borderY,
+          startHeight: startHeight,
+          tableLeft: tableRect.left,
+          tableWidth: tableRect.width
+        };
+        editor.classList.add('table-resizing-row');
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!activeDrag) return;
+      e.preventDefault();
+
+      if (activeDrag.type === 'col') {
+        const { table, colIndex, numCols, startX, startBorderX, startWidths, startTableWidth, tableTop, tableHeight } = activeDrag;
+        const rawDeltaX = e.clientX - startX;
+
+        if (colIndex < numCols - 1) {
+          // 인접한 두 열(colIndex와 colIndex + 1) 사이의 경계선 드래그
+          const minDelta = -(startWidths[colIndex] - MIN_COL_WIDTH);
+          const maxDelta = startWidths[colIndex + 1] - MIN_COL_WIDTH;
+          const clampedDelta = Math.max(minDelta, Math.min(maxDelta, rawDeltaX));
+
+          const newW1 = Math.round(startWidths[colIndex] + clampedDelta);
+          const newW2 = Math.round(startWidths[colIndex + 1] - clampedDelta);
+
+          Array.from(table.rows).forEach(r => {
+            if (r.cells[colIndex]) r.cells[colIndex].style.width = `${newW1}px`;
+            if (r.cells[colIndex + 1]) r.cells[colIndex + 1].style.width = `${newW2}px`;
+          });
+
+          guideEl.style.left = `${startBorderX + clampedDelta - 1}px`;
+          guideEl.style.top = `${tableTop}px`;
+          guideEl.style.width = '2px';
+          guideEl.style.height = `${tableHeight}px`;
+          guideEl.classList.add('active');
+        } else {
+          // 표의 가장 우측 외곽선 드래그: 마지막 열과 표 전체 폭을 동시에 조절
+          const minDelta = -(startWidths[colIndex] - MIN_COL_WIDTH);
+          const clampedDelta = Math.max(minDelta, rawDeltaX);
+
+          const newLastW = Math.round(startWidths[colIndex] + clampedDelta);
+          const newTableW = Math.round(startTableWidth + clampedDelta);
+
+          table.style.width = `${newTableW}px`;
+          Array.from(table.rows).forEach(r => {
+            if (r.cells[colIndex]) r.cells[colIndex].style.width = `${newLastW}px`;
+          });
+
+          guideEl.style.left = `${startBorderX + clampedDelta - 1}px`;
+          guideEl.style.top = `${tableTop}px`;
+          guideEl.style.width = '2px';
+          guideEl.style.height = `${tableHeight}px`;
+          guideEl.classList.add('active');
+        }
+      } else if (activeDrag.type === 'row') {
+        const { row, startY, startBorderY, startHeight, tableLeft, tableWidth } = activeDrag;
+        const rawDeltaY = e.clientY - startY;
+        const minDelta = -(startHeight - MIN_ROW_HEIGHT);
+        const clampedDelta = Math.max(minDelta, rawDeltaY);
+        const newH = Math.round(startHeight + clampedDelta);
+
+        row.style.height = `${newH}px`;
+        Array.from(row.cells).forEach(c => {
+          c.style.height = `${newH}px`;
+        });
+
+        guideEl.style.left = `${tableLeft}px`;
+        guideEl.style.top = `${startBorderY + clampedDelta - 1}px`;
+        guideEl.style.width = `${tableWidth}px`;
+        guideEl.style.height = '2px';
+        guideEl.classList.add('active');
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!activeDrag) return;
+      editor.classList.remove('table-resizing-col', 'table-resizing-row');
+      activeDrag = null;
+      clearHoverCursor();
+      scheduleAutoSave();
+    });
   }
 
   // === 이미지 첨부 및 리사이징 ===
@@ -800,13 +1050,18 @@
       el.style.cssText = 'margin:12px 0; padding:10px 14px; border-left:3px solid #64748b; background:#f8fafc; color:#475569;';
     });
     clone.querySelectorAll('table').forEach(el => {
-      el.style.cssText = 'width:100%; border-collapse:collapse; margin:12px 0; font-size:13.5px;';
+      const customW = el.style.width || '100%';
+      el.style.cssText = `width:${customW}; border-collapse:collapse; margin:12px 0; font-size:13.5px; table-layout:fixed;`;
     });
     clone.querySelectorAll('th').forEach(el => {
-      el.style.cssText = 'border:1px solid #cbd5e1; padding:8px 10px; background:#f1f5f9; font-weight:700; color:#0f172a; text-align:left;';
+      const w = el.style.width ? `width:${el.style.width};` : '';
+      const h = el.style.height ? `height:${el.style.height};` : '';
+      el.style.cssText = `${w}${h}border:1px solid #cbd5e1; padding:8px 10px; background:#f1f5f9; font-weight:700; color:#0f172a; text-align:left;`;
     });
     clone.querySelectorAll('td').forEach(el => {
-      el.style.cssText = 'border:1px solid #cbd5e1; padding:8px 10px; color:#191f28; text-align:left;';
+      const w = el.style.width ? `width:${el.style.width};` : '';
+      const h = el.style.height ? `height:${el.style.height};` : '';
+      el.style.cssText = `${w}${h}border:1px solid #cbd5e1; padding:8px 10px; color:#191f28; text-align:left;`;
     });
     clone.querySelectorAll('.report-check-item').forEach(el => {
       const chk = el.querySelector('input.report-check-box');
@@ -1453,6 +1708,9 @@
           }
         }
       });
+
+      // 표 셀(열 너비 / 행 높이) 마우스 드래그 리사이즈 활성화
+      setupTableResizeInteractions(editor);
     }
 
     // 내보내기 버튼 바인딩

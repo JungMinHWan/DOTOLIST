@@ -608,7 +608,8 @@
   text-align: left;
   vertical-align: top;
   word-break: break-word;
-  min-width: 50px;
+  min-width: 40px;
+  position: relative;
 }
 .report-editor-content th {
   background: #f1f5f9;
@@ -619,6 +620,29 @@
 .report-editor-content th:focus {
   outline: 2px solid var(--theme-primary);
   outline-offset: -2px;
+}
+.report-editor-content.table-resizing-col,
+.report-editor-content.table-resizing-col * {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+.report-editor-content.table-resizing-row,
+.report-editor-content.table-resizing-row * {
+  cursor: row-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+.report-table-resize-guide {
+  position: fixed;
+  pointer-events: none;
+  background: var(--theme-primary, #1e40af);
+  z-index: 9999;
+  display: none;
+  opacity: 0.85;
+}
+.report-table-resize-guide.active {
+  display: block;
 }
 
 /* 체크리스트 블록 */
