@@ -9,6 +9,8 @@
   let reportIndicatorTimer = null;
   let savedSelectionRange = null;
   let activeTableCell = null;
+  let selectedTableCells = [];
+  let justFinishedMultiCellDrag = false;
   let activeImageElement = null;
 
   function escapeHtmlText(str) {
@@ -403,12 +405,24 @@
       }
     });
 
-    // 선택된 이미지 아웃라인 클래스 제거 후 저장
+    // 선택된 이미지/표 셀 아웃라인 클래스 제거 후 저장 (에디터 내 활성 상태는 즉시 복원)
     editor.querySelectorAll('img.selected-media').forEach(img => {
       img.classList.remove('selected-media');
     });
+    editor.querySelectorAll('.table-cell-selected').forEach(cell => {
+      cell.classList.remove('table-cell-selected');
+    });
 
     const htmlContent = editor.innerHTML;
+
+    if (activeImageElement && editor.contains(activeImageElement)) {
+      activeImageElement.classList.add('selected-media');
+    }
+    if (selectedTableCells && selectedTableCells.length > 1) {
+      selectedTableCells.forEach(cell => {
+        if (editor.contains(cell)) cell.classList.add('table-cell-selected');
+      });
+    }
     try {
       localStorage.setItem(`report_draft_${selectedReport.report_id}`, htmlContent);
     } catch (_) {}
@@ -622,63 +636,544 @@
     hideAllPopovers();
   }
 
-  // === 표 편집 동작 (행/열 추가 및 삭제) ===
+  // === 표 2D 논리 그리드 매트릭스 및 셀 선택/병합/분할 헬퍼 ===
+  function clearSelectedTableCells() {
+    const editor = document.getElementById('reportEditorContent');
+    if (editor) {
+      editor.querySelectorAll('.table-cell-selected').forEach(c => c.classList.remove('table-cell-selected'));
+    }
+    selectedTableCells = [];
+  }
+
+  function setSelectedTableCells(cells) {
+    const editor = document.getElementById('reportEditorContent');
+    if (editor) {
+      editor.querySelectorAll('.table-cell-selected').forEach(c => c.classList.remove('table-cell-selected'));
+    }
+    selectedTableCells = Array.isArray(cells) ? cells : [];
+    if (selectedTableCells.length > 1) {
+      selectedTableCells.forEach(c => c.classList.add('table-cell-selected'));
+    }
+  }
+
+  // thead와 tbody 경계를 넘어가는 rowSpan/병합이 깨지지 않도록 단일 tbody 섹션으로 정규화 (th 태그 스타일은 그대로 유지)
+  function normalizeTableSections(table) {
+    if (!table) return;
+    const thead = table.querySelector('thead');
+    let tbody = table.querySelector('tbody');
+    if (!tbody) {
+      tbody = document.createElement('tbody');
+      table.appendChild(tbody);
+    }
+    if (thead) {
+      const headRows = Array.from(thead.rows);
+      const firstBodyRow = tbody.firstChild;
+      headRows.forEach(tr => {
+        tbody.insertBefore(tr, firstBodyRow);
+      });
+      thead.remove();
+    }
+  }
+
+  // rowSpan / colSpan을 반영한 2차원 논리 좌표계 매트릭스 생성
+  function buildTableGrid(table) {
+    const rows = Array.from(table.rows);
+    const numRows = rows.length;
+    const grid = Array.from({ length: numRows }, () => []);
+    const cellBounds = new Map();
+    let numCols = 0;
+
+    for (let r = 0; r < numRows; r++) {
+      const tr = rows[r];
+      let c = 0;
+      for (let i = 0; i < tr.cells.length; i++) {
+        while (grid[r][c] !== undefined) {
+          c++;
+        }
+        const cell = tr.cells[i];
+        const rs = Math.max(1, parseInt(cell.rowSpan, 10) || 1);
+        const cs = Math.max(1, parseInt(cell.colSpan, 10) || 1);
+        const endRow = Math.min(numRows - 1, r + rs - 1);
+        const actualRs = endRow - r + 1;
+        if (actualRs !== rs) cell.rowSpan = actualRs;
+
+        const bounds = {
+          r,
+          c,
+          rowSpan: actualRs,
+          colSpan: cs,
+          endRow,
+          endCol: c + cs - 1
+        };
+        cellBounds.set(cell, bounds);
+
+        for (let dr = 0; dr < actualRs; dr++) {
+          for (let dc = 0; dc < cs; dc++) {
+            if (!grid[r + dr]) grid[r + dr] = [];
+            grid[r + dr][c + dc] = {
+              cell,
+              originRow: r,
+              originCol: c,
+              rowSpan: actualRs,
+              colSpan: cs,
+              isOrigin: dr === 0 && dc === 0
+            };
+          }
+        }
+        if (c + cs > numCols) numCols = c + cs;
+        c += cs;
+      }
+    }
+
+    return { grid, cellBounds, numRows, numCols, rows };
+  }
+
+  // 주어진 사각형 좌표가 병합된 셀에 걸칠 경우, 모든 걸친 셀을 완전히 포함하는 최소 직사각형(Closure)으로 확장
+  function getClosedRect(grid, cellBounds, startMinR, startMinC, startMaxR, startMaxC) {
+    let minR = Math.min(startMinR, startMaxR);
+    let maxR = Math.max(startMinR, startMaxR);
+    let minC = Math.min(startMinC, startMaxC);
+    let maxC = Math.max(startMinC, startMaxC);
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let r = minR; r <= maxR; r++) {
+        if (!grid[r]) continue;
+        for (let c = minC; c <= maxC; c++) {
+          const slot = grid[r][c];
+          if (!slot || !slot.cell) continue;
+          const b = cellBounds.get(slot.cell);
+          if (!b) continue;
+          if (b.r < minR) { minR = b.r; changed = true; }
+          if (b.endRow > maxR) { maxR = b.endRow; changed = true; }
+          if (b.c < minC) { minC = b.c; changed = true; }
+          if (b.endCol > maxC) { maxC = b.endCol; changed = true; }
+        }
+      }
+    }
+
+    const seen = new Set();
+    const cells = [];
+    for (let r = minR; r <= maxR; r++) {
+      if (!grid[r]) continue;
+      for (let c = minC; c <= maxC; c++) {
+        const slot = grid[r][c];
+        if (slot && slot.cell && !seen.has(slot.cell)) {
+          seen.add(slot.cell);
+          cells.push(slot.cell);
+        }
+      }
+    }
+
+    return { minR, minC, maxR, maxC, cells };
+  }
+
+  // 특정 행(tr)의 논리적 열(targetCol) 위치에 새 셀을 정확히 삽입
+  function insertCellAtLogicalCol(tr, targetCol, newCell, cellBounds) {
+    const existingCells = Array.from(tr.cells);
+    for (let i = 0; i < existingCells.length; i++) {
+      const b = cellBounds.get(existingCells[i]);
+      if (b && b.c >= targetCol) {
+        tr.insertBefore(newCell, existingCells[i]);
+        return;
+      }
+    }
+    tr.appendChild(newCell);
+  }
+
+  // 분할 후 재병합 등으로 인해 발생한 빈 행이나 불필요하게 중복된 rowSpan/colSpan을 깔끔하게 정규화
+  function cleanupRedundantSpans(table) {
+    if (!table) return;
+    // 1. DOM 셀이 하나도 없는 빈 행(위쪽 행들의 rowSpan으로만 채워진 행) 정리
+    let changedRow = true;
+    while (changedRow) {
+      changedRow = false;
+      const { cellBounds, rows } = buildTableGrid(table);
+      if (rows.length <= 1) break;
+      for (let r = 0; r < rows.length; r++) {
+        if (rows[r].cells.length === 0) {
+          cellBounds.forEach((b, cell) => {
+            if (b.r < r && b.endRow >= r && cell.rowSpan > 1) {
+              cell.rowSpan -= 1;
+            }
+          });
+          rows[r].remove();
+          changedRow = true;
+          break;
+        }
+      }
+    }
+
+    // 2. 모든 행에서 시작점(originCol)이 하나도 없는 유령 열(모든 행이 colSpan으로 건너뛰는 열) 정리
+    let changedCol = true;
+    while (changedCol) {
+      changedCol = false;
+      const { grid, cellBounds, numRows, numCols } = buildTableGrid(table);
+      if (numCols <= 1) break;
+      for (let c = 1; c < numCols; c++) {
+        let hasOriginAtCol = false;
+        for (let r = 0; r < numRows; r++) {
+          const slot = grid[r] && grid[r][c];
+          if (slot && slot.originCol === c) {
+            hasOriginAtCol = true;
+            break;
+          }
+        }
+        if (!hasOriginAtCol) {
+          cellBounds.forEach((b, cell) => {
+            if (b.c < c && b.endCol >= c && cell.colSpan > 1) {
+              cell.colSpan -= 1;
+            }
+          });
+          changedCol = true;
+          break;
+        }
+      }
+    }
+  }
+
+  // 직사각형 영역(minR..maxR, minC..maxC)의 셀들을 좌상단 기준 셀 하나로 병합
+  function mergeTableRect(table, startMinR, startMinC, startMaxR, startMaxC) {
+    normalizeTableSections(table);
+    const { grid, cellBounds } = buildTableGrid(table);
+    const rect = getClosedRect(grid, cellBounds, startMinR, startMinC, startMaxR, startMaxC);
+    if (!rect.cells || rect.cells.length <= 1) {
+      return null;
+    }
+
+    const topSlot = grid[rect.minR] && grid[rect.minR][rect.minC];
+    const survivor = (topSlot && topSlot.cell) ? topSlot.cell : rect.cells[0];
+
+    // 셀 내용 취합: 기본 플레이스홀더('내용', '항목 N')가 아닌 실제 작성 텍스트를 우선 보존
+    const isDefaultPlaceholder = (txt) => {
+      const t = txt.trim();
+      return !t || t === '내용' || /^항목(\s*\d+)?$/.test(t);
+    };
+
+    const rawPieces = rect.cells.map(c => ({
+      html: (c.innerHTML || '').trim(),
+      text: (c.textContent || '').trim()
+    })).filter(item => item.text.length > 0);
+
+    const meaningfulPieces = rawPieces.filter(item => !isDefaultPlaceholder(item.text));
+    if (meaningfulPieces.length > 0) {
+      survivor.innerHTML = meaningfulPieces.map(item => item.html).join('<br>');
+    } else if (rawPieces.length > 0) {
+      survivor.innerHTML = rawPieces[0].html;
+    } else {
+      survivor.innerHTML = '<br>';
+    }
+
+    survivor.rowSpan = rect.maxR - rect.minR + 1;
+    survivor.colSpan = rect.maxC - rect.minC + 1;
+    survivor.style.width = '';
+    survivor.style.height = '';
+
+    rect.cells.forEach(c => {
+      if (c !== survivor) c.remove();
+    });
+
+    cleanupRedundantSpans(table);
+    activeTableCell = survivor;
+    setSelectedTableCells([survivor]);
+    return survivor;
+  }
+
+  // 브라우저 텍스트 드래그 Selection이 여러 셀에 걸쳐 있을 경우 해당 셀들을 추출
+  function getCellsFromSelectionInTable(table) {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return [];
+    const range = sel.getRangeAt(0);
+    const startNode = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+    const endNode = range.endContainer.nodeType === 1 ? range.endContainer : range.endContainer.parentElement;
+    const startCell = startNode && startNode.closest ? startNode.closest('td, th') : null;
+    const endCell = endNode && endNode.closest ? endNode.closest('td, th') : null;
+    if (startCell && endCell && startCell.closest('table') === table && endCell.closest('table') === table && startCell !== endCell) {
+      return [startCell, endCell];
+    }
+    return [];
+  }
+
+  // === 표 편집 동작 (행/열 추가·삭제 및 셀 병합·분할) ===
   function handleTableAction(action) {
     if (!activeTableCell) return;
     const table = activeTableCell.closest('table');
     const row = activeTableCell.closest('tr');
     if (!table || !row) return;
 
-    const cellIndex = activeTableCell.cellIndex;
-
-    if (action === 'add-row') {
-      const newRow = document.createElement('tr');
-      const colCount = row.cells.length;
-      for (let i = 0; i < colCount; i++) {
-        const td = document.createElement('td');
-        td.innerHTML = '내용';
-        newRow.appendChild(td);
-      }
-      if (row.parentNode.tagName === 'THEAD') {
-        const tbody = table.querySelector('tbody') || table.appendChild(document.createElement('tbody'));
-        tbody.insertBefore(newRow, tbody.firstChild);
-      } else {
-        row.parentNode.insertBefore(newRow, row.nextSibling);
-      }
-    } else if (action === 'add-col') {
-      const allRows = table.querySelectorAll('tr');
-      allRows.forEach(tr => {
-        const isHeader = tr.parentNode.tagName === 'THEAD' || tr.querySelector('th');
-        const cell = document.createElement(isHeader ? 'th' : 'td');
-        cell.innerHTML = isHeader ? '항목' : '내용';
-        const refCell = tr.cells[cellIndex];
-        if (refCell && refCell.nextSibling) {
-          tr.insertBefore(cell, refCell.nextSibling);
-        } else {
-          tr.appendChild(cell);
+    if (action === 'merge-selected') {
+      let targetCells = selectedTableCells.filter(c => table.contains(c));
+      if (targetCells.length <= 1) {
+        const selCells = getCellsFromSelectionInTable(table);
+        if (selCells.length >= 2) {
+          targetCells = selCells;
         }
-        // 열 개수 변경 시 기존 고정 폭을 균등 비율로 재분배
-        Array.from(tr.cells).forEach(c => { c.style.width = ''; });
+      }
+      if (targetCells.length <= 1) {
+        notifyToast('마우스 드래그나 Shift+클릭으로 두 개 이상의 셀을 선택하거나, [우측 병합] / [아래 병합]을 이용해 주세요.');
+        return;
+      }
+      normalizeTableSections(table);
+      const { cellBounds } = buildTableGrid(table);
+      let minR = Infinity, minC = Infinity, maxR = -1, maxC = -1;
+      targetCells.forEach(c => {
+        const b = cellBounds.get(c);
+        if (b) {
+          if (b.r < minR) minR = b.r;
+          if (b.c < minC) minC = b.c;
+          if (b.endRow > maxR) maxR = b.endRow;
+          if (b.endCol > maxC) maxC = b.endCol;
+        }
       });
+      if (maxR >= minR && maxC >= minC) {
+        const merged = mergeTableRect(table, minR, minC, maxR, maxC);
+        if (merged) notifyToast('선택한 셀이 병합되었습니다.');
+      }
+    } else if (action === 'merge-right') {
+      normalizeTableSections(table);
+      const { cellBounds, numCols } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      if (!b || b.endCol + 1 >= numCols) {
+        notifyToast('오른쪽에 병합할 셀이 없습니다.');
+        return;
+      }
+      const merged = mergeTableRect(table, b.r, b.c, b.endRow, b.endCol + 1);
+      if (merged) notifyToast('오른쪽 셀과 병합되었습니다.');
+    } else if (action === 'merge-down') {
+      normalizeTableSections(table);
+      const { cellBounds, numRows } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      if (!b || b.endRow + 1 >= numRows) {
+        notifyToast('아래쪽에 병합할 셀이 없습니다.');
+        return;
+      }
+      const merged = mergeTableRect(table, b.r, b.c, b.endRow + 1, b.endCol);
+      if (merged) notifyToast('아래쪽 셀과 병합되었습니다.');
+    } else if (action === 'split-col') {
+      normalizeTableSections(table);
+      const { cellBounds } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      if (!b) return;
+
+      const newCell = document.createElement(activeTableCell.tagName.toLowerCase());
+      newCell.innerHTML = '내용';
+      activeTableCell.style.width = '';
+
+      if (b.colSpan > 1) {
+        const leftSpan = Math.floor(b.colSpan / 2);
+        const rightSpan = b.colSpan - leftSpan;
+        activeTableCell.colSpan = leftSpan;
+        newCell.colSpan = rightSpan;
+        newCell.rowSpan = b.rowSpan;
+      } else {
+        // 1열짜리 단일 셀을 좌우 2개로 분할할 경우: 같은 열(b.c)을 지나가는 다른 행의 셀들의 colSpan을 +1 확장
+        cellBounds.forEach((otherB, otherCell) => {
+          if (otherCell !== activeTableCell && otherB.c <= b.c && otherB.endCol >= b.c) {
+            otherCell.colSpan = (otherB.colSpan || 1) + 1;
+          }
+        });
+        activeTableCell.colSpan = 1;
+        newCell.colSpan = 1;
+        newCell.rowSpan = b.rowSpan;
+      }
+
+      if (activeTableCell.nextSibling) {
+        row.insertBefore(newCell, activeTableCell.nextSibling);
+      } else {
+        row.appendChild(newCell);
+      }
+      clearSelectedTableCells();
+      notifyToast('셀이 좌우로 분할되었습니다.');
+    } else if (action === 'split-row') {
+      normalizeTableSections(table);
+      const { cellBounds, rows } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      if (!b) return;
+
+      const newCell = document.createElement(activeTableCell.tagName.toLowerCase());
+      newCell.innerHTML = '내용';
+      activeTableCell.style.height = '';
+
+      if (b.rowSpan > 1) {
+        const topSpan = Math.floor(b.rowSpan / 2);
+        const bottomSpan = b.rowSpan - topSpan;
+        activeTableCell.rowSpan = topSpan;
+        newCell.rowSpan = bottomSpan;
+        newCell.colSpan = b.colSpan;
+
+        const targetRow = rows[b.r + topSpan];
+        if (targetRow) {
+          insertCellAtLogicalCol(targetRow, b.c, newCell, cellBounds);
+        }
+      } else {
+        // 1행짜리 단일 셀을 상하 2개로 분할할 경우: 현재 행(b.r)을 덮고 있는 다른 열의 모든 셀들의 rowSpan을 +1 확장하고 아래에 새 tr 삽입
+        cellBounds.forEach((otherB, otherCell) => {
+          if (otherCell !== activeTableCell && otherB.r <= b.r && otherB.endRow >= b.r) {
+            otherCell.rowSpan = (otherB.rowSpan || 1) + 1;
+          }
+        });
+        activeTableCell.rowSpan = 1;
+        newCell.rowSpan = 1;
+        newCell.colSpan = b.colSpan;
+
+        const newTr = document.createElement('tr');
+        newTr.appendChild(newCell);
+        if (row.nextSibling) {
+          row.parentNode.insertBefore(newTr, row.nextSibling);
+        } else {
+          row.parentNode.appendChild(newTr);
+        }
+      }
+      clearSelectedTableCells();
+      notifyToast('셀이 상하로 분할되었습니다.');
+    } else if (action === 'unmerge') {
+      normalizeTableSections(table);
+      const targets = (selectedTableCells.length > 0 ? selectedTableCells.filter(c => table.contains(c)) : [activeTableCell])
+        .filter(c => c && ((c.rowSpan && c.rowSpan > 1) || (c.colSpan && c.colSpan > 1)));
+
+      if (targets.length === 0) {
+        notifyToast('병합된 셀이 아닙니다. 일반 셀을 나누려면 [좌우 분할] 또는 [상하 분할]을 눌러주세요.');
+        return;
+      }
+
+      targets.forEach(cell => {
+        const { cellBounds, rows } = buildTableGrid(table);
+        const b = cellBounds.get(cell);
+        if (!b) return;
+        const rs = b.rowSpan;
+        const cs = b.colSpan;
+        cell.rowSpan = 1;
+        cell.colSpan = 1;
+        cell.style.width = '';
+        cell.style.height = '';
+
+        for (let dr = 0; dr < rs; dr++) {
+          for (let dc = 0; dc < cs; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const targetTr = rows[b.r + dr];
+            if (!targetTr) continue;
+            const restoredCell = document.createElement(cell.tagName.toLowerCase());
+            restoredCell.innerHTML = '내용';
+            const latestGrid = buildTableGrid(table);
+            insertCellAtLogicalCol(targetTr, b.c + dc, restoredCell, latestGrid.cellBounds);
+          }
+        }
+      });
+
+      cleanupRedundantSpans(table);
+      clearSelectedTableCells();
+      notifyToast('셀 병합이 해제되었습니다.');
+    } else if (action === 'add-row') {
+      normalizeTableSections(table);
+      const { grid, cellBounds, numCols, rows } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      const targetRowIdx = b ? b.endRow : rows.indexOf(row);
+      const refRow = rows[targetRowIdx] || row;
+
+      const newRow = document.createElement('tr');
+      let c = 0;
+      while (c < numCols) {
+        const slot = grid[targetRowIdx] && grid[targetRowIdx][c];
+        // 위에서 내려온 셀이 targetRowIdx 아래까지 계속 이어지는 경우 rowSpan만 +1 증가
+        if (slot && slot.cell && cellBounds.get(slot.cell).endRow > targetRowIdx) {
+          const spanCell = slot.cell;
+          const spanBounds = cellBounds.get(spanCell);
+          spanCell.rowSpan = (spanBounds.rowSpan || 1) + 1;
+          c = spanBounds.endCol + 1;
+        } else {
+          const td = document.createElement('td');
+          td.innerHTML = '내용';
+          newRow.appendChild(td);
+          c++;
+        }
+      }
+
+      if (refRow.nextSibling) {
+        refRow.parentNode.insertBefore(newRow, refRow.nextSibling);
+      } else {
+        refRow.parentNode.appendChild(newRow);
+      }
+      clearSelectedTableCells();
+    } else if (action === 'add-col') {
+      normalizeTableSections(table);
+      const { grid, cellBounds, numRows, rows } = buildTableGrid(table);
+      const b = cellBounds.get(activeTableCell);
+      const targetColIdx = b ? b.endCol : activeTableCell.cellIndex;
+
+      const handledCells = new Set();
+      for (let r = 0; r < numRows; r++) {
+        const slot = grid[r] && grid[r][targetColIdx];
+        if (slot && slot.cell && cellBounds.get(slot.cell).endCol > targetColIdx) {
+          if (!handledCells.has(slot.cell)) {
+            handledCells.add(slot.cell);
+            slot.cell.colSpan = (slot.cell.colSpan || 1) + 1;
+          }
+        } else {
+          const tr = rows[r];
+          const isHeader = r === 0 && tr.querySelector('th');
+          const newCell = document.createElement(isHeader ? 'th' : 'td');
+          newCell.innerHTML = isHeader ? '항목' : '내용';
+          const latestGrid = buildTableGrid(table);
+          insertCellAtLogicalCol(tr, targetColIdx + 1, newCell, latestGrid.cellBounds);
+        }
+      }
+      table.querySelectorAll('th, td').forEach(c => { c.style.width = ''; });
+      clearSelectedTableCells();
     } else if (action === 'del-row') {
-      const allRows = table.querySelectorAll('tr');
-      if (allRows.length <= 1) {
+      normalizeTableSections(table);
+      const { grid, cellBounds, numRows, numCols, rows } = buildTableGrid(table);
+      if (numRows <= 1) {
         table.remove();
         hideContextBars();
       } else {
-        row.remove();
+        const b = cellBounds.get(activeTableCell);
+        const delR = b ? b.r : rows.indexOf(row);
+        const targetTr = rows[delR];
+        const nextTr = rows[delR + 1];
+
+        const handledCells = new Set();
+        for (let c = 0; c < numCols; c++) {
+          const slot = grid[delR] && grid[delR][c];
+          if (!slot || !slot.cell || handledCells.has(slot.cell)) continue;
+          handledCells.add(slot.cell);
+          const cb = cellBounds.get(slot.cell);
+          if (cb.r === delR && cb.rowSpan > 1 && nextTr) {
+            // 삭제할 행에서 시작해 아래 행으로 이어지는 병합 셀은 아래 행(nextTr)으로 이동시키고 rowSpan - 1
+            slot.cell.rowSpan = cb.rowSpan - 1;
+            insertCellAtLogicalCol(nextTr, cb.c, slot.cell, cellBounds);
+          } else if (cb.r < delR && cb.endRow >= delR) {
+            slot.cell.rowSpan = Math.max(1, cb.rowSpan - 1);
+          }
+        }
+        if (targetTr) targetTr.remove();
+        cleanupRedundantSpans(table);
         hideContextBars();
       }
     } else if (action === 'del-col') {
-      const allRows = table.querySelectorAll('tr');
-      if (row.cells.length <= 1) {
+      normalizeTableSections(table);
+      const { grid, cellBounds, numRows, numCols } = buildTableGrid(table);
+      if (numCols <= 1) {
         table.remove();
         hideContextBars();
       } else {
-        allRows.forEach(tr => {
-          if (tr.cells[cellIndex]) tr.cells[cellIndex].remove();
-          Array.from(tr.cells).forEach(c => { c.style.width = ''; });
-        });
+        const b = cellBounds.get(activeTableCell);
+        const delC = b ? b.c : activeTableCell.cellIndex;
+        const handledCells = new Set();
+
+        for (let r = 0; r < numRows; r++) {
+          const slot = grid[r] && grid[r][delC];
+          if (!slot || !slot.cell || handledCells.has(slot.cell)) continue;
+          handledCells.add(slot.cell);
+          const cb = cellBounds.get(slot.cell);
+          if (cb.colSpan > 1) {
+            slot.cell.colSpan = cb.colSpan - 1;
+          } else {
+            slot.cell.remove();
+          }
+        }
+        table.querySelectorAll('th, td').forEach(c => { c.style.width = ''; });
+        cleanupRedundantSpans(table);
         hideContextBars();
       }
     } else if (action === 'reset-size') {
@@ -690,6 +1185,7 @@
           c.style.height = '';
         });
       });
+      notifyToast('표 셀 크기가 초기화되었습니다.');
     } else if (action === 'del-table') {
       table.remove();
       hideContextBars();
@@ -698,7 +1194,7 @@
     scheduleAutoSave();
   }
 
-  // === 표 셀(열 너비 / 행 높이) 마우스 드래그 앤 드롭 크기 조절 ===
+  // === 표 셀(열 너비 / 행 높이) 마우스 드래그 앤 드롭 크기 조절 및 다중 셀 드래그 선택 ===
   function setupTableResizeInteractions(editor) {
     if (!editor) return;
 
@@ -712,6 +1208,7 @@
 
     let hoverTarget = null;
     let activeDrag = null;
+    let cellDragSelect = null;
     let lastHoveredCell = null;
     const BORDER_THRESHOLD = 7;
     const MIN_COL_WIDTH = 40;
@@ -728,8 +1225,59 @@
       }
     }
 
+    // 표의 각 논리적 열(0..numCols-1)의 현재 렌더링 폭 추정
+    function getLogicalColumnWidths(table) {
+      const { grid, cellBounds, numRows, numCols } = buildTableGrid(table);
+      const colWidths = new Array(numCols).fill(0);
+
+      // 1차: colSpan === 1인 단일 열 셀로부터 정확한 폭 측정
+      for (let c = 0; c < numCols; c++) {
+        for (let r = 0; r < numRows; r++) {
+          const slot = grid[r] && grid[r][c];
+          if (slot && slot.colSpan === 1 && slot.cell) {
+            colWidths[c] = slot.cell.getBoundingClientRect().width;
+            break;
+          }
+        }
+      }
+      // 2차: 모든 행이 병합되어 있는 열은 병합 셀 폭을 균등 분배
+      const totalTableW = table.getBoundingClientRect().width;
+      const defaultW = numCols > 0 ? totalTableW / numCols : 80;
+      for (let c = 0; c < numCols; c++) {
+        if (!colWidths[c]) colWidths[c] = defaultW;
+      }
+      return { colWidths, numCols, cellBounds };
+    }
+
     editor.addEventListener('mousemove', (e) => {
       if (activeDrag) return;
+
+      // 다중 셀 마우스 드래그 선택 처리
+      if (cellDragSelect) {
+        const hoverCell = e.target.closest && e.target.closest('td, th');
+        if (hoverCell && hoverCell.closest('table') === cellDragSelect.table) {
+          if (hoverCell !== cellDragSelect.startCell || cellDragSelect.isMultiDragging) {
+            cellDragSelect.isMultiDragging = true;
+            const { grid, cellBounds } = buildTableGrid(cellDragSelect.table);
+            const b1 = cellBounds.get(cellDragSelect.startCell);
+            const b2 = cellBounds.get(hoverCell);
+            if (b1 && b2) {
+              const rect = getClosedRect(
+                grid,
+                cellBounds,
+                Math.min(b1.r, b2.r),
+                Math.min(b1.c, b2.c),
+                Math.max(b1.endRow, b2.endRow),
+                Math.max(b1.endCol, b2.endCol)
+              );
+              setSelectedTableCells(rect.cells);
+              const sel = window.getSelection();
+              if (sel) sel.removeAllRanges();
+            }
+          }
+        }
+        return;
+      }
 
       const cell = e.target.closest && e.target.closest('td, th');
       if (!cell || !editor.contains(cell)) {
@@ -755,12 +1303,17 @@
       }
       lastHoveredCell = cell;
 
+      const { cellBounds } = buildTableGrid(table);
+      const b = cellBounds.get(cell);
+      const rightLogicalCol = b ? b.endCol : cell.cellIndex;
+      const leftLogicalCol = b ? b.c - 1 : cell.cellIndex - 1;
+
       if (distRight <= BORDER_THRESHOLD) {
         cell.style.cursor = 'col-resize';
         hoverTarget = {
           type: 'col',
           table: table,
-          colIndex: cell.cellIndex,
+          colIndex: rightLogicalCol,
           borderX: rect.right
         };
         guideEl.style.left = `${rect.right - 1}px`;
@@ -768,12 +1321,12 @@
         guideEl.style.width = '2px';
         guideEl.style.height = `${tableRect.height}px`;
         guideEl.classList.add('active');
-      } else if (distLeft <= BORDER_THRESHOLD && cell.cellIndex > 0) {
+      } else if (distLeft <= BORDER_THRESHOLD && leftLogicalCol >= 0) {
         cell.style.cursor = 'col-resize';
         hoverTarget = {
           type: 'col',
           table: table,
-          colIndex: cell.cellIndex - 1,
+          colIndex: leftLogicalCol,
           borderX: rect.left
         };
         guideEl.style.left = `${rect.left - 1}px`;
@@ -804,60 +1357,98 @@
     });
 
     editor.addEventListener('mousedown', (e) => {
-      if (!hoverTarget || e.button !== 0) return;
+      if (e.button !== 0) return;
 
-      e.preventDefault();
-      e.stopPropagation();
+      // 1) 셀 경계선 드래그 리사이즈 시작
+      if (hoverTarget) {
+        e.preventDefault();
+        e.stopPropagation();
 
-      if (hoverTarget.type === 'col') {
-        const table = hoverTarget.table;
-        const firstRow = table.rows[0];
-        if (!firstRow) return;
+        if (hoverTarget.type === 'col') {
+          const table = hoverTarget.table;
+          const { colWidths, numCols, cellBounds } = getLogicalColumnWidths(table);
+          if (numCols === 0) return;
 
-        const startWidths = Array.from(firstRow.cells).map(c => c.getBoundingClientRect().width);
-        const startTableWidth = table.getBoundingClientRect().width;
-        const tableRect = table.getBoundingClientRect();
+          const startTableWidth = table.getBoundingClientRect().width;
+          const tableRect = table.getBoundingClientRect();
 
-        // 드래그 시작 시 모든 열의 현재 픽셀 폭을 고정하여 안정적으로 조절
-        table.style.width = `${startTableWidth}px`;
-        Array.from(table.rows).forEach(r => {
-          Array.from(r.cells).forEach((c, idx) => {
-            if (startWidths[idx] !== undefined) {
-              c.style.width = `${startWidths[idx]}px`;
-            }
+          table.style.width = `${startTableWidth}px`;
+          cellBounds.forEach((b, c) => {
+            let w = 0;
+            for (let k = b.c; k <= b.endCol; k++) w += colWidths[k] || 0;
+            if (w > 0) c.style.width = `${Math.round(w)}px`;
           });
-        });
 
-        activeDrag = {
-          type: 'col',
-          table: table,
-          colIndex: hoverTarget.colIndex,
-          numCols: firstRow.cells.length,
-          startX: e.clientX,
-          startBorderX: hoverTarget.borderX,
-          startWidths: startWidths,
-          startTableWidth: startTableWidth,
-          tableTop: tableRect.top,
-          tableHeight: tableRect.height
-        };
-        editor.classList.add('table-resizing-col');
-      } else if (hoverTarget.type === 'row') {
-        const table = hoverTarget.table;
-        const row = hoverTarget.row;
-        const startHeight = row.getBoundingClientRect().height;
-        const tableRect = table.getBoundingClientRect();
+          activeDrag = {
+            type: 'col',
+            table: table,
+            colIndex: hoverTarget.colIndex,
+            numCols: numCols,
+            startX: e.clientX,
+            startBorderX: hoverTarget.borderX,
+            startWidths: colWidths,
+            startTableWidth: startTableWidth,
+            tableTop: tableRect.top,
+            tableHeight: tableRect.height
+          };
+          editor.classList.add('table-resizing-col');
+        } else if (hoverTarget.type === 'row') {
+          const table = hoverTarget.table;
+          const row = hoverTarget.row;
+          const startHeight = row.getBoundingClientRect().height;
+          const tableRect = table.getBoundingClientRect();
 
-        activeDrag = {
-          type: 'row',
+          activeDrag = {
+            type: 'row',
+            table: table,
+            row: row,
+            startY: e.clientY,
+            startBorderY: hoverTarget.borderY,
+            startHeight: startHeight,
+            tableLeft: tableRect.left,
+            tableWidth: tableRect.width
+          };
+          editor.classList.add('table-resizing-row');
+        }
+        return;
+      }
+
+      // 2) 셀 내부 클릭 / Shift+클릭 범위 선택 / 다중 셀 드래그 선택 시작
+      const cell = e.target.closest && e.target.closest('td, th');
+      if (cell && editor.contains(cell)) {
+        const table = cell.closest('table');
+        if (e.shiftKey && activeTableCell && activeTableCell.closest('table') === table) {
+          e.preventDefault();
+          const { grid, cellBounds } = buildTableGrid(table);
+          const b1 = cellBounds.get(activeTableCell);
+          const b2 = cellBounds.get(cell);
+          if (b1 && b2) {
+            const rect = getClosedRect(
+              grid,
+              cellBounds,
+              Math.min(b1.r, b2.r),
+              Math.min(b1.c, b2.c),
+              Math.max(b1.endRow, b2.endRow),
+              Math.max(b1.endCol, b2.endCol)
+            );
+            setSelectedTableCells(rect.cells);
+            justFinishedMultiCellDrag = true;
+            setTimeout(() => { justFinishedMultiCellDrag = false; }, 80);
+            const tableBar = document.getElementById('reportTableContextBar');
+            if (tableBar) tableBar.classList.add('show');
+          }
+          return;
+        }
+
+        activeTableCell = cell;
+        setSelectedTableCells([cell]);
+        cellDragSelect = {
           table: table,
-          row: row,
-          startY: e.clientY,
-          startBorderY: hoverTarget.borderY,
-          startHeight: startHeight,
-          tableLeft: tableRect.left,
-          tableWidth: tableRect.width
+          startCell: cell,
+          isMultiDragging: false
         };
-        editor.classList.add('table-resizing-row');
+      } else {
+        clearSelectedTableCells();
       }
     });
 
@@ -868,19 +1459,23 @@
       if (activeDrag.type === 'col') {
         const { table, colIndex, numCols, startX, startBorderX, startWidths, startTableWidth, tableTop, tableHeight } = activeDrag;
         const rawDeltaX = e.clientX - startX;
+        const { cellBounds } = buildTableGrid(table);
+        const currentWidths = startWidths.slice();
 
         if (colIndex < numCols - 1) {
-          // 인접한 두 열(colIndex와 colIndex + 1) 사이의 경계선 드래그
           const minDelta = -(startWidths[colIndex] - MIN_COL_WIDTH);
           const maxDelta = startWidths[colIndex + 1] - MIN_COL_WIDTH;
           const clampedDelta = Math.max(minDelta, Math.min(maxDelta, rawDeltaX));
 
-          const newW1 = Math.round(startWidths[colIndex] + clampedDelta);
-          const newW2 = Math.round(startWidths[colIndex + 1] - clampedDelta);
+          currentWidths[colIndex] = Math.round(startWidths[colIndex] + clampedDelta);
+          currentWidths[colIndex + 1] = Math.round(startWidths[colIndex + 1] - clampedDelta);
 
-          Array.from(table.rows).forEach(r => {
-            if (r.cells[colIndex]) r.cells[colIndex].style.width = `${newW1}px`;
-            if (r.cells[colIndex + 1]) r.cells[colIndex + 1].style.width = `${newW2}px`;
+          cellBounds.forEach((b, c) => {
+            if (b.c <= colIndex + 1 && b.endCol >= colIndex) {
+              let sumW = 0;
+              for (let k = b.c; k <= b.endCol; k++) sumW += currentWidths[k] || 0;
+              c.style.width = `${Math.round(sumW)}px`;
+            }
           });
 
           guideEl.style.left = `${startBorderX + clampedDelta - 1}px`;
@@ -889,16 +1484,19 @@
           guideEl.style.height = `${tableHeight}px`;
           guideEl.classList.add('active');
         } else {
-          // 표의 가장 우측 외곽선 드래그: 마지막 열과 표 전체 폭을 동시에 조절
           const minDelta = -(startWidths[colIndex] - MIN_COL_WIDTH);
           const clampedDelta = Math.max(minDelta, rawDeltaX);
 
-          const newLastW = Math.round(startWidths[colIndex] + clampedDelta);
+          currentWidths[colIndex] = Math.round(startWidths[colIndex] + clampedDelta);
           const newTableW = Math.round(startTableWidth + clampedDelta);
 
           table.style.width = `${newTableW}px`;
-          Array.from(table.rows).forEach(r => {
-            if (r.cells[colIndex]) r.cells[colIndex].style.width = `${newLastW}px`;
+          cellBounds.forEach((b, c) => {
+            if (b.endCol === colIndex) {
+              let sumW = 0;
+              for (let k = b.c; k <= b.endCol; k++) sumW += currentWidths[k] || 0;
+              c.style.width = `${Math.round(sumW)}px`;
+            }
           });
 
           guideEl.style.left = `${startBorderX + clampedDelta - 1}px`;
@@ -916,7 +1514,9 @@
 
         row.style.height = `${newH}px`;
         Array.from(row.cells).forEach(c => {
-          c.style.height = `${newH}px`;
+          if (!c.rowSpan || c.rowSpan === 1) {
+            c.style.height = `${newH}px`;
+          }
         });
 
         guideEl.style.left = `${tableLeft}px`;
@@ -928,6 +1528,15 @@
     });
 
     window.addEventListener('mouseup', () => {
+      if (cellDragSelect) {
+        if (cellDragSelect.isMultiDragging) {
+          justFinishedMultiCellDrag = true;
+          setTimeout(() => { justFinishedMultiCellDrag = false; }, 80);
+          const tableBar = document.getElementById('reportTableContextBar');
+          if (tableBar) tableBar.classList.add('show');
+        }
+        cellDragSelect = null;
+      }
       if (!activeDrag) return;
       editor.classList.remove('table-resizing-col', 'table-resizing-row');
       activeDrag = null;
@@ -1009,6 +1618,7 @@
 
   function hideContextBars() {
     activeTableCell = null;
+    clearSelectedTableCells();
     if (activeImageElement) {
       activeImageElement.classList.remove('selected-media');
       activeImageElement = null;
@@ -1027,6 +1637,7 @@
 
     const title = (titleInput ? titleInput.value.trim() : '') || '제목 없는 보고서';
     const clone = editor.cloneNode(true);
+    clone.querySelectorAll('.table-cell-selected').forEach(cell => cell.classList.remove('table-cell-selected'));
 
     clone.querySelectorAll('h1').forEach(el => {
       el.style.cssText = 'font-size:22px; font-weight:800; color:#0f172a; margin:20px 0 10px; padding-bottom:6px; border-bottom:2px solid #e2e8f0;';
@@ -1139,6 +1750,7 @@
     contentClone.removeAttribute('contenteditable');
     contentClone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
     contentClone.querySelectorAll('img.selected-media').forEach(img => img.classList.remove('selected-media'));
+    contentClone.querySelectorAll('.table-cell-selected').forEach(cell => cell.classList.remove('table-cell-selected'));
 
     // 캡션 기본 플레이스홀더 텍스트인 경우 내보내기에서 숨김
     contentClone.querySelectorAll('.report-image-caption').forEach(cap => {
@@ -1795,20 +2407,34 @@
 
       editor.addEventListener('click', (e) => {
         hideAllPopovers();
+        if (justFinishedMultiCellDrag) {
+          return;
+        }
         const td = e.target.closest('td, th');
         const img = e.target.closest('img');
 
-        hideContextBars();
-
         if (img) {
+          hideContextBars();
           activeImageElement = img;
           img.classList.add('selected-media');
           const imgBar = document.getElementById('reportImageContextBar');
           if (imgBar) imgBar.classList.add('show');
         } else if (td) {
+          if (activeImageElement) {
+            activeImageElement.classList.remove('selected-media');
+            activeImageElement = null;
+          }
+          const imgBar = document.getElementById('reportImageContextBar');
+          if (imgBar) imgBar.classList.remove('show');
+
           activeTableCell = td;
+          if (selectedTableCells.length <= 1) {
+            setSelectedTableCells([td]);
+          }
           const tableBar = document.getElementById('reportTableContextBar');
           if (tableBar) tableBar.classList.add('show');
+        } else {
+          hideContextBars();
         }
       });
 

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
-  <link rel="stylesheet" href="./css/report.css?v=1.2">
+  <link rel="stylesheet" href="./css/report.css?v=1.3">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -995,9 +995,17 @@
         <!-- 표 셀 클릭 시 표시되는 컨텍스트 바 -->
         <div class="report-context-bar" id="reportTableContextBar">
           <span class="context-bar-label">표 편집</span>
-          <button type="button" class="context-btn" data-table-action="add-row">아래 행 추가</button>
-          <button type="button" class="context-btn" data-table-action="add-col">우측 열 추가</button>
-          <button type="button" class="context-btn" data-table-action="reset-size">셀 크기 초기화</button>
+          <button type="button" class="context-btn" data-table-action="add-row" title="현재 행 아래에 새 행을 추가합니다">아래 행 추가</button>
+          <button type="button" class="context-btn" data-table-action="add-col" title="현재 열 오른쪽에 새 열을 추가합니다">우측 열 추가</button>
+          <span class="context-bar-sep"></span>
+          <button type="button" class="context-btn accent" data-table-action="merge-selected" title="드래그 또는 Shift+클릭으로 선택한 셀들을 병합합니다">선택 병합</button>
+          <button type="button" class="context-btn" data-table-action="merge-right" title="현재 셀과 오른쪽 셀을 병합합니다">우측 병합</button>
+          <button type="button" class="context-btn" data-table-action="merge-down" title="현재 셀과 아래쪽 셀을 병합합니다">아래 병합</button>
+          <button type="button" class="context-btn" data-table-action="split-col" title="현재 셀을 좌우(열) 2개로 분할합니다">좌우 분할</button>
+          <button type="button" class="context-btn" data-table-action="split-row" title="현재 셀을 상하(행) 2개로 분할합니다">상하 분할</button>
+          <button type="button" class="context-btn" data-table-action="unmerge" title="병합된 셀을 원래 개별 셀들로 모두 해제합니다">병합 해제</button>
+          <span class="context-bar-sep"></span>
+          <button type="button" class="context-btn" data-table-action="reset-size" title="조절한 셀 크기를 초기화합니다">셀 크기 초기화</button>
           <button type="button" class="context-btn danger" data-table-action="del-row">현재 행 삭제</button>
           <button type="button" class="context-btn danger" data-table-action="del-col">현재 열 삭제</button>
           <button type="button" class="context-btn danger" data-table-action="del-table">표 전체 삭제</button>
@@ -1956,7 +1964,7 @@
   <script src="./js/supabase.js?v=6.4"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
   <script src="./js/app.js?v=7.0"></script>
-  <script src="./js/report.js?v=1.3"></script>
+  <script src="./js/report.js?v=1.4"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
