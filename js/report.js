@@ -1519,13 +1519,133 @@
       };
     });
 
+    // 말머리 기호(ul/ol li)나 문단 안에서 Shift+Enter 입력 시 새 말머리(li)를 만들지 않고 현재 항목 내 줄바꿈(<br>)만 수행하는 헬퍼
+    function insertSoftLineBreakAtCursor(editorEl) {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!editorEl.contains(range.commonAncestorContainer)) return;
+
+      range.deleteContents();
+
+      const br = document.createElement('br');
+      range.insertNode(br);
+
+      // <br> 뒤에 텍스트나 노드가 없으면 커서가 아랫줄에 시각적으로 위치할 수 있도록 보조 <br>을 추가
+      let next = br.nextSibling;
+      while (next && next.nodeType === Node.TEXT_NODE && next.textContent === '') {
+        next = next.nextSibling;
+      }
+      if (!next) {
+        const trailingBr = document.createElement('br');
+        br.parentNode.insertBefore(trailingBr, br.nextSibling);
+      }
+
+      const newRange = document.createRange();
+      newRange.setStartAfter(br);
+      newRange.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+
+      saveEditorSelection();
+      scheduleAutoSave();
+    }
+
     // 에디터 본문 이벤트 (자동 저장, 단축키, 선택 영역 추적, 클립보드 이미지 붙여넣기, 컨텍스트 감지)
     const editor = document.getElementById('reportEditorContent');
     if (editor) {
+      let pendingShiftEnterLi = null;
+      let pendingShiftEnterNextLi = null;
+      let shiftEnterHandledInBeforeInput = false;
+
+      editor.addEventListener('beforeinput', (e) => {
+        if (pendingShiftEnterLi && (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak')) {
+          e.preventDefault();
+          shiftEnterHandledInBeforeInput = true;
+          insertSoftLineBreakAtCursor(editor);
+        }
+      });
+
       editor.addEventListener('keydown', (e) => {
         const isCmdOrCtrl = e.metaKey || e.ctrlKey;
         const code = e.code || '';
         const keyLower = (e.key || '').toLowerCase();
+
+        // 0. Shift + Enter : 말머리 기호(li) 등 내부에서 새 말머리를 생성하지 않고 들여쓰기된 줄바꿈(<br>) 삽입
+        if (e.key === 'Enter' && e.shiftKey && !isCmdOrCtrl && !e.altKey) {
+          const sel = window.getSelection();
+          const anchorEl = sel && sel.anchorNode
+            ? (sel.anchorNode.nodeType === Node.ELEMENT_NODE ? sel.anchorNode : sel.anchorNode.parentElement)
+            : null;
+          const currentLi = anchorEl && anchorEl.closest ? anchorEl.closest('li') : null;
+
+          // 한글 조합 중(isComposing / keyCode 229)에 Shift+Enter를 누른 경우:
+          // 브라우저가 조합 완료와 함께 새 <li>로 쪼개버리는 현상을 방지 및 즉시 병합 복구
+          if (e.isComposing || e.keyCode === 229) {
+            pendingShiftEnterLi = currentLi || editor;
+            pendingShiftEnterNextLi = currentLi ? currentLi.nextElementSibling : null;
+            shiftEnterHandledInBeforeInput = false;
+            e.preventDefault();
+
+            setTimeout(() => {
+              const targetLi = currentLi;
+              pendingShiftEnterLi = null;
+
+              if (shiftEnterHandledInBeforeInput) {
+                shiftEnterHandledInBeforeInput = false;
+                return;
+              }
+
+              // 만약 브라우저 IME가 강제로 새 <li>를 생성해 분리시켰다면 다시 이전 <li> 내부의 <br> 뒤로 병합
+              if (targetLi && targetLi.parentNode && targetLi.nextElementSibling !== pendingShiftEnterNextLi) {
+                const splitLi = targetLi.nextElementSibling;
+                if (splitLi && splitLi.tagName === 'LI') {
+                  // targetLi 끝에 불필요한 빈 <br> 정리 후 줄바꿈 <br> 삽입
+                  const br = document.createElement('br');
+                  targetLi.appendChild(br);
+
+                  const movedNodes = [];
+                  while (splitLi.firstChild) {
+                    const child = splitLi.firstChild;
+                    targetLi.appendChild(child);
+                    movedNodes.push(child);
+                  }
+                  splitLi.remove();
+
+                  // 병합 후 커서가 아랫줄에 보이도록 보조 <br> 확인
+                  const hasVisibleMoved = movedNodes.some(n =>
+                    (n.nodeType === Node.TEXT_NODE && n.textContent.length > 0) ||
+                    (n.nodeType === Node.ELEMENT_NODE && n.tagName !== 'BR')
+                  );
+                  if (!hasVisibleMoved && (!br.nextSibling || br.nextSibling.tagName !== 'BR')) {
+                    targetLi.appendChild(document.createElement('br'));
+                  }
+
+                  const s = window.getSelection();
+                  if (s) {
+                    const r = document.createRange();
+                    r.setStartAfter(br);
+                    r.collapse(true);
+                    s.removeAllRanges();
+                    s.addRange(r);
+                  }
+                  saveEditorSelection();
+                  scheduleAutoSave();
+                  return;
+                }
+              }
+
+              // 새 <li>로 쪼개지지 않고 기본 동작만 막힌 경우 커서 위치에 <br> 삽입
+              insertSoftLineBreakAtCursor(editor);
+            }, 0);
+            return;
+          }
+
+          // 일반(영문 또는 한글 조합 완료 상태) Shift + Enter
+          e.preventDefault();
+          insertSoftLineBreakAtCursor(editor);
+          return;
+        }
 
         // 1. 기본 텍스트 서식 단축키 (한글 입력 상태 ㅠ, ㅕ, ㅑ 등에서도 e.code 및 자모 매칭으로 완벽 동작)
         if (isCmdOrCtrl && !e.shiftKey && !e.altKey) {
