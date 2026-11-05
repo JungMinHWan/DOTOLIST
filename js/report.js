@@ -958,6 +958,9 @@
 
       const newCell = document.createElement(activeTableCell.tagName.toLowerCase());
       newCell.innerHTML = '내용';
+      if (activeTableCell.style.backgroundColor) {
+        newCell.style.backgroundColor = activeTableCell.style.backgroundColor;
+      }
       activeTableCell.style.width = '';
 
       if (b.colSpan > 1) {
@@ -993,6 +996,9 @@
 
       const newCell = document.createElement(activeTableCell.tagName.toLowerCase());
       newCell.innerHTML = '내용';
+      if (activeTableCell.style.backgroundColor) {
+        newCell.style.backgroundColor = activeTableCell.style.backgroundColor;
+      }
       activeTableCell.style.height = '';
 
       if (b.rowSpan > 1) {
@@ -1055,6 +1061,9 @@
             if (!targetTr) continue;
             const restoredCell = document.createElement(cell.tagName.toLowerCase());
             restoredCell.innerHTML = '내용';
+            if (cell.style.backgroundColor) {
+              restoredCell.style.backgroundColor = cell.style.backgroundColor;
+            }
             const latestGrid = buildTableGrid(table);
             insertCellAtLogicalCol(targetTr, b.c + dc, restoredCell, latestGrid.cellBounds);
           }
@@ -1190,6 +1199,47 @@
       table.remove();
       hideContextBars();
     }
+
+    scheduleAutoSave();
+  }
+
+  // === 표 셀 음영색(배경색) 적용 (단일 셀 및 다중 선택 셀 동시 지원) ===
+  function applyTableCellBackground(bgColor) {
+    if (!activeTableCell) return;
+    const table = activeTableCell.closest('table');
+    if (!table) return;
+
+    let targets = selectedTableCells.filter(c => table.contains(c));
+    if (targets.length <= 1) {
+      const selEndpoints = getCellsFromSelectionInTable(table);
+      if (selEndpoints.length >= 2) {
+        const { grid, cellBounds } = buildTableGrid(table);
+        const b1 = cellBounds.get(selEndpoints[0]);
+        const b2 = cellBounds.get(selEndpoints[1]);
+        if (b1 && b2) {
+          const rect = getClosedRect(
+            grid,
+            cellBounds,
+            Math.min(b1.r, b2.r),
+            Math.min(b1.c, b2.c),
+            Math.max(b1.endRow, b2.endRow),
+            Math.max(b1.endCol, b2.endCol)
+          );
+          targets = rect.cells;
+        }
+      }
+    }
+    if (targets.length === 0) {
+      targets = [activeTableCell];
+    }
+
+    targets.forEach(cell => {
+      if (!bgColor) {
+        cell.style.backgroundColor = '';
+      } else {
+        cell.style.backgroundColor = bgColor;
+      }
+    });
 
     scheduleAutoSave();
   }
@@ -1667,12 +1717,16 @@
     clone.querySelectorAll('th').forEach(el => {
       const w = el.style.width ? `width:${el.style.width};` : '';
       const h = el.style.height ? `height:${el.style.height};` : '';
-      el.style.cssText = `${w}${h}border:1px solid #cbd5e1; padding:8px 10px; background:#f1f5f9; font-weight:700; color:#0f172a; text-align:left;`;
+      const bg = el.style.backgroundColor || '#f1f5f9';
+      const align = el.style.textAlign || 'left';
+      el.style.cssText = `${w}${h}border:1px solid #cbd5e1; padding:8px 10px; background-color:${bg}; font-weight:700; color:#0f172a; text-align:${align};`;
     });
     clone.querySelectorAll('td').forEach(el => {
       const w = el.style.width ? `width:${el.style.width};` : '';
       const h = el.style.height ? `height:${el.style.height};` : '';
-      el.style.cssText = `${w}${h}border:1px solid #cbd5e1; padding:8px 10px; color:#191f28; text-align:left;`;
+      const bg = el.style.backgroundColor ? `background-color:${el.style.backgroundColor};` : '';
+      const align = el.style.textAlign || 'left';
+      el.style.cssText = `${w}${h}${bg}border:1px solid #cbd5e1; padding:8px 10px; color:#191f28; text-align:${align};`;
     });
     clone.querySelectorAll('.report-check-item').forEach(el => {
       const chk = el.querySelector('input.report-check-box');
@@ -2123,6 +2177,24 @@
         handleTableAction(this.dataset.tableAction);
       };
     });
+
+    // 표 셀 음영색 스와치 및 직접선택 컬러 피커
+    document.querySelectorAll('[data-cell-bg]').forEach(swatch => {
+      swatch.onmousedown = (e) => e.preventDefault();
+      swatch.onclick = function () {
+        applyTableCellBackground(this.dataset.cellBg);
+      };
+    });
+
+    const cellColorPicker = document.getElementById('reportTableCellColorPicker');
+    if (cellColorPicker) {
+      cellColorPicker.oninput = function () {
+        applyTableCellBackground(this.value);
+      };
+      cellColorPicker.onchange = function () {
+        applyTableCellBackground(this.value);
+      };
+    }
 
     document.querySelectorAll('[data-img-action]').forEach(btn => {
       btn.onmousedown = (e) => e.preventDefault();

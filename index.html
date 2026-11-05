@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
-  <link rel="stylesheet" href="./css/report.css?v=1.3">
+  <link rel="stylesheet" href="./css/report.css?v=1.4">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -1005,6 +1005,23 @@
           <button type="button" class="context-btn" data-table-action="split-row" title="현재 셀을 상하(행) 2개로 분할합니다">상하 분할</button>
           <button type="button" class="context-btn" data-table-action="unmerge" title="병합된 셀을 원래 개별 셀들로 모두 해제합니다">병합 해제</button>
           <span class="context-bar-sep"></span>
+          <div class="context-color-group" title="선택한 셀(또는 드래그한 셀 영역)의 배경 음영색을 변경합니다">
+            <span class="context-bar-sublabel">셀 음영</span>
+            <button type="button" class="context-color-swatch" data-cell-bg="#ffffff" style="background: #ffffff;" title="흰색"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#f8fafc" style="background: #f8fafc;" title="연회색"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#e2e8f0" style="background: #e2e8f0;" title="강조 회색 (소계/합계)"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#dbeafe" style="background: #dbeafe;" title="연파랑"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#dcfce7" style="background: #dcfce7;" title="연초록"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#fef9c3" style="background: #fef9c3;" title="연노랑"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#fee2e2" style="background: #fee2e2;" title="연빨강"></button>
+            <button type="button" class="context-color-swatch" data-cell-bg="#ede9fe" style="background: #ede9fe;" title="연보라"></button>
+            <label class="context-color-custom-label" title="사용자 지정 음영색 선택">
+              <span>직접선택</span>
+              <input type="color" id="reportTableCellColorPicker" class="context-color-picker" value="#dbeafe">
+            </label>
+            <button type="button" class="context-color-swatch clear" data-cell-bg="" title="음영 초기화 (기본값)">✕</button>
+          </div>
+          <span class="context-bar-sep"></span>
           <button type="button" class="context-btn" data-table-action="reset-size" title="조절한 셀 크기를 초기화합니다">셀 크기 초기화</button>
           <button type="button" class="context-btn danger" data-table-action="del-row">현재 행 삭제</button>
           <button type="button" class="context-btn danger" data-table-action="del-col">현재 열 삭제</button>
@@ -1964,7 +1981,7 @@
   <script src="./js/supabase.js?v=6.4"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
   <script src="./js/app.js?v=7.0"></script>
-  <script src="./js/report.js?v=1.4"></script>
+  <script src="./js/report.js?v=1.5"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
