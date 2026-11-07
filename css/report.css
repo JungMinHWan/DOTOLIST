@@ -235,12 +235,15 @@
   background: var(--theme-light-bg);
   color: var(--theme-primary-dark);
 }
-.report-status-chip.active[data-status="작성 중"] {
+.report-status-chip.active[data-status="작성 중"],
+.report-status-chip.active[data-status="읽는 중"],
+.report-status-chip.active[data-status="참고 중"] {
   background: var(--theme-light-bg);
   color: var(--theme-primary-dark);
   border-color: var(--theme-primary);
 }
-.report-status-chip.active[data-status="완료"] {
+.report-status-chip.active[data-status="완료"],
+.report-status-chip.active[data-status="완독"] {
   background: #d1fae5;
   color: #065f46;
   border-color: #34d399;

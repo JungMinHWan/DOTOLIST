@@ -1,8 +1,9 @@
-// 보고문서 (Report Studio) 비즈니스 로직 및 블로그형 에디터 모듈 (이모지 미사용)
+// 보고문서 / 독서 기록 / 업무 매뉴얼 통합 블로그형 에디터 모듈 (이모지 미사용)
 
 (function () {
   let currentReports = [];
   let selectedReport = null;
+  let activeDocType = 'report'; // 'report' | 'book' | 'manual'
   let currentReportFilter = 'all';
   let currentReportSearch = '';
   let reportSaveTimer = null;
@@ -13,10 +14,74 @@
   let justFinishedMultiCellDrag = false;
   let activeImageElement = null;
 
+  const DOC_MODE_CONFIG = {
+    report: {
+      type: 'report',
+      label: '보고문서',
+      idField: 'report_id',
+      contentField: 'content',
+      defaultStatus: '작성 중',
+      statuses: ['작성 중', '완료', '보류'],
+      titlePlaceholder: '보고문서 제목을 입력하세요',
+      editorPlaceholder: '이곳에 보고 내용을 자유롭게 작성하세요. 상단 도구 모음으로 제목, 글자색, 형광펜, 표, 콜아웃 박스, 이미지 등을 삽입할 수 있습니다.',
+      deleteBtnText: '문서 삭제',
+      exportPrefix: '보고문서',
+      draftKeyPrefix: 'report_draft_'
+    },
+    book: {
+      type: 'book',
+      label: '독서 기록',
+      idField: 'book_id',
+      contentField: 'notes',
+      defaultStatus: '읽는 중',
+      statuses: ['읽는 중', '완독', '보류'],
+      titlePlaceholder: '책 제목을 입력하세요',
+      editorPlaceholder: '인상 깊은 문장이나 독서 메모를 자유롭게 작성하세요. 상단 도구 모음으로 제목, 글자색, 형광펜, 표, 콜아웃 박스, 이미지 등을 삽입할 수 있습니다.',
+      deleteBtnText: '기록 삭제',
+      exportPrefix: '독서기록',
+      draftKeyPrefix: 'book_draft_'
+    },
+    manual: {
+      type: 'manual',
+      label: '업무 매뉴얼',
+      idField: 'manual_id',
+      contentField: 'notes',
+      defaultStatus: '참고 중',
+      statuses: ['참고 중', '완료', '보류'],
+      titlePlaceholder: '매뉴얼 제목을 입력하세요',
+      editorPlaceholder: '업무 프로세스, 체크리스트, 참고 가이드를 자유롭게 작성하세요. 상단 도구 모음으로 제목, 글자색, 형광펜, 표, 콜아웃 박스, 이미지 등을 삽입할 수 있습니다.',
+      deleteBtnText: '매뉴얼 삭제',
+      exportPrefix: '업무매뉴얼',
+      draftKeyPrefix: 'manual_draft_'
+    }
+  };
+
+  function getActiveModeConfig() {
+    return DOC_MODE_CONFIG[activeDocType] || DOC_MODE_CONFIG.report;
+  }
+
+  function getDocId(item) {
+    if (!item) return '';
+    const cfg = getActiveModeConfig();
+    return item[cfg.idField] || item.report_id || item.book_id || item.manual_id || '';
+  }
+
   function escapeHtmlText(str) {
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+  }
+
+  // 기존 일반 텍스트(줄바꿈 \n 기반)로 저장된 독서 기록/업무 매뉴얼 노트를 에디터용 HTML 문단(<p>)으로 자동 변환
+  function normalizeContentToRichHtml(raw) {
+    if (!raw || !String(raw).trim()) return '<p><br></p>';
+    const str = String(raw);
+    const hasHtmlTag = /<\/?(p|div|h[1-6]|ul|ol|li|table|thead|tbody|tr|td|th|blockquote|figure|hr|br|span|b|strong|u|i|em|s|strike|font)\b/i.test(str);
+    if (hasHtmlTag) {
+      return str;
+    }
+    const lines = str.split(/\r?\n/);
+    return lines.map(line => `<p>${line ? escapeHtmlText(line) : '<br>'}</p>`).join('');
   }
 
   function stripHtmlTags(html) {
@@ -279,9 +344,45 @@
     }
   }
 
-  function openReportEditorModal(reportId) {
-    selectedReport = currentReports.find(r => r.report_id === reportId);
-    if (!selectedReport) return;
+  function renderStatusChipsForMode(docType, activeStatus) {
+    const cfg = DOC_MODE_CONFIG[docType] || DOC_MODE_CONFIG.report;
+    const container = document.getElementById('reportStatusChipsContainer');
+    if (!container) return;
+
+    container.innerHTML = cfg.statuses
+      .map(
+        st =>
+          `<button type="button" class="report-status-chip ${st === activeStatus ? 'active' : ''}" data-status="${escapeHtmlText(st)}">${escapeHtmlText(st)}</button>`
+      )
+      .join('');
+
+    container.querySelectorAll('.report-status-chip').forEach(chip => {
+      chip.onclick = function () {
+        changeReportStatus(this.dataset.status);
+      };
+    });
+  }
+
+  async function refreshActiveModeList() {
+    if (activeDocType === 'report') {
+      await loadReports();
+    } else if (activeDocType === 'book') {
+      if (typeof window.loadBooks === 'function') {
+        await window.loadBooks();
+      }
+    } else if (activeDocType === 'manual') {
+      if (typeof window.loadManuals === 'function') {
+        await window.loadManuals();
+      }
+    }
+  }
+
+  function openUnifiedEditor(docType, docItem) {
+    if (!docItem) return;
+    activeDocType = DOC_MODE_CONFIG[docType] ? docType : 'report';
+    selectedReport = docItem;
+    const cfg = getActiveModeConfig();
+    const docId = getDocId(docItem);
 
     const overlay = document.getElementById('reportEditorModalOverlay');
     if (!overlay) return;
@@ -289,27 +390,43 @@
     document.body.style.overflow = 'hidden';
 
     const titleInput = document.getElementById('reportEditorTitleInput');
-    if (titleInput) titleInput.value = selectedReport.title || '';
+    if (titleInput) {
+      titleInput.value = docItem.title || '';
+      titleInput.placeholder = cfg.titlePlaceholder;
+    }
 
-    updateStatusBadgeAndChips(selectedReport.status || '작성 중');
+    const deleteBtn = document.getElementById('reportDeleteBtn');
+    if (deleteBtn) {
+      deleteBtn.textContent = cfg.deleteBtnText;
+    }
+
+    const lexiconBtn = document.getElementById('btnOpenLexiconInEditor');
+    if (lexiconBtn) {
+      lexiconBtn.style.display = activeDocType === 'book' ? 'inline-flex' : 'none';
+    }
+
+    const status = docItem.status || cfg.defaultStatus;
+    renderStatusChipsForMode(activeDocType, status);
+    updateStatusBadgeAndChips(status);
 
     const updatedLabel = document.getElementById('reportUpdatedLabel');
     if (updatedLabel) {
-      const dt = formatDateTimeShort(selectedReport.updated_at || selectedReport.created_at);
+      const dt = formatDateTimeShort(docItem.updated_at || docItem.created_at);
       updatedLabel.textContent = dt ? `최종 수정: ${dt}` : '';
     }
 
     const editor = document.getElementById('reportEditorContent');
     if (editor) {
-      const localDraft = localStorage.getItem(`report_draft_${selectedReport.report_id}`);
-      const dbContent = selectedReport.content || '';
-      let initialHtml = dbContent;
+      editor.setAttribute('data-placeholder', cfg.editorPlaceholder);
+      const localDraft = docId ? localStorage.getItem(`${cfg.draftKeyPrefix}${docId}`) : null;
+      const dbRaw = docItem[cfg.contentField] || '';
+      let initialRaw = dbRaw;
 
-      if (localDraft && localDraft !== dbContent && localDraft.length > dbContent.length) {
-        initialHtml = localDraft;
+      if (localDraft && localDraft !== dbRaw && localDraft.length > dbRaw.length) {
+        initialRaw = localDraft;
       }
 
-      editor.innerHTML = initialHtml || '<p><br></p>';
+      editor.innerHTML = normalizeContentToRichHtml(initialRaw);
       bindInteractiveCheckboxes(editor);
     }
 
@@ -318,7 +435,54 @@
     updateReportSaveIndicator('idle');
   }
 
+  function openReportEditorModal(reportIdOrObj) {
+    const item =
+      typeof reportIdOrObj === 'object' && reportIdOrObj !== null
+        ? reportIdOrObj
+        : currentReports.find(r => r.report_id === reportIdOrObj);
+    if (!item) return;
+    openUnifiedEditor('report', item);
+  }
+
+  async function openBookEditorModal(bookIdOrObj) {
+    let item = null;
+    if (typeof bookIdOrObj === 'object' && bookIdOrObj !== null) {
+      item = bookIdOrObj;
+    } else {
+      const list = Array.isArray(window.currentBooks) ? window.currentBooks : [];
+      item = list.find(b => b.book_id === bookIdOrObj);
+      if (!item && window.api && typeof window.api.getBooks === 'function') {
+        const fetched = await window.api.getBooks();
+        window.currentBooks = fetched;
+        item = fetched.find(b => b.book_id === bookIdOrObj);
+      }
+    }
+    if (!item) return;
+    openUnifiedEditor('book', item);
+  }
+
+  async function openManualEditorModal(manualIdOrObj) {
+    let item = null;
+    if (typeof manualIdOrObj === 'object' && manualIdOrObj !== null) {
+      item = manualIdOrObj;
+    } else {
+      const list = Array.isArray(window.currentManuals) ? window.currentManuals : [];
+      item = list.find(m => m.manual_id === manualIdOrObj);
+      if (!item && window.api && typeof window.api.getManuals === 'function') {
+        const fetched = await window.api.getManuals();
+        window.currentManuals = fetched;
+        item = fetched.find(m => m.manual_id === manualIdOrObj);
+      }
+    }
+    if (!item) return;
+    openUnifiedEditor('manual', item);
+  }
+
   async function closeReportEditorModal() {
+    if (reportSaveTimer) {
+      clearTimeout(reportSaveTimer);
+      reportSaveTimer = null;
+    }
     if (selectedReport) {
       await saveReportContentRealtime();
       await saveReportTitleRealtime();
@@ -331,7 +495,7 @@
     selectedReport = null;
     hideAllPopovers();
     hideContextBars();
-    await loadReports();
+    await refreshActiveModeList();
 
     if (typeof window.checkAndUnlockBodyScroll === 'function') {
       window.checkAndUnlockBodyScroll();
@@ -350,8 +514,10 @@
       badge.textContent = status;
       badge.className = 'book-notes-badge';
       if (status === '작성 중') badge.classList.add('작성_중');
-      if (status === '완료') badge.classList.add('완독');
-      if (status === '보류') badge.classList.add('보류');
+      else if (status === '읽는 중') badge.classList.add('읽는_중');
+      else if (status === '참고 중') badge.classList.add('참고_중');
+      else if (status === '완료' || status === '완독') badge.classList.add('완독');
+      else if (status === '보류') badge.classList.add('보류');
     }
 
     document.querySelectorAll('.report-status-chip').forEach(chip => {
@@ -361,12 +527,26 @@
 
   async function changeReportStatus(newStatus) {
     if (!selectedReport) return;
-    const res = await window.api.updateReportStatus(selectedReport.report_id, newStatus);
+    const docId = getDocId(selectedReport);
+    if (!docId) return;
+
+    let res = null;
+    if (activeDocType === 'book') {
+      res = await window.api.updateBookStatus(docId, newStatus);
+    } else if (activeDocType === 'manual') {
+      res = await window.api.updateManualStatus(docId, newStatus);
+    } else {
+      res = await window.api.updateReportStatus(docId, newStatus);
+    }
+
     if (res && res.success) {
       selectedReport.status = newStatus;
       selectedReport.updated_at = new Date().toISOString();
       updateStatusBadgeAndChips(newStatus);
-      await loadReports();
+      if (activeDocType === 'book' && typeof window.triggerQuestUpdate === 'function') {
+        window.triggerQuestUpdate('book_logged', true);
+      }
+      await refreshActiveModeList();
     } else {
       alert('상태 변경에 실패했습니다.');
     }
@@ -379,13 +559,24 @@
     const newTitle = input.value.trim();
     if (!newTitle || newTitle === selectedReport.title) return;
 
+    const docId = getDocId(selectedReport);
+    if (!docId) return;
+
     updateReportSaveIndicator('saving');
-    const res = await window.api.updateReportTitle(selectedReport.report_id, newTitle);
+    let res = null;
+    if (activeDocType === 'book') {
+      res = await window.api.updateBookTitle(docId, newTitle);
+    } else if (activeDocType === 'manual') {
+      res = await window.api.updateManualTitle(docId, newTitle);
+    } else {
+      res = await window.api.updateReportTitle(docId, newTitle);
+    }
+
     if (res && res.success) {
       selectedReport.title = newTitle;
       selectedReport.updated_at = new Date().toISOString();
       updateReportSaveIndicator('saved');
-      await loadReports();
+      await refreshActiveModeList();
     } else {
       updateReportSaveIndicator('error');
     }
@@ -395,6 +586,10 @@
     if (!selectedReport) return;
     const editor = document.getElementById('reportEditorContent');
     if (!editor) return;
+
+    const cfg = getActiveModeConfig();
+    const docId = getDocId(selectedReport);
+    if (!docId) return;
 
     // 체크박스 상태 attribute 동기화
     editor.querySelectorAll('input.report-check-box').forEach(chk => {
@@ -424,19 +619,30 @@
       });
     }
     try {
-      localStorage.setItem(`report_draft_${selectedReport.report_id}`, htmlContent);
+      localStorage.setItem(`${cfg.draftKeyPrefix}${docId}`, htmlContent);
     } catch (_) {}
 
-    const res = await window.api.updateReportContent(selectedReport.report_id, htmlContent);
+    let res = null;
+    if (activeDocType === 'book') {
+      res = await window.api.updateBookNotes(docId, htmlContent);
+    } else if (activeDocType === 'manual') {
+      res = await window.api.updateManualNotes(docId, htmlContent);
+    } else {
+      res = await window.api.updateReportContent(docId, htmlContent);
+    }
+
     if (res && res.success) {
-      selectedReport.content = htmlContent;
+      selectedReport[cfg.contentField] = htmlContent;
       selectedReport.updated_at = new Date().toISOString();
       try {
-        localStorage.removeItem(`report_draft_${selectedReport.report_id}`);
+        localStorage.removeItem(`${cfg.draftKeyPrefix}${docId}`);
       } catch (_) {}
       const updatedLabel = document.getElementById('reportUpdatedLabel');
       if (updatedLabel) {
         updatedLabel.textContent = `최종 수정: ${formatDateTimeShort(selectedReport.updated_at)}`;
+      }
+      if (activeDocType === 'book' && typeof window.triggerQuestUpdate === 'function') {
+        window.triggerQuestUpdate('book_logged', true);
       }
       updateReportSaveIndicator('saved');
     } else {
@@ -455,20 +661,34 @@
 
   async function deleteCurrentReport() {
     if (!selectedReport) return;
-    if (!confirm(`'${selectedReport.title}' 보고문서를 삭제하시겠습니까?`)) return;
+    const cfg = getActiveModeConfig();
+    const docId = getDocId(selectedReport);
+    if (!docId) return;
 
-    const id = selectedReport.report_id;
-    const res = await window.api.deleteReport(id);
+    if (!confirm(`'${selectedReport.title}' ${cfg.label} 항목을 삭제하시겠습니까?`)) return;
+
+    let res = null;
+    if (activeDocType === 'book') {
+      res = await window.api.deleteBook(docId);
+    } else if (activeDocType === 'manual') {
+      res = await window.api.deleteManual(docId);
+    } else {
+      res = await window.api.deleteReport(docId);
+    }
+
     if (res && res.success) {
       try {
-        localStorage.removeItem(`report_draft_${id}`);
+        localStorage.removeItem(`${cfg.draftKeyPrefix}${docId}`);
       } catch (_) {}
       selectedReport = null;
       const overlay = document.getElementById('reportEditorModalOverlay');
       if (overlay) overlay.classList.remove('show');
-      await loadReports();
+      await refreshActiveModeList();
+      if (typeof window.checkAndUnlockBodyScroll === 'function') {
+        window.checkAndUnlockBodyScroll();
+      }
     } else {
-      alert('문서 삭제에 실패했습니다.');
+      alert(`${cfg.label} 삭제에 실패했습니다.`);
     }
   }
 
@@ -1791,10 +2011,11 @@
 
   // === 내보내기 2 & 3: 고해상도 PNG 및 PDF 렌더링 스테이지 생성 ===
   function createOffscreenExportStage() {
+    const cfg = getActiveModeConfig();
     const editor = document.getElementById('reportEditorContent');
     const titleInput = document.getElementById('reportEditorTitleInput');
-    const title = (titleInput ? titleInput.value.trim() : '') || '제목 없는 보고서';
-    const status = selectedReport ? selectedReport.status : '작성 중';
+    const title = (titleInput ? titleInput.value.trim() : '') || `제목 없는 ${cfg.label}`;
+    const status = selectedReport ? selectedReport.status : cfg.defaultStatus;
     const dateStr = formatDateTimeShort(selectedReport?.updated_at || new Date().toISOString());
 
     const stage = document.createElement('div');
@@ -1833,6 +2054,7 @@
       <div class="report-export-header">
         <div class="report-export-title">${escapeHtmlText(title)}</div>
         <div class="report-export-meta">
+          <span>분류: ${escapeHtmlText(cfg.label)}</span>
           <span>상태: ${escapeHtmlText(status)}</span>
           <span>작성일시: ${escapeHtmlText(dateStr)}</span>
         </div>
@@ -1852,6 +2074,7 @@
       return;
     }
 
+    const cfg = getActiveModeConfig();
     const btn = document.getElementById('btnExportReportPng');
     if (btn) {
       btn.disabled = true;
@@ -1872,7 +2095,7 @@
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_');
-      link.download = `보고문서_${safeTitle}_${getExportDateStamp()}.png`;
+      link.download = `${cfg.exportPrefix}_${safeTitle}_${getExportDateStamp()}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -1896,6 +2119,7 @@
       return;
     }
 
+    const cfg = getActiveModeConfig();
     const btn = document.getElementById('btnExportReportPdf');
     if (btn) {
       btn.disabled = true;
@@ -1927,7 +2151,7 @@
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMm, pdfHeightMm, undefined, 'FAST');
       const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_');
-      pdf.save(`보고문서_${safeTitle}_${getExportDateStamp()}.pdf`);
+      pdf.save(`${cfg.exportPrefix}_${safeTitle}_${getExportDateStamp()}.pdf`);
       notifyToast('최적화 PDF 문서 저장이 완료되었습니다.');
     } catch (err) {
       console.error('PDF 저장 오류:', err);
@@ -2364,7 +2588,7 @@
           if (code === 'KeyS' || keyLower === 's' || keyLower === 'ㄴ' || e.keyCode === 83) {
             e.preventDefault();
             saveReportContentRealtime();
-            notifyToast('보고문서가 저장되었습니다.');
+            notifyToast(`${getActiveModeConfig().label} 내용이 저장되었습니다.`);
             return;
           }
         }
@@ -2531,6 +2755,21 @@
       setupTableResizeInteractions(editor);
     }
 
+    // 독서 기록 모드 전용 지식 탐색 버튼 바인딩
+    const btnLexiconInEditor = document.getElementById('btnOpenLexiconInEditor');
+    if (btnLexiconInEditor) {
+      btnLexiconInEditor.onmousedown = (e) => {
+        e.preventDefault();
+        saveEditorSelection();
+      };
+      btnLexiconInEditor.onclick = () => {
+        const selectedKw = (window.getSelection && window.getSelection().toString().trim()) || '';
+        if (window.lexiconUI && typeof window.lexiconUI.open === 'function') {
+          window.lexiconUI.open(selectedKw);
+        }
+      };
+    }
+
     // 내보내기 버튼 바인딩
     const btnCopyRich = document.getElementById('btnCopyReportRich');
     if (btnCopyRich) btnCopyRich.onclick = copyFormattedReport;
@@ -2551,9 +2790,13 @@
     openShelf: openReportShelfModal,
     closeShelf: closeReportShelfModal,
     openEditor: openReportEditorModal,
+    openBookEditor: openBookEditorModal,
+    openManualEditor: openManualEditorModal,
     closeEditor: closeReportEditorModal,
     moveOrder: moveReportOrder,
-    loadReports: loadReports
+    loadReports: loadReports,
+    stripHtmlTags: stripHtmlTags,
+    formatDateTimeShort: formatDateTimeShort
   };
 })();
 

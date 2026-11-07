@@ -15,9 +15,11 @@ let currentGoal = null;
 let currentBooks = [];
 let selectedBook = null;
 let currentBookFilter = 'all';
+let currentBookSearch = '';
 let currentManuals = [];
 let selectedManual = null;
 let currentManualFilter = 'all';
+let currentManualSearch = '';
 
 const THEMES = {
   0: { primary: '#E5484D', dark: '#C03538', light: '#FDECEC', header: '#E5484D' },                    // 일: 비비드 레드
@@ -736,6 +738,27 @@ document.addEventListener('DOMContentLoaded', async function() {
     };
   });
 
+  // 독서 기록 보관함 실시간 검색 리스너
+  const bookSearchInput = document.getElementById('bookSearchInput');
+  const bookSearchClear = document.getElementById('bookSearchClear');
+  if (bookSearchInput) {
+    bookSearchInput.oninput = function() {
+      currentBookSearch = this.value.trim();
+      if (bookSearchClear) {
+        bookSearchClear.classList.toggle('visible', currentBookSearch.length > 0);
+      }
+      renderBookList();
+    };
+  }
+  if (bookSearchClear) {
+    bookSearchClear.onclick = function() {
+      if (bookSearchInput) bookSearchInput.value = '';
+      currentBookSearch = '';
+      this.classList.remove('visible');
+      renderBookList();
+    };
+  }
+
   // 독서 메모 저장 리스너 (실시간 포커스 아웃 및 디바운싱 저장)
   const bookNotesArea = document.getElementById('bookNotesTextarea');
   let bookNotesSaveTimeout = null;
@@ -808,6 +831,27 @@ document.addEventListener('DOMContentLoaded', async function() {
       renderManualList();
     };
   });
+
+  // 업무 매뉴얼 보관함 실시간 검색 리스너
+  const manualSearchInput = document.getElementById('manualSearchInput');
+  const manualSearchClear = document.getElementById('manualSearchClear');
+  if (manualSearchInput) {
+    manualSearchInput.oninput = function() {
+      currentManualSearch = this.value.trim();
+      if (manualSearchClear) {
+        manualSearchClear.classList.toggle('visible', currentManualSearch.length > 0);
+      }
+      renderManualList();
+    };
+  }
+  if (manualSearchClear) {
+    manualSearchClear.onclick = function() {
+      if (manualSearchInput) manualSearchInput.value = '';
+      currentManualSearch = '';
+      this.classList.remove('visible');
+      renderManualList();
+    };
+  }
 
   // 매뉴얼 내용 저장 리스너 (실시간 포커스 아웃 및 디바운싱 저장)
   const manualNotesArea = document.getElementById('manualNotesTextarea');
@@ -2511,25 +2555,61 @@ function escapeHtml(t) {
   return d.innerHTML; 
 }
 
-// 📚 독서 기록(Book Shelf & Notes) 프론트엔드 연동 구현
+function stripRichHtmlForSearch(raw) {
+  if (!raw) return '';
+  if (window.reportStudio && typeof window.reportStudio.stripHtmlTags === 'function') {
+    return window.reportStudio.stripHtmlTags(raw);
+  }
+  const tmp = document.createElement('div');
+  tmp.innerHTML = raw;
+  return (tmp.textContent || tmp.innerText || '').trim();
+}
+
+function formatShelfItemDate(isoStr) {
+  if (!isoStr) return '';
+  if (window.reportStudio && typeof window.reportStudio.formatDateTimeShort === 'function') {
+    return window.reportStudio.formatDateTimeShort(isoStr);
+  }
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return '';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${yyyy}.${mm}.${dd} ${hh}:${min}`;
+}
+
+// 독서 기록(Book Shelf & Notes) 프론트엔드 연동 구현 (블로그형 통합 에디터 연동)
 async function loadBooks() {
   currentBooks = await api.getBooks();
+  window.currentBooks = currentBooks;
   
   // 만약 서재 모달이 열려 있다면 목록도 갱신
   if (document.getElementById('bookShelfModalOverlay').classList.contains('show')) {
     renderBookList();
   }
 }
+window.loadBooks = loadBooks;
 
 function openBookShelfModal() {
   document.getElementById('bookShelfModalOverlay').classList.add('show');
   document.body.style.overflow = 'hidden';
   document.getElementById('bookInput').value = '';
+
+  const searchInput = document.getElementById('bookSearchInput');
+  if (searchInput) searchInput.value = '';
+  currentBookSearch = '';
+  const clearBtn = document.getElementById('bookSearchClear');
+  if (clearBtn) clearBtn.classList.remove('visible');
+
   // 디폴트로 '전체' 탭 활성화
   document.querySelectorAll('.book-tab').forEach(t => t.classList.remove('active'));
   document.querySelector('.book-tab[data-status="all"]').classList.add('active');
   currentBookFilter = 'all';
-  renderBookList();
+  loadBooks().then(() => {
+    renderBookList();
+  });
 }
 
 function closeBookShelfModal() {
@@ -2619,15 +2699,24 @@ async function moveBookOrder(bookId, direction, event) {
 
 function renderBookList() {
   const listEl = document.getElementById('bookList');
-  listEl.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
+  if (!listEl) return;
   
   let filteredBooks = currentBooks;
   if (currentBookFilter !== 'all') {
-    filteredBooks = currentBooks.filter(b => b.status === currentBookFilter);
+    filteredBooks = filteredBooks.filter(b => b.status === currentBookFilter);
+  }
+
+  if (currentBookSearch) {
+    const q = currentBookSearch.toLowerCase();
+    filteredBooks = filteredBooks.filter(b => {
+      const titleMatch = (b.title || '').toLowerCase().includes(q);
+      const bodyMatch = stripRichHtmlForSearch(b.notes || '').toLowerCase().includes(q);
+      return titleMatch || bodyMatch;
+    });
   }
   
   if (filteredBooks.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px; font-weight:600;">책 목록이 비어 있습니다.</div>';
+    listEl.innerHTML = '<div style="text-align:center; padding:34px 20px; color:var(--text-muted); font-size:13px; font-weight:600;">등록된 독서 기록이 없습니다.</div>';
     return;
   }
   
@@ -2635,11 +2724,15 @@ function renderBookList() {
     const statusClass = b.status === '읽는 중' ? '읽는_중' : b.status;
     const isFirst = idx === 0;
     const isLast = idx === filteredBooks.length - 1;
+    const dateStr = formatShelfItemDate(b.updated_at || b.created_at);
     return `
       <div class="book-item" onclick="openBookNotesModal('${b.book_id}')">
-        <div class="book-item-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+        <div class="report-item-info">
+          <div class="book-item-title" title="${escapeHtml(b.title)}">${escapeHtml(b.title)}</div>
+          <div class="report-item-meta">${dateStr}</div>
+        </div>
         <div class="book-item-right">
-          <span class="book-item-status ${statusClass}">${b.status}</span>
+          <span class="book-item-status ${statusClass}">${escapeHtml(b.status)}</span>
           <div class="book-reorder-group" onclick="event.stopPropagation()">
             <button type="button" class="book-order-btn ${isFirst ? 'disabled' : ''}" 
                     title="위로 이동" 
@@ -2667,7 +2760,10 @@ function renderBookList() {
 async function addBook() {
   const input = document.getElementById('bookInput');
   const title = input.value.trim();
-  if (!title) return;
+  if (!title) {
+    input.focus();
+    return;
+  }
   
   const addBtn = document.getElementById('bookAddBtn');
   addBtn.disabled = true;
@@ -2679,6 +2775,9 @@ async function addBook() {
     input.value = '';
     await loadBooks();
     triggerQuestUpdate('book_logged', true);
+    if (res.data && res.data.book_id) {
+      openBookNotesModal(res.data.book_id);
+    }
   } else {
     alert('책 추가에 실패했습니다.');
   }
@@ -2688,34 +2787,11 @@ function openBookNotesModal(bookId) {
   selectedBook = currentBooks.find(b => b.book_id === bookId);
   if (!selectedBook) return;
   
-  // 서재 모달을 닫지 않고 독서 노트 모달을 띄워 UX를 매끄럽게 함
-  const overlay = document.getElementById('bookNotesModalOverlay');
-  overlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-  
-  document.getElementById('bookNotesTitleInput').value = selectedBook.title;
-  
-  // 배지 설정
-  const badge = document.getElementById('bookNotesBadge');
-  badge.innerText = selectedBook.status;
-  badge.className = 'book-notes-badge';
-  if (selectedBook.status === '완독') badge.classList.add('완독');
-  if (selectedBook.status === '보류') badge.classList.add('보류');
-  
-  // 상태 칩 활성화 설정
-  document.querySelectorAll('.status-chip').forEach(chip => {
-    chip.classList.remove('active');
-    if (chip.dataset.status === selectedBook.status) {
-      chip.classList.add('active');
-    }
-  });
-  
-  // 메모 세팅
-  const textarea = document.getElementById('bookNotesTextarea');
-  textarea.value = selectedBook.notes || '';
-  
-  // 저장 인디케이터 초기화
-  updateBookSaveIndicator('idle');
+  // 보고문서와 동일한 블로그형 리치 에디터로 열기
+  if (window.reportStudio && typeof window.reportStudio.openBookEditor === 'function') {
+    window.reportStudio.openBookEditor(selectedBook);
+    return;
+  }
 }
 
 function closeBookNotesModal() {
@@ -2779,25 +2855,36 @@ async function deleteBook() {
   }
 }
 
-// 📋 업무 매뉴얼 프론트엔드 연동 구현
+// 업무 매뉴얼 프론트엔드 연동 구현 (블로그형 통합 에디터 연동)
 async function loadManuals() {
   currentManuals = await api.getManuals();
+  window.currentManuals = currentManuals;
   
   // 만약 매뉴얼 서재 모달이 열려 있다면 목록도 갱신
   if (document.getElementById('manualShelfModalOverlay').classList.contains('show')) {
     renderManualList();
   }
 }
+window.loadManuals = loadManuals;
 
 function openManualShelfModal() {
   document.getElementById('manualShelfModalOverlay').classList.add('show');
   document.body.style.overflow = 'hidden';
   document.getElementById('manualInput').value = '';
+
+  const searchInput = document.getElementById('manualSearchInput');
+  if (searchInput) searchInput.value = '';
+  currentManualSearch = '';
+  const clearBtn = document.getElementById('manualSearchClear');
+  if (clearBtn) clearBtn.classList.remove('visible');
+
   // 디폴트로 '전체' 탭 활성화
   document.querySelectorAll('.manual-tab').forEach(t => t.classList.remove('active'));
   document.querySelector('.manual-tab[data-status="all"]').classList.add('active');
   currentManualFilter = 'all';
-  renderManualList();
+  loadManuals().then(() => {
+    renderManualList();
+  });
 }
 
 function closeManualShelfModal() {
@@ -2807,24 +2894,39 @@ function closeManualShelfModal() {
 
 function renderManualList() {
   const listEl = document.getElementById('manualList');
-  listEl.innerHTML = '<div class="loading" style="padding:20px;"><div class="spinner" style="width:24px; height:24px;"></div></div>';
+  if (!listEl) return;
   
   let filteredManuals = currentManuals;
   if (currentManualFilter !== 'all') {
-    filteredManuals = currentManuals.filter(m => m.status === currentManualFilter);
+    filteredManuals = filteredManuals.filter(m => m.status === currentManualFilter);
+  }
+
+  if (currentManualSearch) {
+    const q = currentManualSearch.toLowerCase();
+    filteredManuals = filteredManuals.filter(m => {
+      const titleMatch = (m.title || '').toLowerCase().includes(q);
+      const bodyMatch = stripRichHtmlForSearch(m.notes || '').toLowerCase().includes(q);
+      return titleMatch || bodyMatch;
+    });
   }
   
   if (filteredManuals.length === 0) {
-    listEl.innerHTML = '<div style="text-align:center; padding:30px; color:var(--text-muted); font-size:13px; font-weight:600;">매뉴얼 목록이 비어 있습니다.</div>';
+    listEl.innerHTML = '<div style="text-align:center; padding:34px 20px; color:var(--text-muted); font-size:13px; font-weight:600;">등록된 업무 매뉴얼이 없습니다.</div>';
     return;
   }
   
   listEl.innerHTML = filteredManuals.map(m => {
     const statusClass = m.status === '참고 중' ? '참고_중' : m.status;
+    const dateStr = formatShelfItemDate(m.updated_at || m.created_at);
     return `
       <div class="book-item" onclick="openManualNotesModal('${m.manual_id}')">
-        <div class="book-item-title">${escapeHtml(m.title)}</div>
-        <span class="book-item-status ${statusClass}">${m.status}</span>
+        <div class="report-item-info">
+          <div class="book-item-title" title="${escapeHtml(m.title)}">${escapeHtml(m.title)}</div>
+          <div class="report-item-meta">${dateStr}</div>
+        </div>
+        <div class="book-item-right">
+          <span class="book-item-status ${statusClass}">${escapeHtml(m.status)}</span>
+        </div>
       </div>
     `;
   }).join('');
@@ -2833,7 +2935,10 @@ function renderManualList() {
 async function addManual() {
   const input = document.getElementById('manualInput');
   const title = input.value.trim();
-  if (!title) return;
+  if (!title) {
+    input.focus();
+    return;
+  }
   
   const addBtn = document.getElementById('manualAddBtn');
   addBtn.disabled = true;
@@ -2844,6 +2949,9 @@ async function addManual() {
   if (res.success) {
     input.value = '';
     await loadManuals();
+    if (res.data && res.data.manual_id) {
+      openManualNotesModal(res.data.manual_id);
+    }
   } else {
     alert('매뉴얼 추가에 실패했습니다.');
   }
@@ -2853,34 +2961,11 @@ function openManualNotesModal(manualId) {
   selectedManual = currentManuals.find(m => m.manual_id === manualId);
   if (!selectedManual) return;
   
-  const overlay = document.getElementById('manualNotesModalOverlay');
-  overlay.classList.add('show');
-  document.body.style.overflow = 'hidden';
-  
-  document.getElementById('manualNotesTitleInput').value = selectedManual.title;
-  
-  // 배지 설정
-  const badge = document.getElementById('manualNotesBadge');
-  badge.innerText = selectedManual.status;
-  badge.className = 'book-notes-badge';
-  if (selectedManual.status === '참고 중') badge.classList.add('참고_중');
-  if (selectedManual.status === '완료') badge.classList.add('완독');
-  if (selectedManual.status === '보류') badge.classList.add('보류');
-  
-  // 상태 칩 활성화 설정
-  document.querySelectorAll('.manual-status-chip').forEach(chip => {
-    chip.classList.remove('active');
-    if (chip.dataset.status === selectedManual.status) {
-      chip.classList.add('active');
-    }
-  });
-  
-  // 메모 세팅
-  const textarea = document.getElementById('manualNotesTextarea');
-  textarea.value = selectedManual.notes || '';
-  
-  // 저장 마크 비우기
-  document.getElementById('manualNotesSaveStatus').innerText = '';
+  // 보고문서와 동일한 블로그형 리치 에디터로 열기
+  if (window.reportStudio && typeof window.reportStudio.openManualEditor === 'function') {
+    window.reportStudio.openManualEditor(selectedManual);
+    return;
+  }
 }
 
 function closeManualNotesModal() {

@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
-  <link rel="stylesheet" href="./css/report.css?v=1.4">
+  <link rel="stylesheet" href="./css/report.css?v=1.5">
   <link rel="manifest" href="./manifest.json">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -664,23 +664,30 @@
 
   <!-- Book Shelf Modal -->
   <div class="goal-modal-overlay" id="bookShelfModalOverlay">
-    <div class="goal-modal book-shelf-modal">
+    <div class="goal-modal book-shelf-modal report-shelf-modal">
       <div class="goal-modal-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1;">📚 나의 서재</div>
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1; display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--theme-primary);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"></path><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"></path></svg>
+          <span>독서 기록 보관함</span>
+        </div>
         <button class="goal-modal-close" id="bookShelfModalClose" title="닫기">×</button>
       </div>
-      <div class="book-shelf-tabs">
+      <div class="book-shelf-tabs" style="margin-bottom: 6px;">
         <button class="book-tab active" data-status="all">전체</button>
         <button class="book-tab" data-status="읽는 중">읽는 중</button>
         <button class="book-tab" data-status="완독">완독</button>
         <button class="book-tab" data-status="보류">보류</button>
+      </div>
+      <div class="report-search-row">
+        <input type="text" class="report-search-input" id="bookSearchInput" placeholder="책 제목 또는 독서 기록 키워드 검색..." autocomplete="off">
+        <button type="button" class="report-search-clear" id="bookSearchClear" title="검색어 지우기">×</button>
       </div>
       <div class="book-list" id="bookList">
         <!-- Book items will be rendered here -->
       </div>
       <div class="goal-execution-input-row">
         <input type="text" class="goal-execution-input" id="bookInput" placeholder="새 책의 제목을 입력하세요">
-        <button class="goal-execution-add-btn" id="bookAddBtn">추가</button>
+        <button class="goal-execution-add-btn" id="bookAddBtn">새 독서 기록</button>
       </div>
     </div>
   </div>
@@ -715,7 +722,7 @@
           <div class="save-status-dot-container idle" id="bookNotesSaveStatus" title="저장 상태">
             <span class="save-status-dot"></span>
           </div>
-          <button class="book-notes-close-btn" id="btnOpenLexiconInNotes" style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); color: #c4b5fd;">💡 지식 탐색</button>
+          <button class="book-notes-close-btn" id="btnOpenLexiconInNotes" style="background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(139, 92, 246, 0.5); color: #c4b5fd;">지식 탐색</button>
           <button class="book-notes-close-btn" id="bookNotesConfirmBtn">완료</button>
         </div>
       </div>
@@ -724,23 +731,30 @@
 
   <!-- Manual Shelf Modal -->
   <div class="goal-modal-overlay" id="manualShelfModalOverlay">
-    <div class="goal-modal book-shelf-modal">
+    <div class="goal-modal book-shelf-modal report-shelf-modal">
       <div class="goal-modal-header" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1;">📋 업무 매뉴얼</div>
+        <div class="book-modal-title" style="font-size: 18px; font-weight: 800; color: var(--text-main); flex: 1; display: flex; align-items: center; gap: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--theme-primary);"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="M9 12h6"></path><path d="M9 16h6"></path></svg>
+          <span>업무 매뉴얼 보관함</span>
+        </div>
         <button class="goal-modal-close" id="manualShelfModalClose" title="닫기">×</button>
       </div>
-      <div class="book-shelf-tabs">
+      <div class="book-shelf-tabs" style="margin-bottom: 6px;">
         <button class="manual-tab active" data-status="all">전체</button>
         <button class="manual-tab" data-status="참고 중">참고 중</button>
         <button class="manual-tab" data-status="완료">완료</button>
         <button class="manual-tab" data-status="보류">보류</button>
+      </div>
+      <div class="report-search-row">
+        <input type="text" class="report-search-input" id="manualSearchInput" placeholder="매뉴얼 제목 또는 본문 키워드 검색..." autocomplete="off">
+        <button type="button" class="report-search-clear" id="manualSearchClear" title="검색어 지우기">×</button>
       </div>
       <div class="book-list" id="manualList">
         <!-- Manual items will be rendered here -->
       </div>
       <div class="goal-execution-input-row">
         <input type="text" class="goal-execution-input" id="manualInput" placeholder="새 매뉴얼의 제목을 입력하세요">
-        <button class="goal-execution-add-btn" id="manualAddBtn">추가</button>
+        <button class="goal-execution-add-btn" id="manualAddBtn">새 매뉴얼 작성</button>
       </div>
     </div>
   </div>
@@ -836,7 +850,7 @@
       <div class="report-meta-row">
         <div class="report-status-group">
           <span class="status-change-label">상태:</span>
-          <div class="status-chips">
+          <div class="status-chips" id="reportStatusChipsContainer">
             <button type="button" class="report-status-chip active" data-status="작성 중">작성 중</button>
             <button type="button" class="report-status-chip" data-status="완료">완료</button>
             <button type="button" class="report-status-chip" data-status="보류">보류</button>
@@ -1049,6 +1063,10 @@
       <div class="report-editor-footer">
         <button type="button" class="book-notes-delete-btn" id="reportDeleteBtn">문서 삭제</button>
         <div class="report-export-actions">
+          <button type="button" class="report-export-btn" id="btnOpenLexiconInEditor" style="display: none; background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6;" title="독서 지식 및 어휘 사전 열기">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <span>지식 탐색</span>
+          </button>
           <button type="button" class="report-export-btn" id="btnCopyReportRich" title="서식을 유지한 채 클립보드에 복사합니다">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
             <span>서식 복사</span>
@@ -1980,8 +1998,8 @@
 
   <script src="./js/supabase.js?v=6.4"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
-  <script src="./js/app.js?v=7.0"></script>
-  <script src="./js/report.js?v=1.5"></script>
+  <script src="./js/app.js?v=7.1"></script>
+  <script src="./js/report.js?v=1.6"></script>
   <script src="./js/tetris.js?v=2.1"></script>
   <script src="./js/nap.js"></script>
   <script src="./js/math.js"></script>
