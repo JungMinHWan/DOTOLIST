@@ -262,6 +262,22 @@ const api = {
 
   async saveDailyMetrics(dateStr, val) {
     try {
+      // 자유 메모장 형태(문자열 또는 통합 노트 객체)인 경우 숫자 컬럼을 덮어쓰지 않고 텍스트 컬럼만 안전하게 업서트
+      if (typeof val === 'string' || (val && val.is_unified_note)) {
+        const textContent = typeof val === 'string' ? val : (val.content || val.insight || val.raw_report || '');
+        const { error } = await supabaseClient
+          .from('daily_metrics')
+          .upsert({
+            date: dateStr,
+            insight: textContent,
+            raw_report: textContent,
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+        return { success: true };
+      }
+
       const { error } = await supabaseClient
         .from('daily_metrics')
         .upsert({

@@ -586,6 +586,40 @@ document.addEventListener('DOMContentLoaded', async function() {
   
   document.getElementById('btnSaveMetrics').onclick = saveMetrics;
   
+  const btnInsertMetricsTemplate = document.getElementById('btnInsertMetricsTemplate');
+  if (btnInsertMetricsTemplate) {
+    btnInsertMetricsTemplate.onclick = (e) => {
+      e.stopPropagation();
+      const metricInput = document.getElementById('metricInsight');
+      if (!metricInput) return;
+      const templateText = [
+        '[계약 지표]',
+        '- 당일 / 누적: ',
+        '',
+        '[DB 유입 지표]',
+        '- 신청 / 유효 / 누적: ',
+        '- 경로별 특이사항: ',
+        '',
+        '[방문 예정 및 상담 현황]',
+        '- 토요일 / 일요일: ',
+        '',
+        '[플래너 실적 / 특이사항]',
+        '- ',
+        '',
+        '[인사이트 및 메모]',
+        '- '
+      ].join('\n');
+
+      if (metricInput.value.trim()) {
+        metricInput.value = metricInput.value.replace(/\s+$/, '') + '\n\n' + templateText;
+      } else {
+        metricInput.value = templateText;
+      }
+      metricInput.focus();
+      metricInput.dispatchEvent(new Event('input'));
+    };
+  }
+
   // 일일 지표 접기 토글 바인딩
   const metricsHeader = document.getElementById('metricsHeader');
   const metricsBody = document.getElementById('metricsBody');
@@ -596,44 +630,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     metricsToggleIcon.innerText = isCollapsed ? '▲' : '▼';
     localStorage.setItem('metricsCollapsed', isCollapsed ? 'true' : 'false');
   };
-
-  // 플래너 입력 시 요약 텍스트 자동 동기화
-
-  // 플래너 입력 시 요약 텍스트 자동 동기화
-  const plannerTopContainer = document.getElementById('plannerTopList');
-  if (plannerTopContainer) {
-    plannerTopContainer.addEventListener('input', () => {
-      const topList = getPlannerListFromUI('plannerTopList');
-      const summary = topList.filter(p => p.name).map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
-      document.getElementById('contractTop').value = summary;
-    });
-  }
-
-  const plannerBottomContainer = document.getElementById('plannerBottomList');
-  if (plannerBottomContainer) {
-    plannerBottomContainer.addEventListener('input', () => {
-      const bottomList = getPlannerListFromUI('plannerBottomList');
-      const summary = bottomList.filter(p => p.name).map(p => `${p.name}${p.count ? p.count.replace('건', '') : ''}`).join(', ');
-      document.getElementById('contractBottom').value = summary;
-    });
-  }
-  
-  // 페스타드레스 발주 폼 이벤트 바인딩
-  const btnFillFestaSample = document.getElementById('btnFillFestaSample');
-  if (btnFillFestaSample) {
-    btnFillFestaSample.onclick = () => {
-      fillFestaSampleData();
-    };
-  }
-
-  const festaGroup = document.getElementById('festaDressGroup');
-  if (festaGroup) {
-    festaGroup.addEventListener('input', (e) => {
-      if (e.target.classList.contains('festa-calc-sat') || e.target.classList.contains('festa-calc-sun') || e.target.classList.contains('festa-comp-name')) {
-        updateFestaTotals();
-      }
-    });
-  }
   
   // 기존 상태 복원
   if (localStorage.getItem('metricsCollapsed') === 'true') {
@@ -1673,124 +1669,143 @@ function fillFestaSampleData() {
   updateFestaTotals();
 }
 
+function buildUnifiedMetricsText(m) {
+  if (!m) return '';
+
+  const insightText = (m.insight || '').trim();
+  const rawReportText = (m.raw_report || '').trim();
+
+  // 통합 메모장 형태로 저장된 경우 (insight와 raw_report가 동일하고 내용이 존재할 때) 바로 반환
+  if (insightText && insightText === rawReportText) {
+    return m.insight;
+  }
+
+  const lines = [];
+
+  // 1. 계약 지표
+  const contractParts = [];
+  if (m.contracts_count !== null && m.contracts_count !== undefined && m.contracts_count !== '' && Number(m.contracts_count) !== 0) {
+    contractParts.push(`당일 ${m.contracts_count}건`);
+  }
+  if (m.cumulative_contracts_count !== null && m.cumulative_contracts_count !== undefined && m.cumulative_contracts_count !== '' && Number(m.cumulative_contracts_count) !== 0) {
+    contractParts.push(`누적 ${m.cumulative_contracts_count}건`);
+  }
+  if (m.contract_note) {
+    contractParts.push(`비고: ${m.contract_note}`);
+  }
+  if (contractParts.length > 0) {
+    lines.push(`[계약] ${contractParts.join(' / ')}`);
+  }
+
+  // 2. DB 유입 지표
+  const dbApplied = m.db_count !== null && m.db_count !== undefined && m.db_count !== '' ? m.db_count : m.db_total_applied;
+  const dbParts = [];
+  if (dbApplied !== null && dbApplied !== undefined && dbApplied !== '' && Number(dbApplied) !== 0) {
+    dbParts.push(`신청 ${dbApplied}건`);
+  }
+  if (m.db_total_actual !== null && m.db_total_actual !== undefined && m.db_total_actual !== '' && Number(m.db_total_actual) !== 0) {
+    dbParts.push(`유효 ${m.db_total_actual}건`);
+  }
+  if (m.cumulative_db_count !== null && m.cumulative_db_count !== undefined && m.cumulative_db_count !== '' && Number(m.cumulative_db_count) !== 0) {
+    dbParts.push(`누적 ${m.cumulative_db_count}건`);
+  }
+  if (m.db_total_note) {
+    dbParts.push(`비고: ${m.db_total_note}`);
+  }
+  if (dbParts.length > 0) {
+    lines.push(`[DB 유입] ${dbParts.join(' / ')}`);
+  }
+
+  // DB 경로별 상세
+  if (Array.isArray(m.db_channels) && m.db_channels.length > 0) {
+    const channelLines = m.db_channels
+      .filter(ch => ch && (ch.channel || ch.applied || ch.actual || ch.note))
+      .map(ch => `  - ${ch.channel || '기타'}: 신청 ${ch.applied || 0} / 유효 ${ch.actual || 0}${ch.note ? ` (${ch.note})` : ''}`);
+    if (channelLines.length > 0) {
+      lines.push(...channelLines);
+    }
+  }
+
+  // 3. 방문 예정
+  const visitParts = [];
+  if ((m.saturday_visitors !== null && m.saturday_visitors !== undefined && m.saturday_visitors !== '' && Number(m.saturday_visitors) !== 0) || m.saturday_note) {
+    visitParts.push(`토요일 ${m.saturday_visitors || 0}건${m.saturday_note ? ` (${m.saturday_note})` : ''}`);
+  }
+  if ((m.sunday_visitors !== null && m.sunday_visitors !== undefined && m.sunday_visitors !== '' && Number(m.sunday_visitors) !== 0) || m.sunday_note) {
+    visitParts.push(`일요일 ${m.sunday_visitors || 0}건${m.sunday_note ? ` (${m.sunday_note})` : ''}`);
+  }
+  if (visitParts.length > 0) {
+    lines.push(`[방문 예정] ${visitParts.join(' / ')}`);
+  }
+
+  // 4. 주말 웨딩/혼수 상담
+  if (m.saturday_wedding_text || m.sunday_wedding_text) {
+    lines.push(`[웨딩 상담] 토: ${m.saturday_wedding_text || '-'} / 일: ${m.sunday_wedding_text || '-'}`);
+  }
+  if (m.saturday_honsoo_text || m.sunday_honsoo_text) {
+    lines.push(`[혼수 상담] 토: ${m.saturday_honsoo_text || '-'} / 일: ${m.sunday_honsoo_text || '-'}`);
+  }
+
+  // 5. 플래너 실적
+  if (Array.isArray(m.planner_top_list) && m.planner_top_list.length > 0) {
+    const topStr = m.planner_top_list
+      .filter(p => p && (p.name || p.count || p.note))
+      .map(p => `${p.name || ''}${p.count ? ` ${p.count}` : ''}${p.note ? `(${p.note})` : ''}`.trim())
+      .filter(Boolean)
+      .join(', ');
+    if (topStr) lines.push(`[플래너 상위] ${topStr}`);
+  } else if (m.contract_top) {
+    lines.push(`[플래너 상위] ${m.contract_top}`);
+  }
+
+  if (Array.isArray(m.planner_bottom_list) && m.planner_bottom_list.length > 0) {
+    const bottomStr = m.planner_bottom_list
+      .filter(p => p && (p.name || p.count || p.note))
+      .map(p => `${p.name || ''}${p.count ? ` ${p.count}` : ''}${p.note ? `(${p.note})` : ''}`.trim())
+      .filter(Boolean)
+      .join(', ');
+    if (bottomStr) lines.push(`[플래너 하위] ${bottomStr}`);
+  } else if (m.contract_bottom) {
+    lines.push(`[플래너 하위] ${m.contract_bottom}`);
+  }
+
+  // 6. 원문 리포트 및 인사이트
+  if (rawReportText && rawReportText !== insightText) {
+    if (lines.length > 0) lines.push('');
+    lines.push(rawReportText);
+  }
+  if (insightText) {
+    if (lines.length > 0) lines.push('');
+    lines.push(insightText);
+  }
+
+  return lines.join('\n').trim();
+}
+
 async function refreshAllData() {
   console.log('refreshAllData called');
   document.getElementById('metricsDate').textContent = formatDateKorean(currentMetricsDate);
   document.getElementById('inputDueDate').value = currentMetricsDate;
   
-  // 월요일 여부 판별하여 주말 건수 입력란 표시 제어
-  const isMon = getDayOfWeek(currentMetricsDate) === 1;
-  const mondayItems = ['festaDressGroup', 'weddingReservationGroup'];
-  const weekdayItems = ['weekdayContractsItem', 'weekdayDbItem'];
-  
-  mondayItems.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      if (isMon) {
-        el.classList.remove('hidden');
-      } else {
-        el.classList.add('hidden');
-      }
-    }
-  });
+  const metricInput = document.getElementById('metricInsight');
+  if (metricInput) {
+    metricInput.value = '';
+  }
 
-  weekdayItems.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      if (isMon) {
-        el.classList.add('hidden');
-      } else {
-        el.classList.remove('hidden');
-      }
-    }
-  });
-  
   console.log('calling api.getDailyMetrics');
   const m = await api.getDailyMetrics(currentMetricsDate);
   console.log('api.getDailyMetrics resolved', m);
-  if(m) {
-    document.getElementById('contractsCount').value = m.contracts_count !== null && m.contracts_count !== undefined ? m.contracts_count : '';
-    document.getElementById('cumulativeContractsCount').value = m.cumulative_contracts_count !== null && m.cumulative_contracts_count !== undefined ? m.cumulative_contracts_count : '';
-    document.getElementById('contractNote').value = m.contract_note || '';
-
-    document.getElementById('dbCount').value = m.db_count !== null && m.db_count !== undefined ? m.db_count : (m.db_total_applied !== null && m.db_total_applied !== undefined ? m.db_total_applied : '');
-    document.getElementById('dbTotalActual').value = m.db_total_actual !== null && m.db_total_actual !== undefined ? m.db_total_actual : '';
-    document.getElementById('cumulativeDbCount').value = m.cumulative_db_count !== null && m.cumulative_db_count !== undefined ? m.cumulative_db_count : '';
-    document.getElementById('dbTotalNote').value = m.db_total_note || '';
-
-    // DB 경로별 상세 렌더링
-    renderDbChannels(m.db_channels);
-
-    // 방문예정
-    document.getElementById('saturdayVisitors').value = m.saturday_visitors !== null && m.saturday_visitors !== undefined ? m.saturday_visitors : '';
-    document.getElementById('saturdayNote').value = m.saturday_note || '';
-    document.getElementById('sundayVisitors').value = m.sunday_visitors !== null && m.sunday_visitors !== undefined ? m.sunday_visitors : '';
-    document.getElementById('sundayNote').value = m.sunday_note || '';
-
-    // 플래너 TOP3 / BOTTOM3
-    renderPlannerList('plannerTopList', m.planner_top_list, ['1위', '2위', '3위']);
-    renderPlannerList('plannerBottomList', m.planner_bottom_list, ['하위1', '하위2', '하위3']);
-
-    // 스마트 파서 원문
-    const parserInput = document.getElementById('smartParserInput');
-    if (parserInput) parserInput.value = m.raw_report || '';
-    
-    // 신규 주말 상세 항목 바인딩 (텍스트 필드 바인딩 및 과거 데이터 호환성 보장)
-    let satText = m.saturday_wedding_text || '';
-    if (!satText && (m.sat_wedding_actual_visit || m.sat_wedding_regular_contract)) {
-      const v = m.sat_wedding_actual_visit || 0;
-      const c = m.sat_wedding_regular_contract || 0;
-      satText = `${v} / ${c}`;
+  if (metricInput) {
+    const serverMetricsText = buildUnifiedMetricsText(m);
+    const localDraftMetrics = localStorage.getItem(`draft_metrics_${currentMetricsDate}`);
+    const localSavedMetrics = localStorage.getItem(`saved_metrics_${currentMetricsDate}`);
+    if (localDraftMetrics !== null && localDraftMetrics !== serverMetricsText) {
+      metricInput.value = localDraftMetrics;
+    } else if (!serverMetricsText && localSavedMetrics) {
+      metricInput.value = localSavedMetrics;
+    } else {
+      metricInput.value = serverMetricsText;
     }
-    document.getElementById('saturdayWeddingText').value = satText;
-
-    let sunText = m.sunday_wedding_text || '';
-    if (!sunText && (m.sun_wedding_actual_visit || m.sun_wedding_regular_contract)) {
-      const v = m.sun_wedding_actual_visit || 0;
-      const c = m.sun_wedding_regular_contract || 0;
-      sunText = `${v} / ${c}`;
-    }
-    document.getElementById('sundayWeddingText').value = sunText;
-
-    let satHonsoo = m.saturday_honsoo_text || '';
-    if (!satHonsoo && (m.sat_wedding_consultation || m.sat_wedding_provisional_contract || m.sat_wedding_regular_contract)) {
-      const cs = m.sat_wedding_consultation || 0;
-      const ps = m.sat_wedding_provisional_contract || 0;
-      const rs = m.sat_wedding_regular_contract || 0;
-      satHonsoo = `${cs} / ${ps} / ${rs}`;
-    }
-    document.getElementById('saturdayHonsooText').value = satHonsoo;
-
-    let sunHonsoo = m.sunday_honsoo_text || '';
-    if (!sunHonsoo && (m.sun_wedding_consultation || m.sun_wedding_provisional_contract || m.sun_wedding_regular_contract)) {
-      const cs = m.sun_wedding_consultation || 0;
-      const ps = m.sun_wedding_provisional_contract || 0;
-      const rs = m.sun_wedding_regular_contract || 0;
-      sunHonsoo = `${cs} / ${ps} / ${rs}`;
-    }
-    document.getElementById('sundayHonsooText').value = sunHonsoo;
-
-    loadFestaData(m);
-
-    // 히든 처리된 기존 엘리먼트 초기화 (에러 방지)
-    document.getElementById('saturdayContractsCount').value = m.saturday_contracts_count !== null && m.saturday_contracts_count !== undefined ? m.saturday_contracts_count : '';
-    document.getElementById('sundayContractsCount').value = m.sunday_contracts_count !== null && m.sunday_contracts_count !== undefined ? m.sunday_contracts_count : '';
-    document.getElementById('saturdayDbCount').value = m.saturday_db_count !== null && m.saturday_db_count !== undefined ? m.saturday_db_count : '';
-    document.getElementById('sundayDbCount').value = m.sunday_db_count !== null && m.sunday_db_count !== undefined ? m.sunday_db_count : '';
-    document.getElementById('satWeddingVisitReservation').value = m.sat_wedding_visit_reservation !== null && m.sat_wedding_visit_reservation !== undefined ? m.sat_wedding_visit_reservation : '';
-    document.getElementById('satWeddingActualVisit').value = m.sat_wedding_actual_visit !== null && m.sat_wedding_actual_visit !== undefined ? m.sat_wedding_actual_visit : '';
-    document.getElementById('satWeddingConsultation').value = m.sat_wedding_consultation !== null && m.sat_wedding_consultation !== undefined ? m.sat_wedding_consultation : '';
-    document.getElementById('satWeddingProvisionalContract').value = m.sat_wedding_provisional_contract !== null && m.sat_wedding_provisional_contract !== undefined ? m.sat_wedding_provisional_contract : '';
-    document.getElementById('satWeddingRegularContract').value = m.sat_wedding_regular_contract !== null && m.sat_wedding_regular_contract !== undefined ? m.sat_wedding_regular_contract : '';
-    document.getElementById('sunWeddingVisitReservation').value = m.sun_wedding_visit_reservation !== null && m.sun_wedding_visit_reservation !== undefined ? m.sun_wedding_visit_reservation : '';
-    document.getElementById('sunWeddingActualVisit').value = m.sun_wedding_actual_visit !== null && m.sun_wedding_actual_visit !== undefined ? m.sun_wedding_actual_visit : '';
-    document.getElementById('sunWeddingConsultation').value = m.sun_wedding_consultation !== null && m.sun_wedding_consultation !== undefined ? m.sun_wedding_consultation : '';
-    document.getElementById('sunWeddingProvisionalContract').value = m.sun_wedding_provisional_contract !== null && m.sun_wedding_provisional_contract !== undefined ? m.sun_wedding_provisional_contract : '';
-    document.getElementById('sunWeddingRegularContract').value = m.sun_wedding_regular_contract !== null && m.sun_wedding_regular_contract !== undefined ? m.sun_wedding_regular_contract : '';
-
-    document.getElementById('contractTop').value = m.contract_top || '';
-    document.getElementById('contractBottom').value = m.contract_bottom || '';
-    document.getElementById('metricInsight').value = m.insight || '';
   }
   
   const memo = document.getElementById('memoInput');
@@ -2237,74 +2252,56 @@ function getDayOfWeek(dateStr) {
 async function saveMetrics() {
   const btn = document.getElementById('btnSaveMetrics');
   const st = document.getElementById('saveStatus');
-  btn.disabled = true; btn.innerText = '...';
-  
-  const val = {
-    contracts_count: document.getElementById('contractsCount').value,
-    cumulative_contracts_count: document.getElementById('cumulativeContractsCount').value,
-    contract_note: document.getElementById('contractNote').value,
+  const metricInput = document.getElementById('metricInsight');
+  if (!metricInput) return;
 
-    db_count: document.getElementById('dbCount').value,
-    db_total_applied: document.getElementById('dbCount').value,
-    db_total_actual: document.getElementById('dbTotalActual').value,
-    cumulative_db_count: document.getElementById('cumulativeDbCount').value,
-    db_total_note: document.getElementById('dbTotalNote').value,
-    db_channels: getDbChannelsFromUI(),
+  const content = metricInput.value;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = '...';
+  }
 
-    saturday_visitors: document.getElementById('saturdayVisitors').value,
-    saturday_note: document.getElementById('saturdayNote').value,
-    sunday_visitors: document.getElementById('sundayVisitors').value,
-    sunday_note: document.getElementById('sundayNote').value,
-    
-    planner_top_list: getPlannerListFromUI('plannerTopList'),
-    planner_bottom_list: getPlannerListFromUI('plannerBottomList'),
-    raw_report: document.getElementById('smartParserInput') ? document.getElementById('smartParserInput').value : '',
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`saved_metrics_${currentMetricsDate}`, content);
+      localStorage.setItem(`draft_metrics_${currentMetricsDate}`, content);
+    } catch (e) {}
+  }
 
-    // 신규 텍스트 필드 데이터 저장 (파싱 없이 순수 텍스트)
-    saturday_wedding_text: document.getElementById('saturdayWeddingText').value,
-    sunday_wedding_text: document.getElementById('sundayWeddingText').value,
-    saturday_honsoo_text: document.getElementById('saturdayHonsooText').value,
-    sunday_honsoo_text: document.getElementById('sundayHonsooText').value,
-    
-    // 이전 컬럼들은 히든 값(기본 0 또는 빈 값)을 그대로 넘겨 영향 없도록 함
-    saturday_contracts_count: document.getElementById('saturdayContractsCount').value,
-    sunday_contracts_count: document.getElementById('sundayContractsCount').value,
-    saturday_db_count: document.getElementById('saturdayDbCount').value,
-    sunday_db_count: document.getElementById('sundayDbCount').value,
-    
-    festa_company_1_name: document.getElementById('festaCompany1Name').value,
-    festa_company_1_sat_orders: document.getElementById('saturdayFestaDressOrders1').value,
-    festa_company_1_sun_orders: document.getElementById('sundayFestaDressOrders1').value,
-    festa_company_2_name: document.getElementById('festaCompany2Name').value,
-    festa_company_2_sat_orders: document.getElementById('saturdayFestaDressOrders2').value,
-    festa_company_2_sun_orders: document.getElementById('sundayFestaDressOrders2').value,
-    festa_orders_data: getFestaDataToSave(),
-    
-    sat_wedding_visit_reservation: document.getElementById('satWeddingVisitReservation').value,
-    sat_wedding_actual_visit: document.getElementById('satWeddingActualVisit').value,
-    sat_wedding_consultation: document.getElementById('satWeddingConsultation').value,
-    sat_wedding_provisional_contract: document.getElementById('satWeddingProvisionalContract').value,
-    sat_wedding_regular_contract: document.getElementById('satWeddingRegularContract').value,
-    
-    sun_wedding_visit_reservation: document.getElementById('sunWeddingVisitReservation').value,
-    sun_wedding_actual_visit: document.getElementById('sunWeddingActualVisit').value,
-    sun_wedding_consultation: document.getElementById('sunWeddingConsultation').value,
-    sun_wedding_provisional_contract: document.getElementById('sunWeddingProvisionalContract').value,
-    sun_wedding_regular_contract: document.getElementById('sunWeddingRegularContract').value,
-    
-    contract_top: document.getElementById('contractTop').value,
-    contract_bottom: document.getElementById('contractBottom').value,
-    insight: document.getElementById('metricInsight').value
-  };
-  
-  const res = await api.saveDailyMetrics(currentMetricsDate, val);
-  if(res.success) {
-    btn.disabled = false; btn.innerText = '저장'; st.innerText = 'V';
-    setTimeout(() => st.innerText = '', 2000);
+  const res = await api.saveDailyMetrics(currentMetricsDate, {
+    is_unified_note: true,
+    content: content
+  });
+
+  if (res && res.success) {
+    if (currentMetricsDate) {
+      try {
+        localStorage.removeItem(`draft_metrics_${currentMetricsDate}`);
+      } catch (e) {}
+    }
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '저장';
+    }
+    if (st) {
+      st.innerText = '저장 완료';
+      st.style.color = '#10b981';
+      st.style.fontWeight = '800';
+      setTimeout(() => {
+        if (st.innerText === '저장 완료') st.innerText = '';
+      }, 2000);
+    }
     triggerQuestUpdate('metrics_logged', true);
+    fetchAllDates();
   } else {
-    btn.disabled = false; btn.innerText = '저장'; 
-    alert('저장에 실패했습니다.');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = '저장';
+    }
+    if (st) {
+      st.innerText = '임시 보관됨';
+      st.style.color = '#10b981';
+    }
   }
 }
 
@@ -3584,18 +3581,50 @@ function setupStrikethroughShortcut(textarea) {
 
 // 메모, 일기, 신문 실시간 자동 저장 기능 (iOS Safari 안전성 보완)
 function setupAutoSaveEvents() {
+  const metricInput = document.getElementById('metricInsight');
   const memoInput = document.getElementById('memoInput');
   const diaryInput = document.getElementById('diaryInput');
   const newsInput = document.getElementById('newsInput');
   
   // 취소선 단축키 적용
+  setupStrikethroughShortcut(metricInput);
   setupStrikethroughShortcut(memoInput);
   setupStrikethroughShortcut(diaryInput);
   setupStrikethroughShortcut(newsInput);
   
+  let metricsAutoSaveTimeout = null;
   let memoAutoSaveTimeout = null;
   let diaryAutoSaveTimeout = null;
   let newsAutoSaveTimeout = null;
+
+  // 0. 일일 지표 메모장 실시간 자동 저장 (디바운스 400ms + 로컬 임시 보관)
+  if (metricInput) {
+    metricInput.oninput = function() {
+      const statusEl = document.getElementById('saveStatus');
+      if (statusEl) {
+        statusEl.innerText = '입력 중...';
+        statusEl.style.color = 'var(--text-muted)';
+        statusEl.style.fontWeight = '700';
+      }
+
+      if (currentMetricsDate) {
+        try {
+          localStorage.setItem(`draft_metrics_${currentMetricsDate}`, metricInput.value);
+          localStorage.setItem(`saved_metrics_${currentMetricsDate}`, metricInput.value);
+        } catch (e) {}
+      }
+
+      clearTimeout(metricsAutoSaveTimeout);
+      metricsAutoSaveTimeout = setTimeout(() => {
+        saveMetricsRealtime();
+      }, 400);
+    };
+
+    metricInput.onblur = function() {
+      clearTimeout(metricsAutoSaveTimeout);
+      saveMetricsRealtime();
+    };
+  }
   
   // 1. 메모 실시간 자동 저장 (디바운스 400ms + 로컬 임시 보관)
   if (memoInput) {
@@ -3683,6 +3712,10 @@ function setupAutoSaveEvents() {
 
   // iOS Safari / 모바일 탭 이탈 및 백그라운드 전환 시 강제 저장 처리
   const forceSaveAllRealtime = () => {
+    if (metricsAutoSaveTimeout) {
+      clearTimeout(metricsAutoSaveTimeout);
+      metricsAutoSaveTimeout = null;
+    }
     if (memoAutoSaveTimeout) {
       clearTimeout(memoAutoSaveTimeout);
       memoAutoSaveTimeout = null;
@@ -3695,6 +3728,7 @@ function setupAutoSaveEvents() {
       clearTimeout(newsAutoSaveTimeout);
       newsAutoSaveTimeout = null;
     }
+    saveMetricsRealtime();
     saveMemoRealtime();
     saveDiaryRealtime();
     saveNewsRealtime();
@@ -3709,6 +3743,57 @@ function setupAutoSaveEvents() {
   window.addEventListener('pagehide', () => {
     forceSaveAllRealtime();
   });
+}
+
+async function saveMetricsRealtime() {
+  const metricInput = document.getElementById('metricInsight');
+  if (!metricInput) return;
+  const content = metricInput.value;
+  const statusEl = document.getElementById('saveStatus');
+  if (statusEl) {
+    statusEl.innerText = '저장 중...';
+    statusEl.style.color = 'var(--text-muted)';
+    statusEl.style.fontWeight = '700';
+  }
+
+  if (currentMetricsDate) {
+    try {
+      localStorage.setItem(`draft_metrics_${currentMetricsDate}`, content);
+      localStorage.setItem(`saved_metrics_${currentMetricsDate}`, content);
+    } catch (e) {}
+  }
+
+  const res = await api.saveDailyMetrics(currentMetricsDate, {
+    is_unified_note: true,
+    content: content
+  });
+
+  if (res && res.success) {
+    if (currentMetricsDate) {
+      try {
+        localStorage.removeItem(`draft_metrics_${currentMetricsDate}`);
+      } catch (e) {}
+    }
+    if (statusEl) {
+      statusEl.innerText = '실시간 저장 완료';
+      statusEl.style.color = '#10b981';
+      statusEl.style.fontWeight = '800';
+    }
+    if (content && content.trim().length > 0) {
+      triggerQuestUpdate('metrics_logged', true);
+    }
+    fetchAllDates();
+    setTimeout(() => {
+      if (statusEl && statusEl.innerText === '실시간 저장 완료') {
+        statusEl.innerText = '';
+      }
+    }, 2000);
+  } else {
+    if (statusEl) {
+      statusEl.innerText = '임시 보관됨';
+      statusEl.style.color = '#10b981';
+    }
+  }
 }
 
 async function saveMemoRealtime() {
