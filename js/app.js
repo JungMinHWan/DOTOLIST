@@ -1648,7 +1648,81 @@ function getDefaultMetricsTemplate(dateStr) {
     }
   }
 
+  const isMon = getDayOfWeek(dateStr) === 1;
+
+  if (isMon) {
+    return [
+      `[계약 지표] ${monthNum}월 예상 계약 건`,
+      '- 누적: ',
+      '- 토요일: ',
+      '- 일요일: ',
+      '',
+      '[계약 전환 지표]',
+      '- 토요일: 방문상담 건 / 실제방문 건 / 계약 건',
+      '- 일요일: 방문상담 건 / 실제방문 건 / 계약 건',
+      '',
+      '[혼수 상담 지표]',
+      '- 토요일: (회원 / 비회원 ), 상담, 가계약, 정계약',
+      '(상담, 가계약, 정계약 순)',
+      ' · ',
+      '',
+      '- 일요일: (회원 / 비회원 ), 상담, 가계약, 정계약',
+      '(상담, 가계약, 정계약 순)',
+      ' · ',
+      '',
+      '[웨딩페스타 드레스 지정발주 지표]',
+      '1) 발주대기: ',
+      '2) 발주: ',
+      '',
+      '[DB 유입 지표]',
+      '- 신청 / 유효 / 누적: ',
+      '- 경로별 특이사항: ',
+      '',
+      '[방문 예정 및 상담 현황]',
+      '- 토요일 / 일요일: ',
+      '',
+      '[플래너 실적 / 특이사항]',
+      '- ',
+      '',
+      '[인사이트 및 메모]',
+      '- '
+    ].join('\n');
+  }
+
   return [
+    `[계약 지표] ${monthNum}월 예상 계약 건`,
+    '- 당일 / 누적: ',
+    '',
+    '[DB 유입 지표]',
+    '- 신청 / 유효 / 누적: ',
+    '- 경로별 특이사항: ',
+    '',
+    '[방문 예정 및 상담 현황]',
+    '- 토요일 / 일요일: ',
+    '',
+    '[플래너 실적 / 특이사항]',
+    '- ',
+    '',
+    '[인사이트 및 메모]',
+    '- '
+  ].join('\n');
+}
+
+function isUntouchedMetricsTemplate(text, dateStr) {
+  if (!text || !text.trim()) return true;
+  const normalize = (s) => String(s || '').replace(/\r\n/g, '\n').trim();
+  const normText = normalize(text);
+  if (normText === normalize(getDefaultMetricsTemplate(dateStr))) return true;
+
+  let monthNum = new Date().getMonth() + 1;
+  if (dateStr && typeof dateStr === 'string') {
+    const parts = dateStr.split('-');
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) {
+      monthNum = parseInt(parts[1], 10);
+    }
+  }
+
+  const prevHardcodedTemplate = [
     `[계약 지표] ${monthNum}월 예상 계약 건`,
     '- 누적: ',
     '- 일요일: ',
@@ -1698,13 +1772,7 @@ function getDefaultMetricsTemplate(dateStr) {
     '[인사이트 및 메모]',
     '- '
   ].join('\n');
-}
-
-function isUntouchedMetricsTemplate(text, dateStr) {
-  if (!text || !text.trim()) return true;
-  const normalize = (s) => String(s || '').replace(/\r\n/g, '\n').trim();
-  const normText = normalize(text);
-  if (normText === normalize(getDefaultMetricsTemplate(dateStr))) return true;
+  if (normText === normalize(prevHardcodedTemplate)) return true;
 
   const legacyShortTemplate = [
     '[계약 지표]',
