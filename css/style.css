@@ -2679,13 +2679,16 @@ body {
 .feature-cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 .feature-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -2713,6 +2716,249 @@ body {
   font-size: 11px;
   color: #94a3b8;
   margin-top: 4px;
+}
+
+/* === SKILL.md Export Modal CSS === */
+.skill-export-modal {
+  max-width: 560px;
+  max-height: 88vh;
+  overflow: hidden;
+}
+.skill-export-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  max-height: calc(88vh - 80px);
+  padding-right: 2px;
+}
+.skill-export-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+.skill-export-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.skill-export-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.skill-export-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #10b981;
+}
+.skill-export-date-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.skill-export-date-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.skill-export-date-col label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+.skill-export-date-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #f8fafc;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.skill-export-date-input:focus {
+  border-color: #10b981;
+}
+.skill-export-date-sep {
+  padding-bottom: 8px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.skill-export-quick-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.skill-quick-range-btn {
+  flex: 1;
+  min-width: 64px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.skill-quick-range-btn:hover,
+.skill-quick-range-btn.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #10b981;
+}
+.skill-check-toggle-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.skill-check-toggle-btn:hover {
+  border-color: #cbd5e1;
+  color: #f8fafc;
+}
+.skill-export-check-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (max-width: 460px) {
+  .skill-export-check-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.skill-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.skill-check-item input[type="checkbox"],
+.skill-check-suboption input[type="checkbox"] {
+  accent-color: #10b981;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+.skill-check-suboption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: #94a3b8;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  user-select: none;
+}
+.skill-generate-btn {
+  width: 100%;
+  background: #10b981;
+  color: #06281e;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.skill-generate-btn:hover {
+  background: #34d399;
+}
+.skill-generate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.skill-export-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+}
+.skill-export-preview-wrap.hidden {
+  display: none !important;
+}
+.skill-export-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.skill-export-stats {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.skill-export-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 210px;
+  background: #0b1120;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #e2e8f0;
+  padding: 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, monospace;
+  resize: vertical;
+  outline: none;
+}
+.skill-export-textarea:focus {
+  border-color: #10b981;
+}
+.skill-export-bottom-btns {
+  display: flex;
+  gap: 8px;
+}
+.skill-action-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.skill-action-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+}
+.skill-action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.skill-action-btn.primary {
+  background: #3b82f6;
+  border: 1px solid #3b82f6;
+  color: #ffffff;
+}
+.skill-action-btn.primary:hover {
+  background: #2563eb;
 }
 
 /* === Nap Binaural Beats Modal CSS === */

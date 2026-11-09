@@ -132,6 +132,7 @@
       this.btnVocab = document.getElementById('btnSelectVocab');
       this.btnLexicon = document.getElementById('btnSelectLexicon');
       this.btnEnglish = document.getElementById('btnSelectEnglish');
+      this.btnSkillExport = document.getElementById('btnSelectSkillExport');
       
       this.initEvents();
     }
@@ -195,6 +196,15 @@
           this.close();
           if (window.englishGame && typeof window.englishGame.open === 'function') {
             window.englishGame.open();
+          }
+        };
+      }
+
+      if (this.btnSkillExport) {
+        this.btnSkillExport.onclick = () => {
+          this.close();
+          if (typeof window.openSkillExportModal === 'function') {
+            window.openSkillExportModal();
           }
         };
       }

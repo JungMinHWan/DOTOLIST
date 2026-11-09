@@ -1002,6 +1002,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       if(e.target === secretOverlay) closeSecretLetterModal();
     };
   }
+
+  // === SKILL.md 추출 모달 이벤트 바인딩 ===
+  setupSkillExportEvents();
 });
 
 
@@ -1331,6 +1334,7 @@ function handleSwipeGesture() {
   const isTetrisOpen = document.getElementById('tetrisModalOverlay') && !document.getElementById('tetrisModalOverlay').classList.contains('hidden');
   const isNapOpen = document.getElementById('napModalOverlay') && !document.getElementById('napModalOverlay').classList.contains('hidden');
   const isFeatureSelectionOpen = document.getElementById('featureSelectionModal') && !document.getElementById('featureSelectionModal').classList.contains('hidden');
+  const isSkillExportOpen = document.getElementById('skillExportModalOverlay') && !document.getElementById('skillExportModalOverlay').classList.contains('hidden');
   const isSecretOpen = document.getElementById('secretLetterModalOverlay') && !document.getElementById('secretLetterModalOverlay').classList.contains('hidden');
   // 서재·매뉴얼 모달은 'show', 사전 모달은 'active' 클래스로 열림 상태를 표시함
   const isBookOpen = document.getElementById('bookShelfModalOverlay') && document.getElementById('bookShelfModalOverlay').classList.contains('show');
@@ -1339,7 +1343,7 @@ function handleSwipeGesture() {
                        (document.getElementById('reportEditorModalOverlay') && document.getElementById('reportEditorModalOverlay').classList.contains('show'));
   const isLexiconOpen = document.getElementById('lexiconModalOverlay') && document.getElementById('lexiconModalOverlay').classList.contains('active');
   
-  if (isSpenOpen || isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen || isSecretOpen || isBookOpen || isManualOpen || isReportOpen || isLexiconOpen) return;
+  if (isSpenOpen || isMathOpen || isTetrisOpen || isNapOpen || isFeatureSelectionOpen || isSkillExportOpen || isSecretOpen || isBookOpen || isManualOpen || isReportOpen || isLexiconOpen) return;
 
   if(document.getElementById('searchWrapper').classList.contains('show') || 
      document.getElementById('memoWrapper').classList.contains('show') ||
@@ -4523,4 +4527,604 @@ function triggerLocalNotification(bodyText) {
       new Notification('Grow Quest 알림', options);
     });
   }
+}
+
+// === SKILL.md 추출 모달 및 마크다운 변환 로직 ===
+function setupSkillExportEvents() {
+  const overlay = document.getElementById('skillExportModalOverlay');
+  const closeBtn = document.getElementById('skillExportModalClose');
+  const startInput = document.getElementById('skillExportStartDate');
+  const endInput = document.getElementById('skillExportEndDate');
+  const toggleAllBtn = document.getElementById('btnToggleAllSkillChecks');
+  const generateBtn = document.getElementById('btnGenerateSkillMd');
+  const copyBtn = document.getElementById('btnCopySkillMd');
+  const downloadBtn = document.getElementById('btnDownloadSkillMd');
+  const previewTextarea = document.getElementById('skillExportPreviewTextarea');
+  const statsText = document.getElementById('skillExportStatsText');
+
+  if (closeBtn) {
+    closeBtn.onclick = closeSkillExportModal;
+  }
+  if (overlay) {
+    overlay.onclick = (e) => {
+      if (e.target === overlay) closeSkillExportModal();
+    };
+  }
+
+  // 빠른 기간 선택 버튼
+  document.querySelectorAll('.skill-quick-range-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.skill-quick-range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const days = parseInt(btn.dataset.days, 10) || 30;
+      const today = new Date();
+      const startDate = new Date(today.getTime() - (days - 1) * 86400000);
+      if (startInput) startInput.value = formatDateString(startDate);
+      if (endInput) endInput.value = formatDateString(today);
+    };
+  });
+
+  // 전체 선택 / 해제 토글
+  if (toggleAllBtn) {
+    toggleAllBtn.onclick = () => {
+      const checkIds = [
+        'chkExportMetrics',
+        'chkExportTasks',
+        'chkExportMemos',
+        'chkExportReports',
+        'chkExportManuals',
+        'chkExportIdeas',
+        'chkExportBooks',
+        'chkExportDiaries',
+        'chkExportNews'
+      ];
+      const checkboxes = checkIds.map(id => document.getElementById(id)).filter(Boolean);
+      const allChecked = checkboxes.every(cb => cb.checked);
+      checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+      });
+    };
+  }
+
+  // 미리보기 텍스트 직접 수정 시 글자 수 실시간 반영
+  if (previewTextarea && statsText) {
+    previewTextarea.addEventListener('input', () => {
+      const len = previewTextarea.value.length;
+      statsText.textContent = `약 ${len.toLocaleString()}자`;
+    });
+  }
+
+  if (generateBtn) {
+    generateBtn.onclick = handleGenerateSkillMd;
+  }
+
+  if (copyBtn) {
+    copyBtn.onclick = async () => {
+      if (!previewTextarea || !previewTextarea.value.trim()) {
+        alert('먼저 SKILL.md 내용을 생성해 주세요.');
+        return;
+      }
+      await handleVaultCopy(copyBtn, previewTextarea.value);
+    };
+  }
+
+  if (downloadBtn) {
+    downloadBtn.onclick = () => {
+      if (!previewTextarea || !previewTextarea.value.trim()) {
+        alert('먼저 SKILL.md 내용을 생성해 주세요.');
+        return;
+      }
+      const blob = new Blob([previewTextarea.value], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'SKILL.md';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('SKILL.md 파일이 다운로드되었습니다.');
+    };
+  }
+}
+
+function openSkillExportModal() {
+  const overlay = document.getElementById('skillExportModalOverlay');
+  const startInput = document.getElementById('skillExportStartDate');
+  const endInput = document.getElementById('skillExportEndDate');
+  if (!overlay) return;
+
+  const today = new Date();
+  const monthAgo = new Date(today.getTime() - 29 * 86400000);
+  if (startInput && !startInput.value) startInput.value = formatDateString(monthAgo);
+  if (endInput && !endInput.value) endInput.value = formatDateString(today);
+
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSkillExportModal() {
+  const overlay = document.getElementById('skillExportModalOverlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+  }
+  checkAndUnlockBodyScroll();
+}
+
+window.openSkillExportModal = openSkillExportModal;
+window.closeSkillExportModal = closeSkillExportModal;
+
+// 리치 에디터 HTML(표, 목록, 콜아웃, 체크리스트 등)을 깔끔한 마크다운으로 변환 (이미지 바이너리 제외)
+function convertHtmlToMarkdown(rawContent) {
+  if (!rawContent) return '';
+  const str = String(rawContent).trim();
+  if (!str) return '';
+
+  // HTML 태그가 없는 일반 텍스트인 경우 그대로 반환
+  const hasHtmlTag = /<\/?[a-z][\s\S]*>/i.test(str);
+  if (!hasHtmlTag) {
+    return str.replace(/\u0336/g, '');
+  }
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = str;
+
+  // 불필요한 UI 컨트롤 핸들러 제거
+  tempDiv.querySelectorAll('.table-col-resizer, .table-row-resizer, .report-image-delete-btn').forEach(el => el.remove());
+
+  function serializeInline(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.nodeValue.replace(/\u00a0/g, ' ').replace(/\u0336/g, '');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'br') return '\n';
+    if (tag === 'img') return '';
+
+    const inner = Array.from(node.childNodes).map(serializeInline).join('');
+    if (!inner.trim() && tag !== 'br') return inner;
+
+    if (tag === 'b' || tag === 'strong') {
+      return `**${inner.trim()}** `;
+    }
+    if (tag === 'i' || tag === 'em') {
+      return `*${inner.trim()}* `;
+    }
+    if (tag === 's' || tag === 'strike' || tag === 'del') {
+      return `~~${inner.trim()}~~ `;
+    }
+    return inner;
+  }
+
+  function convertTableElement(tableEl) {
+    const rows = Array.from(tableEl.querySelectorAll('tr'));
+    if (rows.length === 0) return '';
+
+    const matrix = rows.map(tr => {
+      const cells = Array.from(tr.querySelectorAll('th, td'));
+      return cells.map(cell => {
+        const text = Array.from(cell.childNodes)
+          .map(serializeInline)
+          .join('')
+          .replace(/\r?\n+/g, ' / ')
+          .replace(/\|/g, '\\|')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
+        const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
+        let suffix = '';
+        if (colspan > 1 || rowspan > 1) {
+          suffix = ` (${colspan > 1 ? `가로병합:${colspan}` : ''}${colspan > 1 && rowspan > 1 ? ',' : ''}${rowspan > 1 ? `세로병합:${rowspan}` : ''})`;
+        }
+        return (text || '-') + suffix;
+      });
+    });
+
+    const maxCols = Math.max(...matrix.map(r => r.length), 1);
+    const normalized = matrix.map(r => {
+      const copy = [...r];
+      while (copy.length < maxCols) copy.push('-');
+      return copy;
+    });
+
+    const mdLines = [];
+    const headerRow = normalized[0];
+    mdLines.push(`| ${headerRow.join(' | ')} |`);
+    mdLines.push(`| ${headerRow.map(() => '---').join(' | ')} |`);
+    for (let i = 1; i < normalized.length; i++) {
+      mdLines.push(`| ${normalized[i].join(' | ')} |`);
+    }
+    return '\n' + mdLines.join('\n') + '\n';
+  }
+
+  function serializeBlock(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const t = node.nodeValue.replace(/\u00a0/g, ' ').replace(/\u0336/g, '').trim();
+      return t ? t + '\n' : '';
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+
+    const tag = node.tagName.toLowerCase();
+
+    if (node.classList.contains('report-image-block')) {
+      const captionEl = node.querySelector('.report-image-caption');
+      const cap = captionEl ? captionEl.textContent.trim() : '';
+      return cap ? `[첨부 이미지 설명: ${cap}]\n` : '';
+    }
+
+    if (node.classList.contains('report-table-wrapper')) {
+      const tbl = node.querySelector('table');
+      return tbl ? convertTableElement(tbl) : '';
+    }
+    if (tag === 'table') {
+      return convertTableElement(node);
+    }
+
+    if (node.classList.contains('report-check-item')) {
+      const cb = node.querySelector('input[type="checkbox"]');
+      const checked = cb && (cb.checked || cb.hasAttribute('checked'));
+      const txtEl = node.querySelector('.report-check-text');
+      const txt = txtEl ? txtEl.textContent.trim() : node.textContent.trim();
+      return `- [${checked ? 'x' : ' '}] ${txt}\n`;
+    }
+
+    if (node.classList.contains('report-callout-box') || tag === 'blockquote') {
+      const rawLines = Array.from(node.childNodes)
+        .map(serializeInline)
+        .join('')
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean);
+      if (rawLines.length === 0) return '';
+      return rawLines.map(l => `> ${l}`).join('\n') + '\n\n';
+    }
+
+    if (tag === 'h1') {
+      return `\n#### ${node.textContent.trim()}\n`;
+    }
+    if (tag === 'h2') {
+      return `\n##### ${node.textContent.trim()}\n`;
+    }
+    if (tag === 'h3') {
+      return `\n###### ${node.textContent.trim()}\n`;
+    }
+
+    if (tag === 'hr') {
+      return `\n---\n`;
+    }
+
+    if (tag === 'ul' || tag === 'ol') {
+      const items = Array.from(node.children).filter(c => c.tagName && c.tagName.toLowerCase() === 'li');
+      const lines = items.map((li, idx) => {
+        const prefix = tag === 'ol' ? `${idx + 1}. ` : '- ';
+        const itemText = Array.from(li.childNodes).map(serializeInline).join('').trim();
+        const subLines = itemText.split('\n').map((sl, sIdx) => (sIdx === 0 ? `${prefix}${sl.trim()}` : `  ${sl.trim()}`));
+        return subLines.join('\n');
+      });
+      return lines.join('\n') + '\n\n';
+    }
+
+    if (tag === 'p' || tag === 'div') {
+      // 내부에 블록 요소가 중첩된 경우 재귀 처리
+      const hasBlockChildren = Array.from(node.children).some(ch =>
+        ['div', 'p', 'table', 'ul', 'ol', 'blockquote', 'h1', 'h2', 'h3', 'hr'].includes(ch.tagName.toLowerCase())
+      );
+      if (hasBlockChildren) {
+        return Array.from(node.childNodes).map(serializeBlock).join('');
+      }
+      const inlineText = Array.from(node.childNodes).map(serializeInline).join('').trim();
+      return inlineText ? inlineText + '\n' : '';
+    }
+
+    const fallback = Array.from(node.childNodes).map(serializeInline).join('').trim();
+    return fallback ? fallback + '\n' : '';
+  }
+
+  const output = Array.from(tempDiv.childNodes).map(serializeBlock).join('');
+  return output.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+async function handleGenerateSkillMd() {
+  const startInput = document.getElementById('skillExportStartDate');
+  const endInput = document.getElementById('skillExportEndDate');
+  const generateBtn = document.getElementById('btnGenerateSkillMd');
+  const previewWrap = document.getElementById('skillExportPreviewWrap');
+  const previewTextarea = document.getElementById('skillExportPreviewTextarea');
+  const statsText = document.getElementById('skillExportStatsText');
+
+  const startDateStr = startInput ? startInput.value : '';
+  const endDateStr = endInput ? endInput.value : '';
+
+  if (!startDateStr || !endDateStr) {
+    alert('추출할 시작일과 종료일을 모두 선택해 주세요.');
+    return;
+  }
+  if (startDateStr > endDateStr) {
+    alert('시작일은 종료일보다 이전이어야 합니다.');
+    return;
+  }
+
+  const options = {
+    includeMetrics: document.getElementById('chkExportMetrics')?.checked ?? true,
+    includeTasks: document.getElementById('chkExportTasks')?.checked ?? true,
+    includeMemos: document.getElementById('chkExportMemos')?.checked ?? true,
+    includeReports: document.getElementById('chkExportReports')?.checked ?? true,
+    includeManuals: document.getElementById('chkExportManuals')?.checked ?? true,
+    includeIdeas: document.getElementById('chkExportIdeas')?.checked ?? true,
+    includeBooks: document.getElementById('chkExportBooks')?.checked ?? false,
+    includeDiaries: document.getElementById('chkExportDiaries')?.checked ?? false,
+    includeNews: document.getElementById('chkExportNews')?.checked ?? false,
+    includeAllDocsRegardlessOfDate: document.getElementById('chkExportAllDocsRegardlessOfDate')?.checked ?? true
+  };
+
+  if (
+    !options.includeMetrics &&
+    !options.includeTasks &&
+    !options.includeMemos &&
+    !options.includeReports &&
+    !options.includeManuals &&
+    !options.includeIdeas &&
+    !options.includeBooks &&
+    !options.includeDiaries &&
+    !options.includeNews
+  ) {
+    alert('최소 1개 이상의 포함 항목을 선택해 주세요.');
+    return;
+  }
+
+  if (generateBtn) {
+    generateBtn.disabled = true;
+    generateBtn.innerText = '데이터 조회 및 SKILL.md 생성 중...';
+  }
+
+  try {
+    const data = await api.getExportDataByDateRange(startDateStr, endDateStr, options);
+    const mdContent = buildSkillMarkdownDocument(startDateStr, endDateStr, options, data);
+
+    if (previewWrap) previewWrap.classList.remove('hidden');
+    if (previewTextarea) {
+      previewTextarea.value = mdContent;
+      previewTextarea.scrollTop = 0;
+    }
+    if (statsText) {
+      statsText.textContent = `약 ${mdContent.length.toLocaleString()}자`;
+    }
+  } catch (err) {
+    console.error('handleGenerateSkillMd error:', err);
+    alert('SKILL.md 생성 중 오류가 발생했습니다.');
+  } finally {
+    if (generateBtn) {
+      generateBtn.disabled = false;
+      generateBtn.innerText = 'SKILL.md 내용 생성 및 미리보기';
+    }
+  }
+}
+
+function buildSkillMarkdownDocument(startDateStr, endDateStr, options, data) {
+  const lines = [];
+
+  // 1. YAML Frontmatter & AI 지침 (클로드 스킬 및 챗GPT/클로드 프로젝트 통합 호환)
+  lines.push('---');
+  lines.push('name: work-context-and-metrics-partner');
+  lines.push(`description: ${startDateStr}부터 ${endDateStr}까지의 실제 업무 지표, 할 일, 메모, 보고문서, 업무 매뉴얼을 기반으로 데이터 분석, 회고, 의사결정 및 보고서 작성을 수행하는 전용 업무 파트너 스킬입니다.`);
+  lines.push('---');
+  lines.push('');
+  lines.push('# 업무 맥락 및 데이터 기반 AI 파트너 지침 (SKILL.md)');
+  lines.push('');
+  lines.push('## 1. 역할 및 목적');
+  lines.push(`당신은 사용자의 실제 업무 기록(${startDateStr} ~ ${endDateStr})과 업무 매뉴얼, 보고문서, 일일 지표 흐름을 완벽히 숙지한 전략 및 실무 파트너입니다.`);
+  lines.push('사용자가 질문하거나 보고서·기획안·회고·SQL 지표 해석을 요청할 때, 일반적인 추상적 답변을 지양하고 아래 수록된 **실제 수치, 업무 히스토리, 매뉴얼 기준**을 근거로 답변하세요.');
+  lines.push('');
+  lines.push('## 2. 필수 응답 규칙');
+  lines.push('- **이모지 절대 사용 금지**: 답변, 제목, 표, 목록 등 어디에도 이모지(Emoji)를 절대 사용하지 마세요.');
+  lines.push('- **한국어 전용 및 명확한 설명**: 항상 한국어로만 답변하며, 친절하고 구조화된 비즈니스 문체를 유지하세요.');
+  lines.push('- **데이터 및 사실 기반 추론**: 일일 지표(계약, DB 유입, 방문, 플래너 실적 등)와 할 일/메모의 시계열 흐름을 교차 확인하여 원인과 인사이트를 도출하세요.');
+  lines.push('- **업무 매뉴얼 및 보고문서 기준 준수**: 새로운 보고서나 매뉴얼 초안을 작성할 때는 아래 수록된 기존 보고문서와 업무 매뉴얼의 용어, 구조, 판단 기준을 일관되게 따르세요.');
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  lines.push(`# 수록 데이터 요약 (${startDateStr} ~ ${endDateStr})`);
+  lines.push('');
+
+  // 2. 목표 및 실행 아이디어
+  if (options.includeIdeas && (data.goal || (data.goalExecutions && data.goalExecutions.length > 0))) {
+    lines.push('## [목표 및 핵심 실행 아이디어]');
+    if (data.goal && data.goal.text) {
+      lines.push(`- **핵심 목표**: ${data.goal.text.trim()}`);
+    }
+    if (Array.isArray(data.goalExecutions) && data.goalExecutions.length > 0) {
+      lines.push('- **세부 실행 항목**:');
+      data.goalExecutions.forEach(ex => {
+        const statusMark = ex.is_completed ? '[완료]' : '[진행중]';
+        lines.push(`  - ${statusMark} ${(ex.text || '').trim()}`);
+      });
+    }
+    lines.push('');
+  }
+
+  // 3. 업무 매뉴얼
+  if (options.includeManuals && Array.isArray(data.manuals) && data.manuals.length > 0) {
+    lines.push('## [업무 매뉴얼 (표준 업무 기준)]');
+    lines.push('');
+    data.manuals.forEach((manual, idx) => {
+      const title = (manual.title || '제목 없음').trim();
+      const status = manual.status ? ` (${manual.status})` : '';
+      const bodyMd = convertHtmlToMarkdown(manual.notes || '');
+      lines.push(`### ${idx + 1}. ${title}${status}`);
+      if (bodyMd) {
+        lines.push(bodyMd);
+      } else {
+        lines.push('(내용 없음)');
+      }
+      lines.push('');
+    });
+  }
+
+  // 4. 보고문서
+  if (options.includeReports && Array.isArray(data.reports) && data.reports.length > 0) {
+    lines.push('## [보고문서 (기획·분석·보고 자료)]');
+    lines.push('');
+    data.reports.forEach((report, idx) => {
+      const title = (report.title || '제목 없음').trim();
+      const status = report.status ? ` (${report.status})` : '';
+      const updatedDate = report.updated_at ? ` | 최종 수정: ${report.updated_at.slice(0, 10)}` : '';
+      const bodyMd = convertHtmlToMarkdown(report.content || '');
+      lines.push(`### ${idx + 1}. ${title}${status}${updatedDate}`);
+      if (bodyMd) {
+        lines.push(bodyMd);
+      } else {
+        lines.push('(내용 없음)');
+      }
+      lines.push('');
+    });
+  }
+
+  // 5. 독서 기록 (선택 시)
+  if (options.includeBooks && Array.isArray(data.books) && data.books.length > 0) {
+    lines.push('## [독서 기록 및 인사이트 노트]');
+    lines.push('');
+    data.books.forEach((book, idx) => {
+      const title = (book.title || '제목 없음').trim();
+      const status = book.status ? ` (${book.status})` : '';
+      const bodyMd = convertHtmlToMarkdown(book.notes || '');
+      if (!bodyMd && status === ' (읽는 중)') return;
+      lines.push(`### ${idx + 1}. ${title}${status}`);
+      if (bodyMd) {
+        lines.push(bodyMd);
+      }
+      lines.push('');
+    });
+  }
+
+  // 6. 일자별 통합 타임라인 (일일 지표 + 할 일 + 일일 메모 + 일기 + 신문)
+  const dateMap = new Map();
+  const ensureDateBucket = (dStr) => {
+    if (!dStr) return null;
+    if (!dateMap.has(dStr)) {
+      dateMap.set(dStr, {
+        metricsText: '',
+        tasks: [],
+        memo: '',
+        diary: '',
+        news: ''
+      });
+    }
+    return dateMap.get(dStr);
+  };
+
+  if (options.includeMetrics && Array.isArray(data.metrics)) {
+    data.metrics.forEach(m => {
+      const text = buildUnifiedMetricsText(m);
+      if (text && text.trim()) {
+        const b = ensureDateBucket(m.date);
+        if (b) b.metricsText = text.trim();
+      }
+    });
+  }
+
+  if (options.includeTasks && Array.isArray(data.tasks)) {
+    data.tasks.forEach(t => {
+      if (!t.description || !t.description.trim()) return;
+      let dateKey = '';
+      if (t.created_at) {
+        const dt = new Date(t.created_at);
+        if (!isNaN(dt.getTime())) {
+          dateKey = formatDateString(dt);
+        }
+      }
+      if (!dateKey && t.due_date) {
+        dateKey = t.due_date.slice(0, 10);
+      }
+      const b = ensureDateBucket(dateKey);
+      if (b) b.tasks.push(t);
+    });
+  }
+
+  if (options.includeMemos && Array.isArray(data.memos)) {
+    data.memos.forEach(m => {
+      const clean = (m.content || '').replace(/\u0336/g, '').trim();
+      if (clean) {
+        const b = ensureDateBucket(m.date);
+        if (b) b.memo = clean;
+      }
+    });
+  }
+
+  if (options.includeDiaries && Array.isArray(data.diaries)) {
+    data.diaries.forEach(d => {
+      const clean = (d.content || '').replace(/\u0336/g, '').trim();
+      if (clean) {
+        const b = ensureDateBucket(d.date);
+        if (b) b.diary = clean;
+      }
+    });
+  }
+
+  if (options.includeNews && Array.isArray(data.news)) {
+    data.news.forEach(n => {
+      const clean = (n.content || '').replace(/\u0336/g, '').trim();
+      if (clean) {
+        const b = ensureDateBucket(n.date);
+        if (b) b.news = clean;
+      }
+    });
+  }
+
+  const sortedDates = Array.from(dateMap.keys()).sort();
+  if (sortedDates.length > 0) {
+    lines.push(`## [일자별 업무·지표·메모 타임라인 (${startDateStr} ~ ${endDateStr})]`);
+    lines.push('');
+
+    sortedDates.forEach(dStr => {
+      const bucket = dateMap.get(dStr);
+      if (!bucket) return;
+      const hasAny =
+        bucket.metricsText ||
+        bucket.tasks.length > 0 ||
+        bucket.memo ||
+        bucket.diary ||
+        bucket.news;
+      if (!hasAny) return;
+
+      lines.push(`### ${formatDateKorean(dStr)} (${dStr})`);
+
+      if (bucket.metricsText) {
+        lines.push('#### [일일 지표]');
+        lines.push(bucket.metricsText);
+        lines.push('');
+      }
+
+      if (bucket.tasks.length > 0) {
+        lines.push('#### [할 일 내역]');
+        bucket.tasks.forEach(t => {
+          const isDone = t.status === '완료';
+          const desc = (t.description || '').replace(/\u0336/g, '').replace(/\r?\n/g, ' ').trim();
+          const dueInfo = t.due_date && t.due_date.slice(0, 10) !== dStr ? ` (기한: ${t.due_date.slice(0, 10)})` : '';
+          lines.push(`- [${isDone ? 'x' : ' '}] ${desc}${dueInfo}`);
+        });
+        lines.push('');
+      }
+
+      if (bucket.memo) {
+        lines.push('#### [일일 메모]');
+        lines.push(bucket.memo);
+        lines.push('');
+      }
+
+      if (bucket.diary) {
+        lines.push('#### [일기]');
+        lines.push(bucket.diary);
+        lines.push('');
+      }
+
+      if (bucket.news) {
+        lines.push('#### [신문 스크랩]');
+        lines.push(bucket.news);
+        lines.push('');
+      }
+    });
+  }
+
+  return lines.join('\n').trim() + '\n';
 }

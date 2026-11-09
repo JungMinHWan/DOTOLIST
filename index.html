@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/style.css?v=6.6">
+  <link rel="stylesheet" href="./css/style.css?v=6.7">
   <link rel="stylesheet" href="./css/vocab.css?v=1.2">
   <link rel="stylesheet" href="./css/english.css?v=1.0">
   <link rel="stylesheet" href="./css/ai_lexicon.css?v=1.3">
@@ -966,6 +966,118 @@
               <div class="feature-card-desc">나만의 원서 단어 은하 & 학습</div>
             </div>
           </div>
+          <div class="feature-card" id="btnSelectSkillExport">
+            <div class="feature-card-text">
+              <div class="feature-card-title">SKILL.md 추출</div>
+              <div class="feature-card-desc">기간별 업무·지표·보고서 기록을 챗GPT·클로드용 SKILL.md로 추출</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SKILL.md Export Modal -->
+  <div class="feature-modal-overlay hidden" id="skillExportModalOverlay">
+    <div class="feature-modal skill-export-modal">
+      <div class="feature-modal-header">
+        <div class="feature-modal-title">SKILL.md 추출</div>
+        <button class="feature-modal-close" id="skillExportModalClose">×</button>
+      </div>
+      <div class="skill-export-body">
+        <p class="skill-export-desc">특정 기간의 업무·지표·사고 기록을 챗GPT 프로젝트 및 클로드용 통합 <b>SKILL.md</b> 파일로 생성합니다.</p>
+
+        <!-- 1. 기간 선택 영역 -->
+        <div class="skill-export-section">
+          <div class="skill-export-label-row">
+            <span class="skill-export-section-title">1. 추출 기간 설정</span>
+          </div>
+          <div class="skill-export-date-row">
+            <div class="skill-export-date-col">
+              <label for="skillExportStartDate">시작일</label>
+              <input type="date" id="skillExportStartDate" class="skill-export-date-input">
+            </div>
+            <span class="skill-export-date-sep">~</span>
+            <div class="skill-export-date-col">
+              <label for="skillExportEndDate">종료일</label>
+              <input type="date" id="skillExportEndDate" class="skill-export-date-input">
+            </div>
+          </div>
+          <div class="skill-export-quick-btns">
+            <button type="button" class="skill-quick-range-btn" data-days="7">최근 7일</button>
+            <button type="button" class="skill-quick-range-btn" data-days="14">최근 14일</button>
+            <button type="button" class="skill-quick-range-btn active" data-days="30">최근 30일</button>
+            <button type="button" class="skill-quick-range-btn" data-days="90">최근 90일</button>
+            <button type="button" class="skill-quick-range-btn" data-days="365">최근 1년</button>
+          </div>
+        </div>
+
+        <!-- 2. 포함 항목 선택 영역 -->
+        <div class="skill-export-section">
+          <div class="skill-export-label-row">
+            <span class="skill-export-section-title">2. 포함할 기록 항목</span>
+            <button type="button" class="skill-check-toggle-btn" id="btnToggleAllSkillChecks">전체 선택/해제</button>
+          </div>
+          <div class="skill-export-check-grid">
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportMetrics" checked>
+              <span>일일 지표 (수치·인사이트)</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportTasks" checked>
+              <span>할 일 목록 (완료·진행중)</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportMemos" checked>
+              <span>일일 메모</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportReports" checked>
+              <span>보고문서</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportManuals" checked>
+              <span>업무 매뉴얼</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportIdeas" checked>
+              <span>목표 및 실행 아이디어</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportBooks">
+              <span>독서 기록</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportDiaries">
+              <span>일기장</span>
+            </label>
+            <label class="skill-check-item">
+              <input type="checkbox" id="chkExportNews">
+              <span>신문 스크랩</span>
+            </label>
+          </div>
+
+          <label class="skill-check-suboption">
+            <input type="checkbox" id="chkExportAllDocsRegardlessOfDate" checked>
+            <span>보고문서·업무 매뉴얼·독서 기록은 날짜와 무관하게 보관함 전체 문서 포함하기</span>
+          </label>
+        </div>
+
+        <!-- 3. 생성 버튼 및 미리보기 영역 -->
+        <div class="skill-export-actions-top">
+          <button type="button" class="skill-generate-btn" id="btnGenerateSkillMd">SKILL.md 내용 생성 및 미리보기</button>
+        </div>
+
+        <div class="skill-export-preview-wrap hidden" id="skillExportPreviewWrap">
+          <div class="skill-export-preview-header">
+            <span class="skill-export-section-title">생성된 SKILL.md 미리보기 (직접 편집 가능)</span>
+            <span class="skill-export-stats" id="skillExportStatsText">0자</span>
+          </div>
+          <textarea id="skillExportPreviewTextarea" class="skill-export-textarea" rows="10" placeholder="생성된 SKILL.md 내용이 여기에 표시됩니다..."></textarea>
+          <div class="skill-export-bottom-btns">
+            <button type="button" class="skill-action-btn secondary" id="btnCopySkillMd">클립보드 복사</button>
+            <button type="button" class="skill-action-btn primary" id="btnDownloadSkillMd">SKILL.md 파일 다운로드</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1651,12 +1763,12 @@
     </div>
   </div>
 
-  <script src="./js/supabase.js?v=6.5"></script>
+  <script src="./js/supabase.js?v=6.6"></script>
   <script src="./js/ai_lexicon_v2.js?v=3.8"></script>
-  <script src="./js/app.js?v=7.2"></script>
+  <script src="./js/app.js?v=7.3"></script>
   <script src="./js/report.js?v=1.6"></script>
   <script src="./js/tetris.js?v=2.1"></script>
-  <script src="./js/nap.js"></script>
+  <script src="./js/nap.js?v=1.2"></script>
   <script src="./js/math.js"></script>
   <script src="./js/vocab.js?v=1.1"></script>
   <script src="./js/english.js?v=1.0"></script>

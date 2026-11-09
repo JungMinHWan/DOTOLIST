@@ -1657,6 +1657,200 @@ const api = {
       console.error('deleteBookVocab error:', e);
       return { success: false, error: e.message };
     }
+  },
+
+  // === SKILL.md 추출용 통합 기간 조회 API ===
+  async getExportDataByDateRange(startDateStr, endDateStr, options = {}) {
+    const result = {
+      metrics: [],
+      tasks: [],
+      memos: [],
+      diaries: [],
+      news: [],
+      reports: [],
+      manuals: [],
+      books: [],
+      goal: null,
+      goalExecutions: []
+    };
+
+    try {
+      const startParts = startDateStr.split('-').map(Number);
+      const endParts = endDateStr.split('-').map(Number);
+      const startIso = new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0).toISOString();
+      const endExclusiveIso = new Date(endParts[0], endParts[1] - 1, endParts[2] + 1, 0, 0, 0).toISOString();
+
+      const promises = [];
+
+      // 1. 일일 지표
+      if (options.includeMetrics) {
+        promises.push(
+          supabaseClient
+            .from('daily_metrics')
+            .select('*')
+            .gte('date', startDateStr)
+            .lte('date', endDateStr)
+            .order('date', { ascending: true })
+            .then(({ data, error }) => {
+              if (!error && data) result.metrics = data;
+            })
+        );
+      }
+
+      // 2. 할 일 목록
+      if (options.includeTasks) {
+        promises.push(
+          supabaseClient
+            .from('tasks')
+            .select('*')
+            .gte('created_at', startIso)
+            .lt('created_at', endExclusiveIso)
+            .order('created_at', { ascending: true })
+            .then(({ data, error }) => {
+              if (!error && data) result.tasks = this._sortTasks(data);
+            })
+        );
+      }
+
+      // 3. 일일 메모
+      if (options.includeMemos) {
+        promises.push(
+          supabaseClient
+            .from('daily_memos')
+            .select('date, content, updated_at')
+            .gte('date', startDateStr)
+            .lte('date', endDateStr)
+            .neq('content', '')
+            .order('date', { ascending: true })
+            .then(({ data, error }) => {
+              if (!error && data) result.memos = data;
+            })
+        );
+      }
+
+      // 4. 보고문서
+      if (options.includeReports) {
+        promises.push(
+          supabaseClient
+            .from('reports')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('updated_at', { ascending: false })
+            .then(({ data, error }) => {
+              if (!error && data) {
+                if (options.includeAllDocsRegardlessOfDate) {
+                  result.reports = data;
+                } else {
+                  result.reports = data.filter(item => {
+                    const ts = item.updated_at || item.created_at;
+                    if (!ts) return true;
+                    return ts >= startIso && ts < endExclusiveIso;
+                  });
+                }
+              }
+            })
+        );
+      }
+
+      // 5. 업무 매뉴얼
+      if (options.includeManuals) {
+        promises.push(
+          supabaseClient
+            .from('manuals')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+              if (!error && data) {
+                if (options.includeAllDocsRegardlessOfDate) {
+                  result.manuals = data;
+                } else {
+                  result.manuals = data.filter(item => {
+                    const ts = item.updated_at || item.created_at;
+                    if (!ts) return true;
+                    return ts >= startIso && ts < endExclusiveIso;
+                  });
+                }
+              }
+            })
+        );
+      }
+
+      // 6. 목표 및 아이디어(실행 항목)
+      if (options.includeIdeas) {
+        promises.push(
+          (async () => {
+            const goalData = await this.getGoal();
+            if (goalData) {
+              result.goal = goalData;
+              const execs = await this.getGoalExecutions(goalData.id);
+              result.goalExecutions = execs || [];
+            }
+          })()
+        );
+      }
+
+      // 7. 독서 기록
+      if (options.includeBooks) {
+        promises.push(
+          supabaseClient
+            .from('books')
+            .select('*')
+            .order('sort_order', { ascending: true })
+            .order('created_at', { ascending: false })
+            .then(({ data, error }) => {
+              if (!error && data) {
+                if (options.includeAllDocsRegardlessOfDate) {
+                  result.books = data;
+                } else {
+                  result.books = data.filter(item => {
+                    const ts = item.updated_at || item.created_at;
+                    if (!ts) return true;
+                    return ts >= startIso && ts < endExclusiveIso;
+                  });
+                }
+              }
+            })
+        );
+      }
+
+      // 8. 일기장
+      if (options.includeDiaries) {
+        promises.push(
+          supabaseClient
+            .from('daily_diaries')
+            .select('date, content, updated_at')
+            .gte('date', startDateStr)
+            .lte('date', endDateStr)
+            .neq('content', '')
+            .order('date', { ascending: true })
+            .then(({ data, error }) => {
+              if (!error && data) result.diaries = data;
+            })
+        );
+      }
+
+      // 9. 신문 스크랩
+      if (options.includeNews) {
+        promises.push(
+          supabaseClient
+            .from('daily_news')
+            .select('date, content, updated_at')
+            .gte('date', startDateStr)
+            .lte('date', endDateStr)
+            .neq('content', '')
+            .order('date', { ascending: true })
+            .then(({ data, error }) => {
+              if (!error && data) result.news = data;
+            })
+        );
+      }
+
+      await Promise.all(promises);
+      return result;
+    } catch (e) {
+      console.error('getExportDataByDateRange error:', e);
+      return result;
+    }
   }
 };
 
