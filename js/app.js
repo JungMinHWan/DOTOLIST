@@ -585,40 +585,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   }
   
   document.getElementById('btnSaveMetrics').onclick = saveMetrics;
-  
-  const btnInsertMetricsTemplate = document.getElementById('btnInsertMetricsTemplate');
-  if (btnInsertMetricsTemplate) {
-    btnInsertMetricsTemplate.onclick = (e) => {
-      e.stopPropagation();
-      const metricInput = document.getElementById('metricInsight');
-      if (!metricInput) return;
-      const templateText = [
-        '[계약 지표]',
-        '- 당일 / 누적: ',
-        '',
-        '[DB 유입 지표]',
-        '- 신청 / 유효 / 누적: ',
-        '- 경로별 특이사항: ',
-        '',
-        '[방문 예정 및 상담 현황]',
-        '- 토요일 / 일요일: ',
-        '',
-        '[플래너 실적 / 특이사항]',
-        '- ',
-        '',
-        '[인사이트 및 메모]',
-        '- '
-      ].join('\n');
-
-      if (metricInput.value.trim()) {
-        metricInput.value = metricInput.value.replace(/\s+$/, '') + '\n\n' + templateText;
-      } else {
-        metricInput.value = templateText;
-      }
-      metricInput.focus();
-      metricInput.dispatchEvent(new Event('input'));
-    };
-  }
 
   // 일일 지표 접기 토글 바인딩
   const metricsHeader = document.getElementById('metricsHeader');
@@ -1673,6 +1639,95 @@ function fillFestaSampleData() {
   updateFestaTotals();
 }
 
+function getDefaultMetricsTemplate(dateStr) {
+  let monthNum = new Date().getMonth() + 1;
+  if (dateStr && typeof dateStr === 'string') {
+    const parts = dateStr.split('-');
+    if (parts.length >= 2 && !isNaN(parseInt(parts[1], 10))) {
+      monthNum = parseInt(parts[1], 10);
+    }
+  }
+
+  return [
+    `[계약 지표] ${monthNum}월 예상 계약 건`,
+    '- 누적: ',
+    '- 일요일: ',
+    '- 토요일: ',
+    '',
+    '[계약 전환 지표]',
+    '- 토요일: 방문상담 건 / 실제방문 건 / 계약 건',
+    '- 일요일: 방문상담 건 / 실제방문 건 / 계약 건',
+    '',
+    '[혼수 상담 지표]',
+    '- 일요일: (회원 / 비회원 ), 상담, 가계약, 정계약',
+    '(상담, 가계약, 정계약 순)',
+    ' · 라비: ',
+    ' · 아틀: ',
+    ' · 릴리: ',
+    ' · 아크: ',
+    ' · 아씨: ',
+    ' · 공감: ',
+    ' · 비비: ',
+    '',
+    '- 토요일: (회원 / 비회원 ), 상담, 가계약, 정계약',
+    '(상담, 가계약, 정계약 순)',
+    ' · 라비: ',
+    ' · 아틀: ',
+    ' · 릴리: ',
+    ' · 아크: ',
+    ' · 아씨: ',
+    ' · 공감: ',
+    ' · 비비: ',
+    '',
+    '[웨딩페스타 드레스 지정발주 지표]',
+    '1) 발주대기: 하오에 , 보니타 ',
+    '2) 발주: 하오에 , 보니타 ',
+    '',
+    '하오에 , 보니타 ',
+    '',
+    '[DB 유입 지표]',
+    '- 신청 / 유효 / 누적: ',
+    '- 경로별 특이사항: ',
+    '',
+    '[방문 예정 및 상담 현황]',
+    '- 토요일 / 일요일: ',
+    '',
+    '[플래너 실적 / 특이사항]',
+    '- ',
+    '',
+    '[인사이트 및 메모]',
+    '- '
+  ].join('\n');
+}
+
+function isUntouchedMetricsTemplate(text, dateStr) {
+  if (!text || !text.trim()) return true;
+  const normalize = (s) => String(s || '').replace(/\r\n/g, '\n').trim();
+  const normText = normalize(text);
+  if (normText === normalize(getDefaultMetricsTemplate(dateStr))) return true;
+
+  const legacyShortTemplate = [
+    '[계약 지표]',
+    '- 당일 / 누적: ',
+    '',
+    '[DB 유입 지표]',
+    '- 신청 / 유효 / 누적: ',
+    '- 경로별 특이사항: ',
+    '',
+    '[방문 예정 및 상담 현황]',
+    '- 토요일 / 일요일: ',
+    '',
+    '[플래너 실적 / 특이사항]',
+    '- ',
+    '',
+    '[인사이트 및 메모]',
+    '- '
+  ].join('\n');
+  if (normText === normalize(legacyShortTemplate)) return true;
+
+  return false;
+}
+
 function buildUnifiedMetricsText(m) {
   if (!m) return '';
 
@@ -1803,13 +1858,17 @@ async function refreshAllData() {
     const serverMetricsText = buildUnifiedMetricsText(m);
     const localDraftMetrics = localStorage.getItem(`draft_metrics_${currentMetricsDate}`);
     const localSavedMetrics = localStorage.getItem(`saved_metrics_${currentMetricsDate}`);
-    if (localDraftMetrics !== null && localDraftMetrics !== serverMetricsText) {
-      metricInput.value = localDraftMetrics;
-    } else if (!serverMetricsText && localSavedMetrics) {
-      metricInput.value = localSavedMetrics;
+    let resolvedText = '';
+    if (localDraftMetrics !== null && localDraftMetrics !== serverMetricsText && !isUntouchedMetricsTemplate(localDraftMetrics, currentMetricsDate)) {
+      resolvedText = localDraftMetrics;
+    } else if (!serverMetricsText && localSavedMetrics && !isUntouchedMetricsTemplate(localSavedMetrics, currentMetricsDate)) {
+      resolvedText = localSavedMetrics;
+    } else if (serverMetricsText && !isUntouchedMetricsTemplate(serverMetricsText, currentMetricsDate)) {
+      resolvedText = serverMetricsText;
     } else {
-      metricInput.value = serverMetricsText;
+      resolvedText = getDefaultMetricsTemplate(currentMetricsDate);
     }
+    metricInput.value = resolvedText;
   }
   
   const memo = document.getElementById('memoInput');
@@ -3753,6 +3812,12 @@ async function saveMetricsRealtime() {
   const metricInput = document.getElementById('metricInsight');
   if (!metricInput) return;
   const content = metricInput.value;
+
+  // 아직 아무것도 입력하지 않은 기본 양식 그대로인 경우 자동 저장 및 미션 카운트 생략
+  if (isUntouchedMetricsTemplate(content, currentMetricsDate)) {
+    return;
+  }
+
   const statusEl = document.getElementById('saveStatus');
   if (statusEl) {
     statusEl.innerText = '저장 중...';
@@ -5016,7 +5081,7 @@ function buildSkillMarkdownDocument(startDateStr, endDateStr, options, data) {
   if (options.includeMetrics && Array.isArray(data.metrics)) {
     data.metrics.forEach(m => {
       const text = buildUnifiedMetricsText(m);
-      if (text && text.trim()) {
+      if (text && text.trim() && !isUntouchedMetricsTemplate(text, m.date)) {
         const b = ensureDateBucket(m.date);
         if (b) b.metricsText = text.trim();
       }

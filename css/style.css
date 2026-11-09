@@ -397,7 +397,7 @@ body {
 .metrics-notepad-wrapper { display: flex; flex-direction: column; width: 100%; }
 .metrics-insight-row { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .metric-insight-input { border: 1.5px solid var(--border-color); background: var(--bg-color); border-radius: var(--radius-sm); padding: 8px 10px; font-size: 13px; font-weight: 500; color: var(--text-main); outline: none; width: 100%; transition: all 0.2s ease; resize: vertical; min-height: 64px; line-height: 1.5; font-family: inherit; }
-.metric-insight-input.metrics-free-notepad { min-height: 180px; padding: 12px 14px; font-size: 13.5px; line-height: 1.65; border-radius: var(--radius-md); background: #ffffff; }
+.metric-insight-input.metrics-free-notepad { min-height: 320px; padding: 12px 14px; font-size: 13.5px; line-height: 1.65; border-radius: var(--radius-md); background: #ffffff; }
 .metric-insight-input:focus { border-color: var(--theme-primary); background: white; box-shadow: 0 0 0 3px var(--theme-light-bg); }
 .btn-metrics-template { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-sub, #475569); border-radius: var(--radius-sm); padding: 5px 11px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
 .btn-metrics-template:hover { background: var(--theme-light-bg); border-color: var(--theme-primary); color: var(--theme-primary-dark); }
